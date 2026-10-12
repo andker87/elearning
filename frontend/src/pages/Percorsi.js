@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import api from "../api";
+import ExportButton from "../components/ExportButton";
 
 const FORM_VUOTO = {
   nome: "", motivo: "policy_interna", motivoNota: "", triggerTipo: "manuale", triggerGruppoId: "",
@@ -54,7 +55,7 @@ export default function Percorsi() {
   async function submit(e) {
     e.preventDefault();
     const payload = {
-      nome: form.nome, motivo: form.motivo, motivo_nota: form.motivoNota, steps: form.steps,
+      nome: form.nome, steps: form.steps,
       trigger_tipo: form.triggerTipo, trigger_gruppo_id: form.triggerTipo === "gruppo" ? form.triggerGruppoId : null,
     };
     if (editingId) {
@@ -82,7 +83,7 @@ export default function Percorsi() {
           <h2>Percorsi formativi</h2>
           <p>Sequenze obbligatorie di corsi (onboarding, refresh periodici) con eventuale propedeuticità tra step.</p>
         </div>
-        <button className="secondary" onClick={sincronizza}>Sincronizza assegnazioni automatiche</button>
+        <div style={{ display: "flex", gap: 8 }}><ExportButton path="/corsi-export/percorsi" filename="percorsi" /><button className="secondary" onClick={sincronizza}>Sincronizza assegnazioni automatiche</button></div>
       </div>
       {msg && <div className="card card-muted">{msg}</div>}
 
@@ -90,19 +91,6 @@ export default function Percorsi() {
         <h3>{editingId ? "Modifica percorso" : "Nuovo percorso"}</h3>
         <form onSubmit={submit}>
           <div className="field"><label>Nome</label><input required value={form.nome} onChange={(e) => setForm({ ...form, nome: e.target.value })} /></div>
-          <div className="row">
-            <div className="field">
-              <label>Motivo dell'obbligo</label>
-              <select value={form.motivo} onChange={(e) => setForm({ ...form, motivo: e.target.value })}>
-                <option value="legge">Legge</option>
-                <option value="policy_interna">Policy aziendale</option>
-                <option value="cliente">Richiesta cliente</option>
-                <option value="settore">Norma di settore</option>
-                <option value="best_practice">Best practice</option>
-              </select>
-            </div>
-            <div className="field"><label>Nota (es. cliente/contratto)</label><input value={form.motivoNota} onChange={(e) => setForm({ ...form, motivoNota: e.target.value })} /></div>
-          </div>
           <div className="row">
             <div className="field">
               <label>Assegnazione</label>
@@ -159,7 +147,7 @@ export default function Percorsi() {
               <button className="secondary btn-sm" onClick={() => iniziaModifica(p)}>Modifica</button>
             </div>
           </div>
-          <p className="text-muted">{p.steps.length} step · motivo: {p.motivo}{p.motivo_nota ? ` (${p.motivo_nota})` : ""}</p>
+          <p className="text-muted">{p.steps.length} step</p>
         </div>
       ))}
     </div>

@@ -1,6 +1,6 @@
 import csv, io
 from datetime import datetime, timezone
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session, joinedload
 from pydantic import BaseModel
@@ -8,13 +8,23 @@ from typing import Optional, List, Dict
 from ..database import get_db
 from ..models.test import Test, Domanda, OpzioneRisposta, TentativoTest, MomentoTest
 from ..models.iscrizione import Iscrizione, StatoIscrizione
-from ..models.edizione import Edizione, StatoEdizione
+from ..models.edizione import Edizione, EdizioneDocente, StatoEdizione
 from ..models.corso import Corso
-from ..models.user import User
+from ..models.user import User, UserRole
 from ..services import certificati as cert_svc
+from ..services import audit as audit_svc
 from .deps import get_current_user, require_training_admin
 
 router = APIRouter(tags=["test"])
+
+def _puo_gestire_test(db: Session, user: User, corso_id: str) -> bool:
+    """Creazione/modifica test riservata a Ufficio Formazione/Admin o a un
+    Formatore che ha effettivamente insegnato questo corso (docente di
+    almeno un'edizione) - mai all'assistente, sempre un umano autorizzato."""
+    if user.role in (UserRole.admin_tecnico, UserRole.training_admin):
+        return True
+    return db.query(EdizioneDocente).join(Edizione, Edizione.id == EdizioneDocente.edizione_id).filter(
+        Edizione.corso_id == corso_id, EdizioneDocente.user_id == user.id).first() is not None
 
 class OpzioneIn(BaseModel):
     testo: str
@@ -45,21 +55,23 @@ def _serialize(t: Test, include_corrette: bool):
 
 @router.get("/api/corsi/{corso_id}/test")
 def list_test_corso(corso_id: str, db: Session = Depends(get_db), user=Depends(get_current_user)):
-    is_admin = user.role.value in ("admin_tecnico", "training_admin")
+    # chi puo' modificare il test deve vedere le risposte corrette, altrimenti salvandolo le perderebbe
+    is_admin = _puo_gestire_test(db, user, corso_id)
     rows = db.query(Test).options(joinedload(Test.domande).joinedload(Domanda.opzioni)).filter(Test.corso_id == corso_id).all()
     return [_serialize(t, is_admin) for t in rows]
 
 @router.get("/api/test/{test_id}")
 def get_test(test_id: str, db: Session = Depends(get_db), user=Depends(get_current_user)):
-    is_admin = user.role.value in ("admin_tecnico", "training_admin")
     t = db.query(Test).options(joinedload(Test.domande).joinedload(Domanda.opzioni)).filter(Test.id == test_id).first()
     if not t: raise HTTPException(404)
-    return _serialize(t, is_admin)
+    return _serialize(t, _puo_gestire_test(db, user, str(t.corso_id)))
 
 @router.post("/api/corsi/{corso_id}/test")
-def create_test(corso_id: str, data: TestIn, db: Session = Depends(get_db), user=Depends(require_training_admin)):
+def create_test(corso_id: str, data: TestIn, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
     corso = db.query(Corso).filter(Corso.id == corso_id).first()
     if not corso: raise HTTPException(404, "Corso non trovato")
+    if not _puo_gestire_test(db, user, corso_id):
+        raise HTTPException(403, "Riservato a Ufficio Formazione o a un Formatore che insegna questo corso")
     t = Test(corso_id=corso_id, titolo=data.titolo, momento=data.momento,
               soglia_superamento_pct=data.soglia_superamento_pct, tentativi_max=data.tentativi_max)
     db.add(t); db.flush()
@@ -73,14 +85,19 @@ def create_test(corso_id: str, data: TestIn, db: Session = Depends(get_db), user
     return _serialize(t, True)
 
 @router.put("/api/test/{test_id}")
-def update_test(test_id: str, data: TestIn, db: Session = Depends(get_db), user=Depends(require_training_admin)):
+def update_test(test_id: str, data: TestIn, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
     t = db.query(Test).filter(Test.id == test_id).first()
     if not t: raise HTTPException(404)
+    if not _puo_gestire_test(db, user, str(t.corso_id)):
+        raise HTTPException(403, "Riservato a Ufficio Formazione o a un Formatore che insegna questo corso")
     t.titolo = data.titolo; t.momento = data.momento
     t.soglia_superamento_pct = data.soglia_superamento_pct; t.tentativi_max = data.tentativi_max
     # Sostituzione completa delle domande: autoring è admin-only e poco frequente,
     # più semplice che fare un diff fine.
-    db.query(Domanda).filter(Domanda.test_id == t.id).delete()
+    vecchie = [d.id for d in db.query(Domanda.id).filter(Domanda.test_id == t.id).all()]
+    if vecchie:  # prima le opzioni: la cancellazione in blocco non segue le cascate dell'ORM
+        db.query(OpzioneRisposta).filter(OpzioneRisposta.domanda_id.in_(vecchie)).delete(synchronize_session=False)
+    db.query(Domanda).filter(Domanda.test_id == t.id).delete(synchronize_session=False)
     db.flush()
     for i, d in enumerate(data.domande):
         dom = Domanda(test_id=t.id, testo=d.testo, ordine=d.ordine or i)
@@ -92,9 +109,11 @@ def update_test(test_id: str, data: TestIn, db: Session = Depends(get_db), user=
     return _serialize(t, True)
 
 @router.delete("/api/test/{test_id}")
-def delete_test(test_id: str, db: Session = Depends(get_db), user=Depends(require_training_admin)):
+def delete_test(test_id: str, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
     t = db.query(Test).filter(Test.id == test_id).first()
     if not t: raise HTTPException(404)
+    if not _puo_gestire_test(db, user, str(t.corso_id)):
+        raise HTTPException(403, "Riservato a Ufficio Formazione o a un Formatore che insegna questo corso")
     db.delete(t); db.commit()
     return {"ok": True}
 
@@ -105,7 +124,7 @@ class TentativoIn(BaseModel):
     risposte: Dict[str, str]  # domanda_id -> opzione_id
 
 @router.post("/api/test/{test_id}/tenta")
-def tenta_test(test_id: str, data: TentativoIn, db: Session = Depends(get_db), user=Depends(get_current_user)):
+def tenta_test(test_id: str, data: TentativoIn, request: Request, db: Session = Depends(get_db), user=Depends(get_current_user)):
     t = db.query(Test).options(joinedload(Test.domande).joinedload(Domanda.opzioni)).filter(Test.id == test_id).first()
     if not t: raise HTTPException(404)
     iscr = db.query(Iscrizione).filter(Iscrizione.id == data.iscrizione_id).first()
@@ -142,11 +161,16 @@ def tenta_test(test_id: str, data: TentativoIn, db: Session = Depends(get_db), u
         if superato and edizione.stato == StatoEdizione.chiusa and iscr.stato == StatoIscrizione.iscritto:
             iscr.stato = StatoIscrizione.completato
             iscr.completato_at = datetime.now(timezone.utc)
+            iscr.versione_corso = corso.versione
             u = db.query(User).filter(User.id == iscr.user_id).first()
-            cert = cert_svc.crea_certificato(db, iscr, corso.titolo, u.full_name if u else "")
+            azienda_nome, logo_path = cert_svc.azienda_info(db)
+            cert = cert_svc.crea_certificato(db, iscr, corso, u.full_name if u else "", azienda_nome, logo_path, edizione)
             esito_extra["certificato_id"] = str(cert.id)
             esito_extra["messaggio"] = "Test superato: corso completato."
 
+    audit_svc.log_from_request(db, request, user, "TEST_TENTATIVO", entity_type="test", entity_id=test_id,
+                                entity_name=f"{corso.titolo} - {t.momento.value}" if corso else None,
+                                detail=f"tentativo {n_precedenti + 1} - punteggio {punteggio}% - {'superato' if superato else 'non superato'}")
     db.commit()
     return {"punteggio_pct": punteggio, "superato": superato, **esito_extra}
 

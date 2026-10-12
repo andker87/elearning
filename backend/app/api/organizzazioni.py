@@ -1,9 +1,10 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
 from typing import Optional
 from ..database import get_db
 from ..models.organizzazione import Organizzazione
+from ..services import audit as audit_svc
 from .deps import require_admin_tecnico, get_current_user
 
 router = APIRouter(prefix="/api/organizzazioni", tags=["organizzazioni"])
@@ -28,25 +29,29 @@ def list_organizzazioni(db: Session = Depends(get_db), user=Depends(get_current_
     return [_serialize(o) for o in db.query(Organizzazione).order_by(Organizzazione.ragione_sociale).all()]
 
 @router.post("")
-def create_organizzazione(data: OrgIn, db: Session = Depends(get_db), user=Depends(require_admin_tecnico)):
+def create_organizzazione(data: OrgIn, request: Request, db: Session = Depends(get_db), user=Depends(require_admin_tecnico)):
     o = Organizzazione(**data.model_dump())
-    db.add(o); db.commit(); db.refresh(o)
+    db.add(o); db.flush()
+    audit_svc.log_from_request(db, request, user, "CREATE", entity_type="organizzazione", entity_id=str(o.id), entity_name=o.ragione_sociale)
+    db.commit(); db.refresh(o)
     return _serialize(o)
 
 @router.put("/{org_id}")
-def update_organizzazione(org_id: str, data: OrgIn, db: Session = Depends(get_db), user=Depends(require_admin_tecnico)):
+def update_organizzazione(org_id: str, data: OrgIn, request: Request, db: Session = Depends(get_db), user=Depends(require_admin_tecnico)):
     o = db.query(Organizzazione).filter(Organizzazione.id == org_id).first()
     if not o: raise HTTPException(404)
     for k, v in data.model_dump().items(): setattr(o, k, v)
+    audit_svc.log_from_request(db, request, user, "UPDATE", entity_type="organizzazione", entity_id=str(o.id), entity_name=o.ragione_sociale)
     db.commit()
     return _serialize(o)
 
 @router.delete("/{org_id}")
-def delete_organizzazione(org_id: str, db: Session = Depends(get_db), user=Depends(require_admin_tecnico)):
+def delete_organizzazione(org_id: str, request: Request, db: Session = Depends(get_db), user=Depends(require_admin_tecnico)):
     from ..models.user import User
     if db.query(User).filter(User.organizzazione_id == org_id).first():
         raise HTTPException(400, "Ci sono utenti collegati a questa organizzazione")
     o = db.query(Organizzazione).filter(Organizzazione.id == org_id).first()
     if not o: raise HTTPException(404)
+    audit_svc.log_from_request(db, request, user, "DELETE", entity_type="organizzazione", entity_id=str(o.id), entity_name=o.ragione_sociale)
     db.delete(o); db.commit()
     return {"ok": True}

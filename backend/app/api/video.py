@@ -1,6 +1,6 @@
 import os, uuid, subprocess, json
 from datetime import datetime, timezone
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form, BackgroundTasks
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form, BackgroundTasks, Request
 from sqlalchemy.orm import Session, joinedload
 from pydantic import BaseModel
 from typing import Optional
@@ -9,6 +9,7 @@ from ..models.video import VideoContenuto, VideoCapitolo, VideoProgresso, StatoV
 from ..models.iscrizione import Iscrizione
 from ..models.edizione import Edizione
 from ..models.evidenza import Evidenza, FonteEvidenza
+from ..services import audit as audit_svc
 from .deps import get_current_user, require_training_admin
 
 router = APIRouter(tags=["video"])
@@ -130,10 +131,11 @@ async def upload_sottotitoli(video_id: str, file: UploadFile = File(...), db: Se
 class ProgressoIn(BaseModel):
     secondo_corrente: int
 
+SOGLIA_COMPLETAMENTO_VIDEO_PCT = 80  # stessa soglia di _evidenza_indica_completamento (evidenze.py)
 TOLLERANZA_SKIP_SECONDI = 15  # margine per buffering/heartbeat, non un vero "salta avanti"
 
 @router.post("/api/iscrizioni/{iscrizione_id}/progresso")
-def aggiorna_progresso(iscrizione_id: str, data: ProgressoIn, db: Session = Depends(get_db), user=Depends(get_current_user)):
+def aggiorna_progresso(iscrizione_id: str, data: ProgressoIn, request: Request, db: Session = Depends(get_db), user=Depends(get_current_user)):
     i = db.query(Iscrizione).filter(Iscrizione.id == iscrizione_id).first()
     if not i or str(i.user_id) != str(user.id):
         raise HTTPException(403, "Iscrizione non valida per l'utente corrente")
@@ -143,9 +145,11 @@ def aggiorna_progresso(iscrizione_id: str, data: ProgressoIn, db: Session = Depe
     video = db.query(VideoContenuto).filter(VideoContenuto.id == e.video_id).first()
 
     prog = db.query(VideoProgresso).filter(VideoProgresso.iscrizione_id == iscrizione_id).first()
+    prima_visione = prog is None
     if not prog:
         prog = VideoProgresso(iscrizione_id=iscrizione_id, secondo_massimo_raggiunto=0)
         db.add(prog); db.flush()
+    secondo_precedente = prog.secondo_massimo_raggiunto
 
     if video.blocca_skip_avanti:
         tetto = prog.secondo_massimo_raggiunto + TOLLERANZA_SKIP_SECONDI
@@ -163,6 +167,19 @@ def aggiorna_progresso(iscrizione_id: str, data: ProgressoIn, db: Session = Depe
             db.add(ev)
         ev.percentuale_completamento = percentuale
         ev.fine_at = datetime.now(timezone.utc)
+
+    # Solo i due momenti che contano per un controllo ispettivo (avvio e
+    # superamento della soglia di completamento): l'heartbeat arriva ogni
+    # pochi secondi e riempirebbe il registro di rumore.
+    soglia = SOGLIA_COMPLETAMENTO_VIDEO_PCT
+    pct_prima = (min(100.0, secondo_precedente / video.durata_secondi * 100) if video.durata_secondi else 0)
+    nome_ed = audit_svc.nome_edizione(db, e)
+    if prima_visione:
+        audit_svc.log_from_request(db, request, user, "VIDEO_AVVIATO", entity_type="edizione", entity_id=str(e.id),
+                                    entity_name=nome_ed, detail=f"video: {video.titolo}")
+    if percentuale is not None and pct_prima < soglia <= percentuale:
+        audit_svc.log_from_request(db, request, user, "VIDEO_COMPLETATO", entity_type="edizione", entity_id=str(e.id),
+                                    entity_name=nome_ed, detail=f"video: {video.titolo} - raggiunto il {percentuale}%")
 
     db.commit()
     return {"secondo_massimo_raggiunto": prog.secondo_massimo_raggiunto, "percentuale_completamento": percentuale}

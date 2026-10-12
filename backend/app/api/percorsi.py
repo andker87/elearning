@@ -1,4 +1,5 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
+from ..services import audit as audit_svc
 from sqlalchemy.orm import Session, joinedload
 from pydantic import BaseModel
 from typing import Optional, List
@@ -24,6 +25,8 @@ class StepIn(BaseModel):
 class PercorsoIn(BaseModel):
     nome: str
     descrizione: Optional[str] = None
+    # Non piu' usati (l'obbligo e' del corso: etichette, famiglia Obbligo). Accettati e ignorati in
+    # modifica per compatibilita'; alla creazione resta il valore predefinito.
     motivo: MotivoObbligo = MotivoObbligo.policy_interna
     motivo_nota: Optional[str] = None
     trigger_tipo: TriggerAssegnazione = TriggerAssegnazione.manuale
@@ -47,7 +50,7 @@ def list_percorsi(db: Session = Depends(get_db), user=Depends(get_current_user))
     return [_serialize(p) for p in db.query(PercorsoFormativo).options(joinedload(PercorsoFormativo.steps)).all()]
 
 @router.post("")
-def create_percorso(data: PercorsoIn, db: Session = Depends(get_db), user=Depends(require_training_admin)):
+def create_percorso(data: PercorsoIn, request: Request, db: Session = Depends(get_db), user=Depends(require_training_admin)):
     p = PercorsoFormativo(nome=data.nome, descrizione=data.descrizione, motivo=data.motivo,
                            motivo_nota=data.motivo_nota, trigger_tipo=data.trigger_tipo,
                            trigger_gruppo_id=data.trigger_gruppo_id)
@@ -65,6 +68,7 @@ def create_percorso(data: PercorsoIn, db: Session = Depends(get_db), user=Depend
             if richiesto:
                 db.add(PercorsoStepPrerequisito(step_id=step.id, richiede_step_id=richiesto.id))
 
+    audit_svc.log_from_request(db, request, user, "CREATE", entity_type="percorso", entity_id=str(p.id), entity_name=p.nome)
     db.commit(); db.refresh(p)
 
     from ..services.percorsi_sync import sincronizza_assegnazioni
@@ -73,17 +77,19 @@ def create_percorso(data: PercorsoIn, db: Session = Depends(get_db), user=Depend
     return _serialize(p)
 
 @router.post("/sincronizza")
-def sincronizza_percorsi(db: Session = Depends(get_db), user=Depends(require_training_admin)):
+def sincronizza_percorsi(request: Request, db: Session = Depends(get_db), user=Depends(require_training_admin)):
     """Rivaluta i trigger automatici (ingresso in azienda / gruppo) su tutti i
     percorsi e crea le assegnazioni mancanti - utile dopo aver modificato gruppi
     o date di ingresso, o dopo aver cambiato il trigger di un percorso."""
     from ..services.percorsi_sync import sincronizza_assegnazioni
     creati = sincronizza_assegnazioni(db)
+    audit_svc.log_from_request(db, request, user, "SYNC", entity_type="percorso", entity_name="Sincronizzazione trigger percorsi",
+                                detail=f"nuove assegnazioni: {creati}")
     db.commit()
     return {"ok": True, "nuove_assegnazioni": creati}
 
 @router.post("/{percorso_id}/assegna")
-def assegna_percorso(percorso_id: str, user_ids: List[str], db: Session = Depends(get_db), user=Depends(require_training_admin)):
+def assegna_percorso(percorso_id: str, user_ids: List[str], request: Request, db: Session = Depends(get_db), user=Depends(require_training_admin)):
     p = db.query(PercorsoFormativo).filter(PercorsoFormativo.id == percorso_id).first()
     if not p: raise HTTPException(404)
     creati = []
@@ -93,6 +99,9 @@ def assegna_percorso(percorso_id: str, user_ids: List[str], db: Session = Depend
         if esiste: continue
         db.add(PercorsoAssegnazione(percorso_id=percorso_id, user_id=uid))
         creati.append(uid)
+    audit_svc.log_from_request(db, request, user, "ASSIGN", entity_type="percorso", entity_id=percorso_id, entity_name=p.nome,
+                                detail=f"assegnato a {len(creati)} utenti: " + ", ".join(audit_svc.nome_utente(db, u) for u in creati[:10])
+                                       + ("..." if len(creati) > 10 else ""))
     db.commit()
     return {"ok": True, "assegnati": creati}
 
@@ -155,15 +164,14 @@ def get_percorso(percorso_id: str, db: Session = Depends(get_db), user=Depends(g
     return _serialize(p)
 
 @router.put("/{percorso_id}")
-def update_percorso(percorso_id: str, data: PercorsoIn, db: Session = Depends(get_db), user=Depends(require_training_admin)):
+def update_percorso(percorso_id: str, data: PercorsoIn, request: Request, db: Session = Depends(get_db), user=Depends(require_training_admin)):
     p = db.query(PercorsoFormativo).filter(PercorsoFormativo.id == percorso_id).first()
     if not p: raise HTTPException(404)
     p.nome = data.nome
     p.descrizione = data.descrizione
-    p.motivo = data.motivo
-    p.motivo_nota = data.motivo_nota
     p.trigger_tipo = data.trigger_tipo
     p.trigger_gruppo_id = data.trigger_gruppo_id
+    audit_svc.log_from_request(db, request, user, "UPDATE", entity_type="percorso", entity_id=str(p.id), entity_name=p.nome)
 
     # Sostituzione completa degli step: l'autoring è admin-only e poco frequente,
     # più semplice che fare un diff fine (stesso approccio usato per i Test).
