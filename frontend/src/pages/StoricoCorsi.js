@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import api from "../api";
+import api, { downloadFile } from "../api";
 
 export default function StoricoCorsi() {
   const [iscrizioni, setIscrizioni] = useState([]);
@@ -26,7 +26,11 @@ export default function StoricoCorsi() {
               <tr key={i.id}>
                 <td>{i.corso_titolo}</td>
                 <td>{i.edizione_modalita}</td>
-                <td><span className={`badge ${i.stato === "completato" ? "green" : "red"}`}>{i.stato}</span></td>
+                <td>
+                  <span className={`badge ${i.stato === "completato" ? "green" : "red"}`}>{i.stato}</span>{" "}
+                  {i.aggiornamento_contenuto === "richiesto" && <span className="badge red">da aggiornare</span>}
+                  {i.aggiornamento_contenuto === "disponibile" && <span className="badge gray">aggiornamento disponibile</span>}
+                </td>
                 <td><Link to={`/sessioni/${i.edizione_id}`}>Apri</Link></td>
               </tr>
             ))}
@@ -44,7 +48,7 @@ export default function StoricoCorsi() {
               <tr key={c.id}>
                 <td className="mono">{c.codice_verifica}</td>
                 <td>{new Date(c.emesso_at).toLocaleDateString("it-IT")}</td>
-                <td><a href={`/api/certificati/${c.id}/pdf`} target="_blank" rel="noreferrer">Scarica PDF</a></td>
+                <td><button className="secondary btn-sm" onClick={() => downloadFile(`/certificati/${c.id}/pdf`, "attestato.pdf")}>Scarica PDF</button></td>
               </tr>
             ))}
           </tbody>
