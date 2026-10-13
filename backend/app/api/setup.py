@@ -5,6 +5,7 @@ from ..database import get_db
 from ..models.user import User, UserRole
 from ..models.group import Group, UserGroup
 from ..services.auth import hash_password
+from ..services.password_policy import password_valida, REQUISITI_PASSWORD
 
 router = APIRouter(prefix="/api/setup", tags=["setup"])
 
@@ -43,8 +44,8 @@ def setup_status(db: Session = Depends(get_db)):
 def setup_init(data: SetupInit, db: Session = Depends(get_db)):
     if db.query(User).count() > 0:
         raise HTTPException(400, "Piattaforma già configurata")
-    if len(data.password) < 6:
-        raise HTTPException(400, "Password troppo corta (minimo 6 caratteri)")
+    if not password_valida(data.password):
+        raise HTTPException(400, f"Password non valida: richiesti {REQUISITI_PASSWORD}")
 
     groups = {}
     for gdata in SYSTEM_GROUPS:
