@@ -5,12 +5,17 @@ WORKDIR /app
 RUN apt-get update && apt-get install -y --no-install-recommends \
     libmagic1 \
     ffmpeg \
+    fonts-dejavu-core \
     && rm -rf /var/lib/apt/lists/*
 
-COPY requirements.txt .
+COPY requirements.txt requirements-dev.txt ./
 
+# DEV=1 aggiunge gli strumenti di test (servizio "tests" del compose); l'immagine
+# normale resta senza.
+ARG DEV=0
 RUN pip install --upgrade pip --quiet && \
-    pip install --no-cache-dir -r requirements.txt
+    pip install --no-cache-dir -r requirements.txt && \
+    if [ "$DEV" = "1" ]; then pip install --no-cache-dir -r requirements-dev.txt; fi
 
 RUN groupadd -g 1000 app && useradd -u 1000 -g app -m -s /usr/sbin/nologin app
 
