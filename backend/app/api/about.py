@@ -1,0 +1,147 @@
+import os, platform, sys, time
+from importlib import metadata
+from fastapi import APIRouter, Depends
+from sqlalchemy import text
+from sqlalchemy.orm import Session
+from ..config import settings
+from ..database import get_db
+from ..models.azienda import Azienda
+from ..version import APP_VERSION
+from .deps import get_current_user
+from ..models.user import UserRole
+
+router = APIRouter(prefix="/api/about", tags=["about"])
+_AVVIO = time.time()
+
+PACCHETTI = ["fastapi", "uvicorn", "sqlalchemy", "pydantic", "python-jose", "httpx", "apscheduler",
+             "reportlab", "openpyxl", "pywebpush", "psycopg2-binary"]
+
+CHANGELOG = [
+    {"version": "1.8.2", "date": "2026-10", "label": "Correzioni dalla terza revisione del codice", "changes": [
+        "Gruppi e uffici: non si può più creare un giro nella gerarchia (un ufficio sotto un suo sotto-ufficio), e le visite della gerarchia non si bloccano nemmeno con dati incoerenti",
+        "Iscrizioni: oltre la capienza le persone in più vengono segnalate invece di far fallire tutta l'iscrizione, e non si supera mai il numero di posti; niente iscrizioni in sessioni chiuse o annullate (né in bozza per i responsabili); più posti o lista d'attesa attivata fanno salire subito chi aspetta, che riceve l'invito calendario anche dopo la disattivazione di un collega",
+        "Sessioni: pianificare due volte non rimanda gli inviti e una sessione chiusa non torna pianificata",
+        "Test: il formatore che modifica un test vede e conserva le risposte corrette; salvare un test con risposte non dà più errore",
+        "Email e notifiche push partono in sottofondo dopo il salvataggio: una richiesta con centinaia di notifiche non si blocca, e niente invii per operazioni annullate",
+        "CF-Connecting-IP si usa solo se dichiarato che davanti c'è Cloudflare (PROXY_CLOUDFLARE); logo verificato al caricamento e icona dell'app sempre disponibile",
+    ]},
+    {"version": "1.8.1", "date": "2026-10", "label": "Correzioni dalla seconda revisione del codice", "changes": [
+        "Il limite di tentativi per indirizzo conta solo i login falliti: dietro un proxy che nasconde l'IP vero gli accessi riusciti non lo consumano; la sospensione di un account avvisa gli Admin tecnici senza inviare email durante il login",
+        "Iscrizioni: non si annulla più uno storico già completato; chi era in lista d'attesa non libera un posto e nessuno viene promosso se non c'è un posto libero",
+        "Disattivare un utente dal modulo fa lo stesso offboarding completo di import ed Entra (iscrizioni aperte, dispositivi, calendario); non si disattiva sé stessi né l'ultimo Admin tecnico",
+        "Sincronizzazione Entra: una persona si riconosce da mail, UPN o alias, così non viene disattivata o duplicata se registrata qui con un indirizzo diverso",
+        "Accesso aziendale compatibile anche con provider che includono at_hash (Google, Keycloak, Okta); variabili d'ambiente vuote trattate come non impostate (SMTP); oggetto delle email ripulito dagli a capo; memoria dei limiti di tentativi non più illimitata",
+    ]},
+    {"version": "1.8.0", "date": "2026-10", "label": "Pronta per la produzione: migrazioni, IP affidabili, inviti senza password", "changes": [
+        "Lo schema del database si cambia con migrazioni numerate (Alembic): all'avvio vengono applicate da sole, una volta sola anche con più processi, e un database già in uso viene riconosciuto senza perdere nulla. Non si cancellano più colonne senza copiare i dati",
+        "IP del client affidabile in qualsiasi installazione: gli header che lo indicano si credono solo se arrivano da un proxy dichiarato in PROXY_FIDUCIARI (reti separate da virgola); senza, vale l'indirizzo di chi si connette e nessun limite si aggira con header falsi",
+        "I nuovi utenti ricevono per email un link, valido 3 giorni, per scegliere la propria password: nessuna password viaggia più per posta. Senza invio email l'amministratore vede una password temporanea una sola volta",
+    ]},
+    {"version": "1.7.2", "date": "2026-10", "label": "Correzioni dalla revisione del codice", "changes": [
+        "Il link di reset password usa solo l'URL configurato, mai un indirizzo preso dalla richiesta; limite di richieste per ogni indirizzo email oltre a quello per IP",
+        "L'import CSV dei cessati si sceglie esplicitamente (non più dal nome del file) e non disattiva gli Admin tecnici",
+        "Accesso: stessa risposta per password sbagliata, email inesistente e account sospeso (non si può più capire se un indirizzo è registrato né se è bloccato), tempi pareggiati, sospensione segnalata agli Admin tecnici",
+        "Il login e il reset ignorano maiuscole e minuscole nell'email; l'account Admin tecnico non si collega all'accesso aziendale per email",
+        "Con una password assegnata da altri il server consente solo di cambiarla; il feed del calendario smette di funzionare per chi è disattivato; la struttura dei responsabili è visibile solo a sé stessi e alla Formazione",
+    ]},
+    {"version": "1.7.1", "date": "2026-10", "label": "Filtri per etichetta ovunque", "changes": [
+        "Il filtro per etichetta è ora anche nella Dashboard KPI (con i suoi export), nella Dashboard Ufficio Formazione (indicatori, persone con problemi, sessioni imminenti), nell'elenco delle sessioni e nelle sessioni del responsabile; le sessioni mostrano le etichette del corso",
+    ]},
+    {"version": "1.7.0", "date": "2026-10", "label": "Etichette dei corsi", "changes": [
+        "I corsi si classificano con etichette raggruppate in famiglie (Tematica, Riferimento normativo, Ambito, Obbligo), definite dall'Ufficio Formazione: scelta singola o multipla, famiglie obbligatorie, etichette da archiviare, rinominare o unire, avviso se «Trasversale» è scelta insieme a un cliente",
+        "Registro formazione, matrice formativa, pacchetto per l'ispezione ed export si filtrano per etichetta: ad esempio tutto ciò che riguarda il D.Lgs 81/08 per un audit ISO 45001",
+        "Il vecchio campo Categoria diventa una Tematica; il «motivo dell'obbligo» non è più sui percorsi ma sul corso (famiglia Obbligo). Le etichette viaggiano con l'esportazione della configurazione",
+    ]},
+    {"version": "1.6.0", "date": "2026-10", "label": "Fusione delle richieste e configurazione portabile", "changes": [
+        "Fabbisogno formativo: chi valuta le richieste dei sotto-uffici può unire quelle simili in una sola, che sale al posto delle originali; le originali restano intatte e la provenienza (ufficio, autore, numeri, note) è sempre consultabile, anche dopo più unioni a livelli diversi. Chi ha scritto una richiesta viene avvisato e vede dove sta andando",
+        "Valutazione delle richieste in blocco (approva o rifiuta più richieste insieme, con motivo) e richieste raggruppate per argomento; l'unione si può annullare finché nessuno sopra l'ha valutata",
+        "Nuova pagina Configurazione: esporta in un file e importa dati aziendali, gruppi e uffici, società di formazione, corsi e percorsi, con anteprima prima di applicare e senza mai cancellare nulla. Restano fuori, per ora, persone, video, immagini, template, test e credenziali",
+        "Esportazione in CSV, Excel e PDF anche di utenti, gruppi, società di formazione, catalogo corsi e percorsi",
+    ]},
+    {"version": "1.5.1", "date": "2026-10", "label": "Pagine a tutta larghezza", "changes": [
+        "Su schermi larghi il contenuto delle pagine occupa tutto lo spazio accanto alla barra laterale, invece di fermarsi a circa tre quarti",
+    ]},
+    {"version": "1.5.0", "date": "2026-10", "label": "Rinnovo automatico dei corsi", "changes": [
+        "Rinnovo automatico, opzione per corso dell'Ufficio Formazione (spenta di default, solo per corsi con validità): a ridosso della scadenza iscrive la persona alla prossima sessione utile, rispettando capienza e lista d'attesa, e avvisa persona e responsabile",
+        "Se non c'è nessuna sessione disponibile avvisa la Formazione invece di non fare nulla; dalla tabella dei corsi si vede in anticipo chi verrebbe iscritto e a quale sessione",
+    ]},
+    {"version": "1.4.2", "date": "2026-10", "label": "Fabbisogno formativo: vista della Formazione", "changes": [
+        "Pagina Fabbisogno formativo della Formazione in tre schede (Nuova campagna, Campagne, Richieste formative), con intestazioni cliccabili per ordinare e filtri",
+        "Richieste formative pensate per molte campagne e centinaia di persone: vista per argomento (quante persone e da quali uffici, anche se scritto in modi diversi) con dettaglio a scomparsa, elenco dettagliato paginato, filtri per campagna, ufficio con sotto-uffici, periodo, stato e testo, export",
+        "Una richiesta arrivata alla Formazione si chiama «Ricevuta» (non più «Approvata») e ha un colore blu informativo",
+    ]},
+    {"version": "1.4.1", "date": "2026-10", "label": "Fabbisogno formativo più chiaro", "changes": [
+        "Fabbisogno formativo: una campagna compare una sola volta anche se guidi più uffici; per ogni ufficio due scelte spiegate (rispondo io / chiedo ai sotto-uffici) e lo stato resta visibile dopo la scelta",
+        "Una risposta o una richiesta spontanea può contenere più esigenze, con il pulsante + per aggiungere righe; le note sono in fondo a ogni riga",
+        "Le campagne aperte raggiungono anche gli uffici creati dopo il loro avvio; chi guida un ufficio vede le richieste anche da utente Formazione",
+        "Menu: sezione «Fabbisogno formativo» con la voce «Richieste»; titoli dei riquadri tabella non più attaccati al bordo",
+    ]},
+    {"version": "1.4.0", "date": "2026-10", "label": "Sincronizzazione utenti e test automatici", "changes": [
+        "Sincronizzazione utenti con Microsoft Entra ID (opzionale, da ambiente): anteprima delle modifiche, creazione di chi entra, disattivazione di chi esce con annullo delle iscrizioni aperte e promozione dalla lista d'attesa; giro notturno automatico facoltativo con freno di sicurezza",
+        "L'import dei cessati da CSV applica la stessa disattivazione completa (iscrizioni aperte, dispositivi, sessioni) e segnala docenze e responsabilità da riassegnare",
+        "Suite di test automatici (oltre 100) su accessi, permessi, registro e matrice, lista d'attesa, SSO, privacy, audit, pacchetto ispezione e sincronizzazione",
+    ]},
+    {"version": "1.3.0", "date": "2026-10", "label": "Accessi sicuri, matrice e pacchetto per l'ispezione", "changes": [
+        "Accessi: password di almeno 14 caratteri con maiuscola, numero e carattere speciale; blocco dell'account per 15 minuti dopo 5 tentativi falliti e limite per indirizzo; cambio o reset della password chiude le altre sessioni",
+        "Password dimenticata: link via email se l'invio è attivo, altrimenti richiesta all'Admin tecnico che assegna una password temporanea; al primo accesso con una password assegnata se ne sceglie una propria",
+        "Matrice formativa: persone per corsi richiesti dai percorsi, con stato di ogni cella (valido, in scadenza, scaduto, da aggiornare, mancante...), percentuale in regola ed export",
+        "Pacchetto per l'ispezione: ZIP con registro, matrice, attestati emessi e caricati e indice dei documenti, per azienda, ufficio o persona",
+        "Su telefono le tabelle larghe scorrono in orizzontale invece di allargare la pagina",
+    ]},
+    {"version": "1.2.1", "date": "2026-10", "label": "Privacy come strumento aziendale", "changes": [
+        "Informativa privacy caricabile dall'Admin tecnico (testo e/o PDF) e consultabile da ogni utente dal proprio profilo, senza accettazione al login",
+        "Tolta la richiesta di cancellazione dei dati: la piattaforma è uno strumento aziendale e i dati di formazione si conservano per obbligo. Resta il download dei propri dati",
+    ]},
+    {"version": "1.2.0", "date": "2026-10", "label": "Allineamento ai progetti gemelli", "changes": [
+        "Pagina Informazioni con versione e novità, pagina Piattaforma (nome, URL pubblico, icona dell'app) con manifest dell'app generato dalle impostazioni",
+        "Tema chiaro/scuro, campanella delle notifiche nella barra laterale, impostazioni utente a schede, menu Amministrazione con sottomenu Impostazioni",
+        "Privacy: ogni utente può scaricare i propri dati personali",
+        "Audit log esportabile anche in Excel e PDF, con gli stessi filtri dell'elenco",
+    ]},
+    {"version": "1.1.0", "date": "2026-10", "label": "Accesso aziendale e audit esteso", "changes": [
+        "Accesso aziendale (SSO, OpenID Connect) configurabile solo da ambiente; l'Admin tecnico entra sempre anche con password",
+        "Audit delle azioni dei discenti: check-in, registro presenze, tentativi di test, avvio e completamento dei video. Il gradimento resta anonimo e non viene registrato",
+        "Stato piattaforma (accessi, scheduler, SMTP, spazio) e Audit log con filtri, paginazione ed export",
+    ]},
+    {"version": "1.0.0", "date": "2026-10", "label": "Piattaforma completa", "changes": [
+        "Catalogo corsi e percorsi, sessioni in cinque modalità, video con anti-skip, test, gradimento anonimo, attestati con template",
+        "Dashboard Ufficio Formazione e KPI, registro formazione, gerarchia uffici/responsabili, fabbisogno formativo",
+        "Notifiche in-app, email e push, app installabile, calendario (.ics e feed personale), comunicazioni alle sessioni, lista d'attesa, auto-iscrizione",
+    ]},
+]
+
+
+@router.get("")
+def about(db: Session = Depends(get_db), user=Depends(get_current_user)):
+    a = db.query(Azienda).first()
+    dati = {
+        "nome_piattaforma": (a.nome_piattaforma if a and a.nome_piattaforma else "E-Learning"),
+        "nome_azienda": a.ragione_sociale if a else None,
+        "url_pubblico": a.url_pubblico if a else None,
+        "versione": APP_VERSION,
+        "changelog": CHANGELOG,
+    }
+    if user.role != UserRole.admin_tecnico:
+        return dati
+
+    versioni = {}
+    for p in PACCHETTI:
+        try:
+            versioni[p] = metadata.version(p)
+        except metadata.PackageNotFoundError:
+            pass
+    dati["ambiente"] = {
+        "python": sys.version.split()[0],
+        "sistema": f"{platform.system()} {platform.release()}",
+        "database": (db.execute(text("select version()")).scalar() or "").split(",")[0],
+        "attivo_da_secondi": int(time.time() - _AVVIO),
+        "fuso": os.environ.get("TZ") or time.tzname[0],
+    }
+    dati["dipendenze"] = versioni
+    dati["integrazioni"] = {
+        "smtp": bool(settings.smtp_enabled),
+        "sso": bool(settings.sso_enabled),
+        "microsoft_graph": bool(settings.graph_enabled),
+        "notifiche_push": bool(a and a.vapid_public_key),
+    }
+    return dati
