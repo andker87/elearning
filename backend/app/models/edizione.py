@@ -1,4 +1,4 @@
-from sqlalchemy import Column, String, Text, Integer, DateTime, ForeignKey, Enum as SAEnum
+from sqlalchemy import Column, String, Text, Integer, Boolean, DateTime, ForeignKey, Enum as SAEnum
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
@@ -41,6 +41,9 @@ class Edizione(Base):
     data_fine   = Column(DateTime(timezone=True), nullable=True)
     luogo       = Column(String, nullable=True)  # per presenza/ibrida
     posti_max   = Column(Integer, nullable=True)
+    # Se posti_max è superato, le nuove iscrizioni finiscono in lista d'attesa
+    # invece di essere rifiutate (sezione N) - opzione per edizione, non fissa.
+    lista_attesa_abilitata = Column(Boolean, nullable=False, default=False)
 
     # presenza / componente in sede di ibrida
     checkin_mode = Column(SAEnum(ModalitaCheckin), nullable=True, default=ModalitaCheckin.discente_validato)

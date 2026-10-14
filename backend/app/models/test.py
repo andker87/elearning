@@ -51,10 +51,24 @@ class TentativoTest(Base):
     completato_at = Column(DateTime(timezone=True), server_default=func.now())
 
 class Gradimento(Base):
-    """Valutazione di gradimento del discente su un'edizione conclusa."""
+    """Valutazione di gradimento del discente su un'edizione conclusa.
+    Anonimo lato UI/report: iscrizione_id resta solo per evitare doppi invii
+    e sapere chi ha compilato, mai esposto nelle viste di amministrazione."""
     __tablename__ = "gradimenti"
     id            = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     iscrizione_id = Column(UUID(as_uuid=True), ForeignKey("iscrizioni.id"), nullable=False)
-    voto          = Column(Integer, nullable=False)  # 1-5
-    commento      = Column(Text, nullable=True)
+    voto_corso    = Column(Integer, nullable=False)  # 1-5
+    commento_corso = Column(Text, nullable=True)
     created_at    = Column(DateTime(timezone=True), server_default=func.now())
+
+    voti_docenti  = relationship("GradimentoDocente", cascade="all, delete-orphan", back_populates="gradimento")
+
+class GradimentoDocente(Base):
+    """Valutazione separata per ciascun docente dell'edizione (chiarezza/
+    disponibilità) - target distinto dalla valutazione del corso."""
+    __tablename__ = "gradimenti_docenti"
+    id            = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    gradimento_id = Column(UUID(as_uuid=True), ForeignKey("gradimenti.id"), nullable=False)
+    docente_id    = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
+    voto          = Column(Integer, nullable=False)  # 1-5
+    gradimento    = relationship("Gradimento", back_populates="voti_docenti")

@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
-import api from "../api";
+import api, { downloadFile } from "../api";
 
 function nuovaDomanda() {
   return { testo: "", ordine: 0, opzioni: [{ testo: "", corretta: true }, { testo: "", corretta: false }] };
@@ -116,7 +116,7 @@ export default function TestCorso() {
               <tr key={t.id}>
                 <td>{t.titolo}</td><td>{t.momento}</td><td>{t.soglia_superamento_pct}%</td><td>{t.domande.length}</td>
                 <td>
-                  <a href={`/api/test/${t.id}/report.csv`} target="_blank" rel="noreferrer">Report CSV</a>{" "}
+                  <button className="secondary btn-sm" onClick={() => downloadFile(`/test/${t.id}/report.csv`, `report_${t.titolo}.csv`)}>Report CSV</button>{" "}
                   <button className="danger btn-sm" onClick={() => elimina(t.id)}>Elimina</button>
                 </td>
               </tr>
