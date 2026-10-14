@@ -111,7 +111,8 @@ def calcola_piano(db: Session, membri: list) -> dict:
             continue
         piano["disattiva"].append({"email": u.email, "nome": u.full_name, "motivo": motivo, "avvisi": avvisi_disattivazione(db, u)})
 
-    limite = max(SOGLIA_DISATTIVAZIONI_MIN, in_ambito * SOGLIA_DISATTIVAZIONI_PCT // 100)
+    # Mai oltre la meta' degli utenti in ambito: su installazioni piccole un gruppo sbagliato non li disattiva tutti.
+    limite = min(max(SOGLIA_DISATTIVAZIONI_MIN, in_ambito * SOGLIA_DISATTIVAZIONI_PCT // 100), max(2, in_ambito // 2))
     if len(piano["disattiva"]) > limite:
         piano["freno"] = (f"{len(piano['disattiva'])} disattivazioni su {in_ambito} utenti in ambito (limite {limite}): "
                           "controlla che il gruppo Entra sia quello giusto")

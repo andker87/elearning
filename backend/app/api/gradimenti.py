@@ -1,4 +1,5 @@
 import csv, io
+from ..services.export import neutralizza
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session, joinedload
@@ -79,11 +80,11 @@ def report_gradimenti_csv(edizione_id: str, db: Session = Depends(get_db), user=
 
     buf = io.StringIO()
     w = csv.writer(buf)
-    header = ["Voto corso", "Commento corso"] + [f"Voto docente: {u.full_name if u else did}" for did, u in docenti]
+    header = ["Voto corso", "Commento corso"] + [neutralizza(f"Voto docente: {u.full_name if u else did}") for did, u in docenti]
     w.writerow(header)
     for g in rows:
         voti_per_docente = {str(vd.docente_id): vd.voto for vd in g.voti_docenti}
-        riga = [g.voto_corso, g.commento_corso or ""] + [voti_per_docente.get(did, "") for did, _ in docenti]
+        riga = [g.voto_corso, neutralizza(g.commento_corso or "")] + [voti_per_docente.get(did, "") for did, _ in docenti]
         w.writerow(riga)
     buf.seek(0)
     return StreamingResponse(iter([buf.getvalue()]), media_type="text/csv",

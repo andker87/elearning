@@ -17,6 +17,16 @@ PACCHETTI = ["fastapi", "uvicorn", "sqlalchemy", "pydantic", "python-jose", "htt
              "reportlab", "openpyxl", "pywebpush", "psycopg2-binary"]
 
 CHANGELOG = [
+    {"version": "1.8.3", "date": "2026-10", "label": "Correzioni dalla quarta revisione del codice", "changes": [
+        "Utenti: non si può più cambiare il ruolo di sé stessi né dell'ultimo Admin tecnico attivo (la piattaforma non resta senza amministratori)",
+        "Auto-iscrizione: possibile solo in sessioni pianificate o in corso, anche all'approvazione del responsabile",
+        "Password dimenticata e inviti da import CSV: le email partono in sottofondo e solo a salvataggio riuscito (nessuna differenza di tempi tra account esistenti e no, nessun link morto)",
+        "Esportazioni CSV/Excel: i testi che iniziano con = + - @ vengono neutralizzati (niente formule iniettate da nomi o commenti)",
+        "Test: il formatore gestisce il test solo finché ha una sessione del corso ancora aperta e può vedere le risposte corrette",
+        "Sincronizzazione Entra: il freno di sicurezza non permette di disattivare più della metà degli utenti in ambito (minimo 2), anche su installazioni piccole",
+        "Importazione configurazione: i gruppi di sistema non si toccano e i campi assenti nel file non cancellano quelli esistenti",
+        "Accesso: un login sbagliato mostra il messaggio d'errore invece di ricaricare la pagina",
+    ]},
     {"version": "1.8.2", "date": "2026-10", "label": "Correzioni dalla terza revisione del codice", "changes": [
         "Gruppi e uffici: non si può più creare un giro nella gerarchia (un ufficio sotto un suo sotto-ufficio), e le visite della gerarchia non si bloccano nemmeno con dati incoerenti",
         "Iscrizioni: oltre la capienza le persone in più vengono segnalate invece di far fallire tutta l'iscrizione, e non si supera mai il numero di posti; niente iscrizioni in sessioni chiuse o annullate (né in bozza per i responsabili); più posti o lista d'attesa attivata fanno salire subito chi aspetta, che riceve l'invito calendario anche dopo la disattivazione di un collega",

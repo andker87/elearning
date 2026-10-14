@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session
 from datetime import datetime, timezone
 from ..database import get_db
 from ..models.autoiscrizione import AutoIscrizioneRichiesta, StatoAutoIscrizione
-from ..models.edizione import Edizione
+from ..models.edizione import Edizione, StatoEdizione
 from ..models.corso import Corso
 from ..models.iscrizione import Iscrizione, StatoIscrizione
 from ..models.user import User
@@ -29,6 +29,8 @@ def _serialize(r: AutoIscrizioneRichiesta, db: Session):
 def richiedi_autoiscrizione(edizione_id: str, request: Request, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
     e = db.query(Edizione).filter(Edizione.id == edizione_id).first()
     if not e: raise HTTPException(404)
+    if e.stato not in (StatoEdizione.pianificata, StatoEdizione.in_corso):
+        raise HTTPException(400, "Questa sessione non è aperta alle iscrizioni")
     corso = db.query(Corso).filter(Corso.id == e.corso_id).first()
     if not corso or not corso.permetti_autoiscrizione:
         raise HTTPException(403, "Questo corso non permette l'auto-iscrizione")
@@ -77,6 +79,8 @@ def _verifica_responsabile_richiedente(db: Session, richiesta_id: str, user_id: 
 def approva(richiesta_id: str, request: Request, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
     r = _verifica_responsabile_richiedente(db, richiesta_id, user.id)
     e = db.query(Edizione).filter(Edizione.id == r.edizione_id).first()
+    if not e or e.stato not in (StatoEdizione.pianificata, StatoEdizione.in_corso):
+        raise HTTPException(400, "La sessione non è più aperta alle iscrizioni: rifiuta la richiesta")
     i = crea_iscrizione_con_capacita(db, e, r.user_id)
     r.stato = StatoAutoIscrizione.approvata
     r.valutata_da_id = user.id

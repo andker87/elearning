@@ -15,7 +15,7 @@ from ..models.password_reset import PasswordResetToken, RichiestaResetPassword
 from ..models.user import User, UserRole
 from ..services import audit as audit_svc
 from ..services import rate_limit
-from ..services.email import invia_email
+from ..services.email import invia_email, in_sottofondo
 from ..services.inviti import url_base
 from ..services.password_policy import password_valida, genera_password_temporanea, REQUISITI_PASSWORD
 from ..services.auth import hash_password
@@ -67,7 +67,7 @@ def password_dimenticata(data: EmailIn, request: Request, db: Session = Depends(
         audit_svc.log_from_request(db, request, u, "PASSWORD_RESET_RICHIESTA", entity_type="user", entity_id=str(u.id),
                                     entity_name=u.email, detail="link inviato per email")
         db.commit()
-        invia_email(u.email, "Reimposta la tua password",
+        in_sottofondo(invia_email, u.email, "Reimposta la tua password",
                     f"Hai richiesto di reimpostare la password. Apri questo link entro {TOKEN_ORE_VALIDITA} ore:\n"
                     f"{base}/reimposta-password?token={token}\n\n"
                     "Se non sei stato tu, ignora questa email: la tua password non è stata modificata.")

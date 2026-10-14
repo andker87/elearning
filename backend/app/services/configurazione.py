@@ -210,8 +210,13 @@ def _gruppi(db, elenco, rapporto):
     for d in sorted(elenco, key=lambda x: x["percorso"].count(" / ")):
         percorso = d["percorso"]
         g = per_percorso.get(_chiave(percorso))
-        valori = {"description": d.get("descrizione"), "color": d.get("colore"), "permissions": d.get("permessi") or {},
-                  "sort_order": d.get("ordine"), "is_ufficio": bool(d.get("ufficio")), "is_active": d.get("attivo", True)}
+        valori = {}
+        for campo, chiave in (("description", "descrizione"), ("color", "colore"), ("permissions", "permessi"),
+                              ("sort_order", "ordine"), ("is_active", "attivo")):
+            if d.get(chiave) is not None:  # un campo assente nel file non cancella quello esistente
+                valori[campo] = d[chiave]
+        if "ufficio" in d:
+            valori["is_ufficio"] = bool(d["ufficio"])
         responsabile = None
         if d.get("responsabile"):
             responsabile = db.query(User).filter(func.lower(User.email) == d["responsabile"].lower()).first()
@@ -225,12 +230,16 @@ def _gruppi(db, elenco, rapporto):
                     rapporto.avvisi.append(f"Gruppo «{percorso}» saltato: manca il gruppo sopra di lui.")
                     continue
             g = Group(name=d["nome"], parent_id=padre.id if padre else None, is_system=False,
-                      responsabile_id=responsabile.id if responsabile else None, **valori)
+                      responsabile_id=responsabile.id if responsabile else None,
+                      **{"permissions": {}, "is_ufficio": False, "is_active": True, **valori})
             db.add(g)
             db.flush()
             per_percorso[_chiave(percorso)] = g
             per_id[g.id] = g
             rapporto.creato("gruppi", percorso)
+            continue
+        if g.is_system:
+            rapporto.avvisi.append(f"Gruppo «{percorso}» è di sistema: non viene modificato dall'importazione.")
             continue
         cambiati = _imposta(g, valori, valori.keys())
         if responsabile and g.responsabile_id != responsabile.id:
