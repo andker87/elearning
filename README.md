@@ -91,5 +91,8 @@ ROADMAP.md               storia e prossimi passi
 ### Job pianificati
 Ogni notte: notifiche di scadenza e promemoria (all'avvio e ogni 24 ore), rinnovi automatici dei corsi (02:00), sincronizzazione Entra se attiva (02:30). Esiti e storico: pagina *Stato piattaforma*.
 
+## Storia del progetto
+La cronologia dei commit fino alla 1.8.2 è una ricostruzione per fasi, non una registrazione fedele: leggi [`docs/storico.md`](docs/storico.md) prima di usarla come riferimento.
+
 ## Ruoli
 Tre ruoli fissi: **Admin tecnico** (configura e amministra), **Ufficio Formazione** (gestisce corsi, sessioni, percorsi, registro) e **utente**. *Responsabile* (chi guida un ufficio) e *docente* (chi tiene una sessione) non sono ruoli: derivano dalla struttura degli uffici e dalle sessioni.
