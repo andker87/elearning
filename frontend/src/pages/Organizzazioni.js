@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import api from "../api";
+import ExportButton from "../components/ExportButton";
 
 export default function Organizzazioni() {
   const [list, setList] = useState([]);
@@ -17,7 +18,7 @@ export default function Organizzazioni() {
 
   return (
     <div>
-      <div className="page-header"><div><h2>Società di formazione</h2><p>Enti accreditati e società a cui appartengono i docenti esterni.</p></div></div>
+      <div className="page-header"><div><h2>Società di formazione</h2><p>Enti accreditati e società a cui appartengono i docenti esterni.</p></div><ExportButton path="/organizzazioni-export/elenco" filename="societa_formazione" /></div>
       <div className="card">
         <h3>Nuova società</h3>
         <form onSubmit={submit}>

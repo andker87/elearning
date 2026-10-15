@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
-import api from "../api";
+import api, { downloadFile } from "../api";
 import VideoPlayer from "../components/VideoPlayer";
 import TestPlayer from "../components/TestPlayer";
 import Gradimento from "../components/Gradimento";
@@ -15,6 +15,12 @@ export default function EdizioneDetail() {
   const [selectedUser, setSelectedUser] = useState("");
   const [teamsUrl, setTeamsUrl] = useState("");
   const [msg, setMsg] = useState(null);
+  const [sottoposti, setSottoposti] = useState([]);
+  const [selectedSottoposto, setSelectedSottoposto] = useState("");
+  const [comunicazioni, setComunicazioni] = useState([]);
+  const [oggettoCom, setOggettoCom] = useState("");
+  const [messaggioCom, setMessaggioCom] = useState("");
+  const [invioCom, setInvioCom] = useState(false);
   const user = JSON.parse(localStorage.getItem("user") || "null");
 
   function load() {
@@ -22,15 +28,23 @@ export default function EdizioneDetail() {
       setEdizione(r.data);
       if (r.data.video_id) api.get(`/video/${r.data.video_id}`).then((rv) => setVideo(rv.data));
       api.get(`/corsi/${r.data.corso_id}/test`).then((rt) => setTests(rt.data));
+      const puoComunicare = r.data.docenti?.some((d) => d.user_id === user?.id)
+        || user?.role === "admin_tecnico" || user?.role === "training_admin";
+      if (puoComunicare) api.get(`/edizioni/${id}/comunicazioni`).then((rc) => setComunicazioni(rc.data));
     });
     api.get(`/edizioni/${id}/iscrizioni`).then((r) => setIscrizioni(r.data));
   }
-  useEffect(() => { load(); api.get("/auth/users/simple").then((r) => setUtenti(r.data)); }, [id]);
+  useEffect(() => {
+    load();
+    api.get("/auth/users/simple").then((r) => setUtenti(r.data));
+    if (user?.id) api.get(`/auth/users/${user.id}/sottoposti`).then((r) => setSottoposti(r.data));
+  }, [id]);
 
   const isDocente = edizione?.docenti?.some((d) => d.user_id === user?.id);
   const isAdmin = user?.role === "admin_tecnico" || user?.role === "training_admin";
   const nome = (uid) => utenti.find((u) => u.id === uid)?.full_name || uid;
-  const miaIscrizione = iscrizioni.find((i) => i.user_id === user?.id);
+  const miaIscrizione = iscrizioni.find((i) => i.user_id === user?.id && i.stato !== "annullato");
+  const sottopostiNonIscritti = sottoposti.filter((s) => !iscrizioni.some((i) => i.user_id === s.id && i.stato !== "annullato"));
 
   async function assegnaDocente() {
     if (!selectedUser) return;
@@ -39,8 +53,29 @@ export default function EdizioneDetail() {
   }
   async function iscrivi() {
     if (!selectedUser) return;
-    await api.post(`/edizioni/${id}/iscrizioni`, [selectedUser]);
+    const r = await api.post(`/edizioni/${id}/iscrizioni`, [selectedUser]);
+    if (r.data.non_iscritti?.length) window.alert(`Iscrizione non effettuata: ${r.data.non_iscritti[0].motivo}`);
     setSelectedUser(""); load();
+  }
+  async function iscriviSottoposto() {
+    if (!selectedSottoposto) return;
+    try {
+      const r = await api.post(`/edizioni/${id}/iscrizioni`, [selectedSottoposto]);
+      if (r.data.non_iscritti?.length) window.alert(`Iscrizione non effettuata: ${r.data.non_iscritti[0].motivo}`);
+    } catch (err) { window.alert(err.response?.data?.detail || "Iscrizione non riuscita"); }
+    setSelectedSottoposto(""); load();
+  }
+  async function autoiscriviti() {
+    try {
+      const r = await api.post(`/autoiscrizioni/edizioni/${id}`);
+      setMsg(r.data.stato === "in_attesa_approvazione" ? "Richiesta inviata: in attesa di approvazione del tuo responsabile." : "Iscrizione effettuata.");
+      load();
+    } catch (e) { setMsg(e.response?.data?.detail || "Errore"); }
+  }
+  async function annulla(iscrizioneId) {
+    if (!window.confirm("Annullare questa iscrizione?")) return;
+    await api.post(`/edizioni/${id}/iscrizioni/${iscrizioneId}/annulla`);
+    load();
   }
   async function checkinDiscente(momento) {
     await api.post(`/edizioni/${id}/checkin/discente`, { momento });
@@ -66,6 +101,21 @@ export default function EdizioneDetail() {
       setMsg(`Presenze sincronizzate: ${r.data.applicati.length}`);
     } catch (e) { setMsg(e.response?.data?.detail || "Errore — usa il report manuale"); }
   }
+  async function inviaComunicazione() {
+    if (!oggettoCom.trim() || !messaggioCom.trim()) return;
+    setInvioCom(true);
+    try {
+      const r = await api.post(`/edizioni/${id}/comunicazione`, { oggetto: oggettoCom, messaggio: messaggioCom });
+      setMsg(`Comunicazione inviata a ${r.data.inviati} iscritti.`);
+      setOggettoCom(""); setMessaggioCom("");
+      load();
+    } catch (e) {
+      setMsg(e.response?.data?.detail || "Errore nell'invio della comunicazione");
+    } finally {
+      setInvioCom(false);
+    }
+  }
+
   async function chiudi() {
     if (!window.confirm("Chiudere la sessione? Le evidenze diventeranno definitive e verranno generati i certificati.")) return;
     const r = await api.post(`/edizioni/${id}/chiudi`);
@@ -81,8 +131,8 @@ export default function EdizioneDetail() {
         <div><h2>Sessione — {edizione.modalita}</h2></div>
         {isAdmin && (
           <div>
-            <a className="btn secondary" href={`/api/edizioni/${id}/report/iscrizioni.csv`} target="_blank" rel="noreferrer">Report iscrizioni CSV</a>{" "}
-            <a className="btn secondary" href={`/api/edizioni/${id}/report/gradimenti.csv`} target="_blank" rel="noreferrer">Report gradimenti CSV</a>
+            <button className="secondary" onClick={() => downloadFile(`/edizioni/${id}/report/iscrizioni.csv`, "report_iscrizioni.csv")}>Report iscrizioni CSV</button>{" "}
+            <button className="secondary" onClick={() => downloadFile(`/edizioni/${id}/report/gradimenti.csv`, "report_gradimenti.csv")}>Report gradimenti CSV</button>
           </div>
         )}
       </div>
@@ -90,12 +140,31 @@ export default function EdizioneDetail() {
 
       <div className="card">
         <p><strong>Stato:</strong> <span className="badge gray">{edizione.stato}</span></p>
-        <p><strong>Data:</strong> {edizione.data_inizio ? new Date(edizione.data_inizio).toLocaleString("it-IT") : "-"}</p>
+        <p>
+          <strong>Data:</strong> {edizione.data_inizio ? new Date(edizione.data_inizio).toLocaleString("it-IT") : "-"}
+          {edizione.data_inizio && (
+            <button type="button" className="secondary btn-sm" style={{ marginLeft: 10 }}
+              onClick={() => downloadFile(`/edizioni/${id}/calendario.ics`, "sessione.ics")}>
+              📅 Aggiungi al calendario
+            </button>
+          )}
+        </p>
         {edizione.luogo && <p><strong>Luogo:</strong> {edizione.luogo}</p>}
+        {edizione.posti_max && (
+          <p><strong>Posti:</strong> {edizione.n_iscritti}/{edizione.posti_max}
+            {edizione.n_lista_attesa > 0 && <> — {edizione.n_lista_attesa} in lista d'attesa</>}</p>
+        )}
         {(edizione.modalita === "presenza" || edizione.modalita === "ibrida") && (
           <p><strong>Check-in:</strong> {edizione.checkin_mode === "docente" ? "registro docente" : "self check-in + validazione docente"}</p>
         )}
       </div>
+
+      {!isAdmin && !miaIscrizione && edizione.corso_permetti_autoiscrizione && edizione.stato !== "chiusa" && (
+        <div className="card">
+          <h3>Vuoi partecipare?</h3>
+          <button onClick={autoiscriviti}>Iscrivimi a questa sessione</button>
+        </div>
+      )}
 
       <div className="card">
         <h3>Docenti</h3>
@@ -111,6 +180,19 @@ export default function EdizioneDetail() {
           </div>
         )}
       </div>
+
+      {!isAdmin && sottopostiNonIscritti.length > 0 && edizione.stato !== "chiusa" && (
+        <div className="card">
+          <h3>Iscrivi una tua risorsa</h3>
+          <div className="row">
+            <select value={selectedSottoposto} onChange={(e) => setSelectedSottoposto(e.target.value)}>
+              <option value="">-- persona --</option>
+              {sottopostiNonIscritti.map((s) => <option key={s.id} value={s.id}>{s.full_name}</option>)}
+            </select>
+            <button className="secondary" onClick={iscriviSottoposto}>Iscrivi</button>
+          </div>
+        </div>
+      )}
 
       {(edizione.modalita === "ibrida" || edizione.modalita === "remoto") && edizione.stato !== "chiusa" && (
         <div className="card">
@@ -136,18 +218,22 @@ export default function EdizioneDetail() {
         <table>
           <thead><tr><th>Nome</th><th>Stato</th><th>Evidenze</th><th></th></tr></thead>
           <tbody>
-            {iscrizioni.map((i) => (
-              <tr key={i.id}>
-                <td>{i.user_full_name}</td>
-                <td><span className={`badge ${i.stato === "completato" ? "green" : i.stato === "non_completato" ? "red" : "gray"}`}>{i.stato}</span></td>
-                <td>{i.n_evidenze}</td>
-                <td>
-                  {isDocente && edizione.checkin_mode === "docente" && edizione.stato !== "chiusa" && (
-                    <button className="secondary btn-sm" onClick={() => checkinDocentePresente(i.user_id)}>Segna presente</button>
-                  )}
-                </td>
-              </tr>
-            ))}
+            {iscrizioni.filter((i) => i.stato !== "annullato").map((i) => {
+              const puoAnnullare = edizione.stato !== "chiusa" && (isAdmin || i.user_id === user?.id || sottoposti.some((s) => s.id === i.user_id));
+              return (
+                <tr key={i.id}>
+                  <td>{i.user_full_name}</td>
+                  <td><span className={`badge ${i.stato === "completato" ? "green" : i.stato === "non_completato" ? "red" : i.stato === "in_lista_attesa" ? "gray" : "gray"}`}>{i.stato === "in_lista_attesa" ? "in lista d'attesa" : i.stato}</span></td>
+                  <td>{i.n_evidenze}</td>
+                  <td>
+                    {isDocente && edizione.checkin_mode === "docente" && edizione.stato !== "chiusa" && (
+                      <button className="secondary btn-sm" onClick={() => checkinDocentePresente(i.user_id)}>Segna presente</button>
+                    )}{" "}
+                    {puoAnnullare && <button className="danger btn-sm" onClick={() => annulla(i.id)}>Annulla</button>}
+                  </td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       </div>
@@ -162,7 +248,37 @@ export default function EdizioneDetail() {
 
       {miaIscrizione && tests.map((t) => <TestPlayer key={t.id} testId={t.id} iscrizioneId={miaIscrizione.id} />)}
 
-      {miaIscrizione && miaIscrizione.stato === "completato" && <Gradimento iscrizioneId={miaIscrizione.id} />}
+      {miaIscrizione && miaIscrizione.stato === "completato" && (
+        <Gradimento iscrizioneId={miaIscrizione.id} docenti={edizione.docenti.map((d) => ({ id: d.user_id, nome: nome(d.user_id) }))} />
+      )}
+
+      {(isDocente || isAdmin) && (
+        <div className="card">
+          <h3>Comunicazioni agli iscritti</h3>
+          <p className="text-muted" style={{ fontSize: 13 }}>
+            Invia un annuncio a tutti gli iscritti (compresa la lista d'attesa): lo ricevono via notifica in-app, email e notifica push.
+          </p>
+          <div className="field"><label>Oggetto</label><input value={oggettoCom} onChange={(e) => setOggettoCom(e.target.value)} placeholder="Es. Promemoria materiale da portare" /></div>
+          <div className="field"><label>Messaggio</label><textarea rows={3} value={messaggioCom} onChange={(e) => setMessaggioCom(e.target.value)} /></div>
+          <button type="button" disabled={invioCom || !oggettoCom.trim() || !messaggioCom.trim()} onClick={inviaComunicazione}>
+            {invioCom ? "Invio..." : "Invia comunicazione"}
+          </button>
+          {comunicazioni.length > 0 && (
+            <div style={{ marginTop: 14 }}>
+              <div className="text-muted" style={{ fontSize: 12, marginBottom: 6 }}>Comunicazioni inviate</div>
+              {comunicazioni.map((c) => (
+                <div key={c.id} style={{ padding: ".5rem 0", borderBottom: "1px solid var(--border)" }}>
+                  <div style={{ fontWeight: 600, fontSize: 13 }}>{c.oggetto}</div>
+                  <div style={{ fontSize: 12, color: "var(--text2)" }}>{c.messaggio}</div>
+                  <div style={{ fontSize: 11, color: "var(--text3)", marginTop: 2 }}>
+                    {c.mittente} · {new Date(c.created_at).toLocaleString("it-IT")} · {c.n_destinatari} destinatari
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
 
       {(isDocente || isAdmin) && edizione.stato !== "chiusa" && (
         <div className="card">

@@ -31,9 +31,47 @@ services:
       GRAPH_TENANT_ID: ${GRAPH_TENANT_ID}
       GRAPH_CLIENT_ID: ${GRAPH_CLIENT_ID}
       GRAPH_CLIENT_SECRET: ${GRAPH_CLIENT_SECRET}
+      SMTP_HOST: ${SMTP_HOST}
+      SMTP_PORT: ${SMTP_PORT}
+      SMTP_USER: ${SMTP_USER}
+      SMTP_PASSWORD: ${SMTP_PASSWORD}
+      SMTP_MITTENTE: ${SMTP_MITTENTE}
+      SMTP_TLS: ${SMTP_TLS}
+      SSO_ISSUER: ${SSO_ISSUER:-}
+      SSO_CLIENT_ID: ${SSO_CLIENT_ID:-}
+      SSO_CLIENT_SECRET: ${SSO_CLIENT_SECRET:-}
+      SSO_PUBLIC_URL: ${SSO_PUBLIC_URL:-}
+      SSO_LABEL: ${SSO_LABEL:-Accedi con l'account aziendale}
+      SSO_PROVISIONA_UTENTI: ${SSO_PROVISIONA_UTENTI:-false}
+      PROXY_FIDUCIARI: ${PROXY_FIDUCIARI:-}
+      PROXY_CLOUDFLARE: ${PROXY_CLOUDFLARE:-false}
+      ENTRA_SYNC_GRUPPO_ID: ${ENTRA_SYNC_GRUPPO_ID:-}
+      ENTRA_SYNC_AUTO: ${ENTRA_SYNC_AUTO:-false}
     volumes:
       - uploads:/app/uploads
       - videos:/app/videos
+
+  # Suite di test automatici: docker compose --profile test run --rm tests
+  # Usa un database separato (<nome>_test, creato al volo): non tocca mai i dati veri.
+  tests:
+    profiles: ["test"]
+    build:
+      context: ./backend
+      args:
+        DEV: "1"
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
+      SECRET_KEY: test-secret-key-non-usare-in-produzione
+      PYTHONDONTWRITEBYTECODE: "1"
+    volumes:
+      - ./backend/app:/app/app:ro
+      - ./backend/tests:/app/tests:ro
+      - ./backend/migrations:/app/migrations:ro
+      - ./backend/alembic.ini:/app/alembic.ini:ro
+    command: ["pytest"]
 
   frontend:
     hostname: elearning-frontend
