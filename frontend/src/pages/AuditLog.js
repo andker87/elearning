@@ -1,5 +1,5 @@
-import React, { useEffect, useState, useCallback } from "react";
-import api from "../api";
+import React, { useEffect, useState } from "react";
+import api, { erroreDi } from "../api";
 import ExportButton from "../components/ExportButton";
 
 const VUOTI = { q: "", action: "", entity_type: "", utente: "", ip: "", da: "", a: "" };
@@ -27,14 +27,16 @@ export default function AuditLog() {
   const [aperta, setAperta] = useState(null);
   const [errore, setErrore] = useState(null);
 
-  useEffect(() => { api.get("/admin/audit/filtri").then((r) => setOpzioni(r.data)); }, []);
+  useEffect(() => { api.get("/admin/audit/filtri").then((r) => setOpzioni(r.data)).catch((err) => setErrore(erroreDi(err, "Impossibile caricare i filtri"))); }, []);
 
-  const carica = useCallback(() => {
+  // Se i filtri cambiano mentre una richiesta e' ancora in corso, la risposta vecchia viene scartata.
+  useEffect(() => {
+    let attiva = true;
     api.get("/admin/audit", { params: { ...parametri(applicati), pagina, per_pagina: PER_PAGINA } })
-      .then((r) => { setDati(r.data); setErrore(null); })
-      .catch((err) => setErrore(err.response?.data?.detail || "Errore nel caricamento"));
+      .then((r) => { if (attiva) { setDati(r.data); setErrore(null); } })
+      .catch((err) => { if (attiva) setErrore(erroreDi(err, "Errore nel caricamento")); });
+    return () => { attiva = false; };
   }, [applicati, pagina]);
-  useEffect(() => { carica(); }, [carica]);
 
   function applica(e) {
     e.preventDefault();
@@ -100,7 +102,12 @@ export default function AuditLog() {
             {dati.items.map((r) => (
               <React.Fragment key={r.id}>
                 <tr onClick={() => setAperta(aperta === r.id ? null : r.id)} style={{ cursor: "pointer" }}>
-                  <td style={{ whiteSpace: "nowrap" }}>{new Date(r.created_at).toLocaleString("it-IT")}</td>
+                  <td style={{ whiteSpace: "nowrap" }}>
+                    {/* il pulsante rende apribile il dettaglio anche da tastiera; il clic sulla riga resta per il mouse */}
+                    <button type="button" className="secondary btn-sm" aria-expanded={aperta === r.id} aria-label="Mostra o nascondi il dettaglio"
+                            onClick={(e) => { e.stopPropagation(); setAperta(aperta === r.id ? null : r.id); }}>{aperta === r.id ? "▾" : "▸"}</button>{" "}
+                    {new Date(r.created_at).toLocaleString("it-IT")}
+                  </td>
                   <td>{r.user_email || <span className="text-muted">anonimo</span>}</td>
                   <td><span className={`badge ${badgeAzione(r.action)}`}>{r.action}</span></td>
                   <td>

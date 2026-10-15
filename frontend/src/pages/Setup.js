@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import api from "../api";
+import api, { erroreDi } from "../api";
 import { REQUISITI_PASSWORD } from "../passwordPolicy";
 
 export default function Setup() {
@@ -15,7 +15,7 @@ export default function Setup() {
       await api.post("/setup/init", form);
       navigate("/login");
     } catch (err) {
-      setError(err.response?.data?.detail || "Errore durante il setup");
+      setError(erroreDi(err, "Errore durante il setup"));
     }
   }
 

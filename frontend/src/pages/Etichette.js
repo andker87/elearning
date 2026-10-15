@@ -1,12 +1,12 @@
 import React, { useEffect, useState } from "react";
-import api from "../api";
+import api, { erroreDi } from "../api";
 import { aggiornaCacheFamiglie } from "../components/Etichette";
 
 function Famiglia({ f, onCambiato, setErrore }) {
   const [nuova, setNuova] = useState("");
   const [modifica, setModifica] = useState(null);   // etichetta in modifica
   const [unisci, setUnisci] = useState(null);       // etichetta da unire
-  const chiama = async (fn) => { setErrore(null); try { await fn(); aggiornaCacheFamiglie(); onCambiato(); } catch (e) { setErrore(e.response?.data?.detail || "Operazione non riuscita"); } };
+  const chiama = async (fn) => { setErrore(null); try { await fn(); aggiornaCacheFamiglie(); onCambiato(); return true; } catch (e) { setErrore(erroreDi(e, "Operazione non riuscita")); return false; } };  // true = riuscita: i moduli si chiudono solo allora
   const salvaFamiglia = (campi) => chiama(() => api.put(`/etichette/famiglie/${f.id}`, { nome: f.nome, descrizione: f.descrizione, scelta_multipla: f.scelta_multipla, obbligatoria: f.obbligatoria, archiviata: f.archiviata, ...campi }));
   const attive = f.etichette.filter((e) => !e.archiviata);
 
@@ -32,7 +32,7 @@ function Famiglia({ f, onCambiato, setErrore }) {
               <tr key={e.id} style={e.archiviata ? { opacity: .55 } : undefined}>
                 <td>
                   {modifica?.id === e.id ? (
-                    <form style={{ display: "flex", gap: 6 }} onSubmit={(ev) => { ev.preventDefault(); chiama(() => api.put(`/etichette/${e.id}`, { ...modifica })).then(() => setModifica(null)); }}>
+                    <form style={{ display: "flex", gap: 6 }} onSubmit={(ev) => { ev.preventDefault(); chiama(() => api.put(`/etichette/${e.id}`, { ...modifica })).then((ok) => ok && setModifica(null)); }}>
                       <input autoFocus value={modifica.nome} onChange={(ev) => setModifica({ ...modifica, nome: ev.target.value })} />
                       <button type="submit" className="btn-sm">Salva</button>
                       <button type="button" className="secondary btn-sm" onClick={() => setModifica(null)}>Annulla</button>
@@ -45,7 +45,7 @@ function Famiglia({ f, onCambiato, setErrore }) {
                         <option value="">scegli...</option>
                         {attive.filter((x) => x.id !== e.id).map((x) => <option key={x.id} value={x.id}>{x.nome}</option>)}
                       </select>
-                      <button type="button" className="btn-sm" disabled={!unisci.in} onClick={() => chiama(() => api.post(`/etichette/${e.id}/unisci`, { in_etichetta_id: unisci.in })).then(() => setUnisci(null))}>Unisci</button>
+                      <button type="button" className="btn-sm" disabled={!unisci.in} onClick={() => chiama(() => api.post(`/etichette/${e.id}/unisci`, { in_etichetta_id: unisci.in })).then((ok) => ok && setUnisci(null))}>Unisci</button>
                       <button type="button" className="secondary btn-sm" onClick={() => setUnisci(null)}>Annulla</button>
                     </div>
                   )}
@@ -66,7 +66,7 @@ function Famiglia({ f, onCambiato, setErrore }) {
           </tbody>
         </table>
       </div>
-      <form style={{ display: "flex", gap: 8, marginTop: ".8rem" }} onSubmit={(ev) => { ev.preventDefault(); if (nuova.trim()) chiama(() => api.post(`/etichette/famiglie/${f.id}/etichette`, { nome: nuova })).then(() => setNuova("")); }}>
+      <form style={{ display: "flex", gap: 8, marginTop: ".8rem" }} onSubmit={(ev) => { ev.preventDefault(); if (nuova.trim()) chiama(() => api.post(`/etichette/famiglie/${f.id}/etichette`, { nome: nuova })).then((ok) => ok && setNuova("")); }}>
         <input placeholder={`Nuova etichetta in ${f.nome}`} value={nuova} onChange={(ev) => setNuova(ev.target.value)} style={{ maxWidth: 320 }} />
         <button type="submit" className="secondary">Aggiungi</button>
       </form>
@@ -84,7 +84,7 @@ export default function Etichette() {
   async function creaFamiglia(e) {
     e.preventDefault(); setErrore(null);
     try { await api.post("/etichette/famiglie", nuova); setNuova({ nome: "", descrizione: "", scelta_multipla: true, obbligatoria: false }); aggiornaCacheFamiglie(); carica(); }
-    catch (err) { setErrore(err.response?.data?.detail || "Operazione non riuscita"); }
+    catch (err) { setErrore(erroreDi(err, "Operazione non riuscita")); }
   }
 
   return (

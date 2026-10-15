@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import api from "../api";
+import api, { erroreDi } from "../api";
 import { REQUISITI_PASSWORD, passwordValida } from "../passwordPolicy";
 
 // Mostrata al posto dell'app finche' la persona non sceglie una password propria
@@ -20,7 +20,7 @@ export default function CambioPasswordObbligatorio() {
       localStorage.setItem("user", JSON.stringify({ ...user, password_da_cambiare: false }));
       window.location.reload();
     } catch (err) {
-      setErrore(err.response?.data?.detail || "Errore durante l'aggiornamento");
+      setErrore(erroreDi(err, "Errore durante l'aggiornamento"));
     }
   }
   function esci() {

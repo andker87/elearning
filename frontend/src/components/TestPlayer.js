@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import api from "../api";
+import api, { erroreDi } from "../api";
 
 export default function TestPlayer({ testId, iscrizioneId }) {
   const [test, setTest] = useState(null);
@@ -17,7 +17,7 @@ export default function TestPlayer({ testId, iscrizioneId }) {
       const r = await api.post(`/test/${testId}/tenta`, { iscrizione_id: iscrizioneId, risposte });
       setEsito(r.data);
     } catch (err) {
-      setErrore(err.response?.data?.detail || "Errore durante l'invio");
+      setErrore(erroreDi(err, "Errore durante l'invio"));
     }
   }
 

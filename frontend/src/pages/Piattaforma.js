@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import api from "../api";
+import api, { erroreDi } from "../api";
 import { aggiornaBranding } from "../branding";
 
 export default function Piattaforma() {
@@ -13,8 +13,8 @@ export default function Piattaforma() {
     api.get("/azienda").then((r) => {
       setForm({ nome_piattaforma: r.data.nome_piattaforma || "", url_pubblico: r.data.url_pubblico || "" });
       setIconaUrl(r.data.icona_url);
-    });
-    api.get("/about").then((r) => setIntegrazioni(r.data.integrazioni));
+    }).catch((e) => setErrore(erroreDi(e, "Impossibile caricare le impostazioni")));
+    api.get("/about").then((r) => setIntegrazioni(r.data.integrazioni)).catch((e) => setErrore(erroreDi(e, "Impossibile caricare lo stato delle integrazioni")));
   }
   useEffect(carica, []);
 
@@ -26,7 +26,7 @@ export default function Piattaforma() {
       await aggiornaBranding();
       setMsg("Impostazioni salvate");
     } catch (err) {
-      setErrore(err.response?.data?.detail || "Errore nel salvataggio");
+      setErrore(erroreDi(err, "Errore nel salvataggio"));
     }
   }
 
@@ -42,14 +42,17 @@ export default function Piattaforma() {
       setIconaUrl(r.data.icona_url);
       setMsg("Icona aggiornata. Chi ha già installato l'app la vedrà cambiare al prossimo aggiornamento del dispositivo.");
     } catch (err) {
-      setErrore(err.response?.data?.detail || "Errore nel caricamento dell'icona");
+      setErrore(erroreDi(err, "Errore nel caricamento dell'icona"));
     }
   }
 
   async function rimuoviIcona() {
-    const r = await api.delete("/azienda/icona");
-    setIconaUrl(r.data.icona_url);
-    setMsg("Icona rimossa: l'app usa il logo aziendale, se presente.");
+    setErrore(null);
+    try {
+      const r = await api.delete("/azienda/icona");
+      setIconaUrl(r.data.icona_url);
+      setMsg("Icona rimossa: l'app usa il logo aziendale, se presente.");
+    } catch (err) { setErrore(erroreDi(err, "Impossibile rimuovere l'icona")); }
   }
 
   return (

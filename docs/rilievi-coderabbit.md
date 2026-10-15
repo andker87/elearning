@@ -19,8 +19,8 @@ Stato: `DA FARE` fondato · `VERIFICARE` probabile, da guardare nel codice prima
 | FATTO 1.8.4 | models/richiesta_corso.py | unicità su `richieste_corso_persone` |
 | FATTO 1.8.5 | api/certificato_templates.py | validare immagine e template_id prima di scrivere file; validare forma di `campi`; file temporaneo unico per l'anteprima |
 | FATTO 1.8.5 | api/dashboard_kpi.py | ordinamento che fallisce se solo alcune sessioni hanno `data_inizio` |
-| DA FARE | frontend/public/service-worker.js | validare l'URL della notifica (stessa origine) prima di aprirlo |
-| DA FARE | frontend Gradimento.js | stelle non usabili da tastiera; passare i docenti della sessione al modulo |
+| FATTO 1.8.6 | frontend/public/service-worker.js | validare l'URL della notifica (stessa origine) prima di aprirlo |
+| FATTO 1.8.6 | frontend Gradimento.js | stelle non usabili da tastiera; passare i docenti della sessione al modulo — i docenti erano già passati dalla pagina della sessione (verificato) |
 | FATTO 1.8.5 | requirements.txt | Pillow 11.0.0 → versione più recente (verificare che esista la 12.3.0 indicata) |
 | FATTO 1.8.5 | services/calendario.py | `_escape` non gestisce il ritorno a capo `\r` |
 | FATTO 1.8.5 | services/email.py | ripulire `allegato_nome` nell'header Content-Disposition; gestire `submit` fallito nel hook after_commit |
@@ -32,7 +32,7 @@ Stato: `DA FARE` fondato · `VERIFICARE` probabile, da guardare nel codice prima
 | CHIUSO | api/gradimenti.py | validare `docente_id` e intervallo dei voti; query per docente/riga — validazione di docente e voti già presente; query dei nomi accorpate (1.8.5) |
 | FATTO 1.8.5 | services/certificati.py | valori di campo non validi in `genera_pdf_da_template` |
 | FATTO 1.8.5 | services/push.py, api/push.py | `print` per i fallimenti; `invia_push` blocca la richiesta e fa commit a metà; corsa su `endpoint` nella sottoscrizione; `py-vapid` mancante dai requirements |
-| DA FARE | frontend (varie) | gestione errori: SessioniResponsabile, RichiesteCorsoAdmin, RichiestaCorso, DashboardFormazione (sollecito), Azienda (rimuoviLogo), TemplateAttestati; banner PWA e notifiche che si nascondono dopo un fallimento; `push.js` annullamento a metà; stale closure in TemplateAttestati |
+| FATTO 1.8.6 | frontend (varie) | gestione errori: SessioniResponsabile, RichiesteCorsoAdmin, RichiestaCorso, DashboardFormazione (sollecito), Azienda (rimuoviLogo), TemplateAttestati; banner PWA e notifiche che si nascondono dopo un fallimento; `push.js` annullamento a metà; stale closure in TemplateAttestati |
 
 ## PR #2 — fase 1.1.0
 
@@ -46,10 +46,10 @@ Stato: `DA FARE` fondato · `VERIFICARE` probabile, da guardare nel codice prima
 | CHIUSO | api/evidenze.py | presenza Teams e relativo audit nello stesso commit — link e audit sono nello stesso commit (verificato) |
 | CHIUSO | api/test.py | domande conservate per tentativi già in corso — i tentativi salvano le risposte solo alla consegna: nessun tentativo in corso da proteggere (verificato) |
 | FATTO 1.8.5 | api/video.py | soglia di completamento (80%) uguale a quella dell'evento di audit — soglia unica, definita in api/evidenze.py e usata anche da api/video.py |
-| DA FARE | frontend AuditLog.js | richieste vecchie che sostituiscono i risultati attuali; dettagli non accessibili da tastiera |
-| DA FARE | frontend Login.js | token SSO in `localStorage` (valutare alternativa) |
-| DA FARE | frontend Utenti.js | testo d'aiuto CSV (ora si manda un link, non la password); endpoint di esportazione utenti |
-| DA FARE | frontend Corsi.js, EdizioneDetail.js, StatoPiattaforma.js | gestione errori, array di validazione mostrato grezzo, tentativo di nuovo caricamento |
+| FATTO 1.8.6 | frontend AuditLog.js | richieste vecchie che sostituiscono i risultati attuali; dettagli non accessibili da tastiera |
+| CHIUSO | frontend Login.js | token SSO in `localStorage` (valutare alternativa) — il token resta in localStorage come per l’accesso normale (stessa protezione); un cookie HttpOnly richiederebbe di ripensare tutta l’autenticazione: rinviato. Il token è già tolto dall’indirizzo subito dopo l’arrivo |
+| FATTO 1.8.6 | frontend Utenti.js | testo d'aiuto CSV (ora si manda un link, non la password); endpoint di esportazione utenti — testo d’aiuto aggiornato; l’endpoint `/auth/users/export` esiste già (verificato) |
+| FATTO 1.8.6 | frontend Corsi.js, EdizioneDetail.js, StatoPiattaforma.js | gestione errori, array di validazione mostrato grezzo, tentativo di nuovo caricamento |
 | FATTO 1.8.5 | api/sso.py | gestire errori inattesi nella callback |
 | FATTO 1.8.5 | api/edizioni.py | non mandare inviti calendario per sessioni in bozza |
 | CHIUSO | api/auth.py | inviti CSV dopo il commit: corretto nella 1.8.3 |
@@ -62,10 +62,10 @@ Stato: `DA FARE` fondato · `VERIFICARE` probabile, da guardare nel codice prima
 | FATTO 1.8.4 | api/password_reset.py | `genera` non rifiuta richieste di account disattivati o non locali (verificato nel codice: manca il controllo) |
 | FATTO 1.8.4 | api/privacy.py | il PDF dell'informativa è servito da `/uploads/...` senza autenticazione: servirlo da un endpoint con login (verificato) |
 | FATTO 1.8.5 | api/matrice_ispezione.py | il conteggio documenti (limite pacchetto) avviene prima di verificare che i file esistano (verificato); righe storiche del pacchetto senza perimetro; ZIP costruito in modo sincrono senza limite su PDF/Excel; N+1 sulle righe del registro; verificare il BOM nell'`indice_documenti.csv` — fatti: conteggio dopo il controllo dei file, ricerche accorpate, BOM verificato presente; rinviati: righe storiche e ZIP sincrono (gira già fuori dal ciclo principale, con file temporaneo su disco e limite di documenti) |
-| DA FARE | frontend ImpostazioniUtente.js | errori non gestiti (informativa, esportazione dati, URL calendario); schede non usabili da tastiera |
-| DA FARE | frontend InformativaPrivacy.js | errore di caricamento iniziale non gestito |
-| DA FARE | frontend MatriceFormativa.js | richiesta fallita e risposte vecchie che sovrascrivono le nuove |
-| DA FARE | frontend Piattaforma.js | errori in `rimuoviIcona` |
+| FATTO 1.8.6 | frontend ImpostazioniUtente.js | errori non gestiti (informativa, esportazione dati, URL calendario); schede non usabili da tastiera |
+| FATTO 1.8.6 | frontend InformativaPrivacy.js | errore di caricamento iniziale non gestito |
+| FATTO 1.8.6 | frontend MatriceFormativa.js | richiesta fallita e risposte vecchie che sovrascrivono le nuove |
+| FATTO 1.8.6 | frontend Piattaforma.js | errori in `rimuoviIcona` |
 
 ## PR #4 — fasi 1.4.0, 1.4.1 e 1.4.2 (9 commenti in linea)
 
@@ -75,9 +75,9 @@ Stato: `DA FARE` fondato · `VERIFICARE` probabile, da guardare nel codice prima
 | FATTO 1.8.4 | services/offboarding.py | `posti_liberati` conta anche chi era in lista d'attesa (verificato); promozione dalla lista d'attesa legata al flag della sessione: rivedere il caso con lista disabilitata |
 | FATTO 1.8.5 | tests/conftest.py | l'URL del database si scompone con `rpartition("/")`: usare il parser di SQLAlchemy (regge password e parametri con "/") |
 | FATTO 1.8.5 | tests/test_privacy.py | l'asserzione sull'esportazione dati non controlla `token_version` — l’asserzione ora è stretta e ha rivelato che l’esportazione includeva `token_version` (dato interno di sicurezza): tolto |
-| DA FARE | frontend Ordinabile.js | l'ordinamento per colonna non è azionabile da tastiera |
-| DA FARE | frontend Fabbisogno.js | chiave stabile per le righe rimovibili del modulo; errori non gestiti in `delega` |
-| DA FARE | frontend FabbisognoAdmin.js | errori nella creazione campagna non mostrati; "Azzera" non coerente con il contesto della campagna |
+| FATTO 1.8.6 | frontend Ordinabile.js | l'ordinamento per colonna non è azionabile da tastiera |
+| FATTO 1.8.6 | frontend Fabbisogno.js | chiave stabile per le righe rimovibili del modulo; errori non gestiti in `delega` |
+| FATTO 1.8.6 | frontend FabbisognoAdmin.js | errori nella creazione campagna non mostrati; "Azzera" non coerente con il contesto della campagna |
 
 ## PR #5 — fasi 1.5.0, 1.5.1 e 1.6.0 (6 commenti in linea + 1 di rifinitura)
 
@@ -86,8 +86,8 @@ Stato: `DA FARE` fondato · `VERIFICARE` probabile, da guardare nel codice prima
 | FATTO 1.8.5 | services/rinnovo.py | `ripeti_entro` (test non superato) può fissare una scadenza più vicina di quella del corso e ora viene ignorata (verificato: il campo esiste e le notifiche lo usano, il rinnovo no) |
 | FATTO 1.8.5 | services/rinnovo.py | un'iscrizione aperta a una sessione non più utilizzabile (già iniziata, ferma) blocca il rinnovo della persona (verificato: il controllo `gia_iscritto` conta anche sessioni passate e bozze) |
 | CHIUSO | services/configurazione.py | un gruppo senza `percorso` nel file importato manda in errore l'ordinamento: segnalarlo o saltarlo con avviso (verificato; già rifiutato con errore 400 che nomina il campo, c'è il test) |
-| DA FARE | frontend AlberoOrigine.js | l'albero mostrato non è legato all'`id`: si aggiorna male cambiando richiesta |
-| DA FARE | frontend Configurazione.js | `r.sezioni[k]` senza controllo se manca la chiave |
+| FATTO 1.8.6 | frontend AlberoOrigine.js | l'albero mostrato non è legato all'`id`: si aggiorna male cambiando richiesta |
+| FATTO 1.8.6 | frontend Configurazione.js | `r.sezioni[k]` senza controllo se manca la chiave |
 | DA FARE | docs/brief-video-formativi.md | chiarire quale voce va verificata (riga 53) e aggiornare il percorso di avvio di Copilot in Clipchamp (riga 30) |
 
 ## PR #6 — fasi 1.7.0, 1.7.1 e 1.7.2 (4 commenti in linea + 1 di rifinitura)
@@ -96,7 +96,7 @@ Stato: `DA FARE` fondato · `VERIFICARE` probabile, da guardare nel codice prima
 |---|---|---|
 | FATTO 1.8.5 | api/etichette.py, services/etichette.py | identificativi delle etichette non UUID nei filtri (`etichette=...`) arrivano al DB e danno errore 500: validarli prima (verificato: nessun controllo) |
 | FATTO 1.8.5 | services/etichette.py | la migrazione delle categorie in etichette Tematica può creare duplicati (nome troncato a 80 caratteri ma cercato per esteso) e violare `uq_etichetta_famiglia_nome` (verificato nel codice) |
-| DA FARE | frontend Etichette.js | `chiama` nasconde gli errori: i moduli di rinomina e unione si chiudono anche se la richiesta fallisce |
+| FATTO 1.8.6 | frontend Etichette.js | `chiama` nasconde gli errori: i moduli di rinomina e unione si chiudono anche se la richiesta fallisce |
 | FATTO 1.8.4 | api/password_reset.py + test | il riscatto del token di reset non è protetto da una corsa: due richieste in parallelo possono usarlo entrambe (verificato: nessun blocco della riga); aggiungere blocco e un test di copertura |
 
 ## PR #7 — fasi 1.8.0, 1.8.1, 1.8.2 e storico (5 commenti in linea + 5 di rifinitura)

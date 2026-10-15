@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import api from "../api";
+import api, { erroreDi } from "../api";
 import { useFamiglie, SceltaEtichette, ChipEtichette, FiltroEtichette } from "../components/Etichette";
 import ExportButton from "../components/ExportButton";
 
@@ -30,29 +30,33 @@ export default function Corsi() {
   const [versioneForm, setVersioneForm] = useState({ richiedi_ripetizione: false, nota: "" });
   const [versioneMsg, setVersioneMsg] = useState(null);
 
-  function load() { api.get("/corsi").then((r) => setList(r.data)); }
+  function load() { api.get("/corsi").then((r) => setList(r.data)).catch((e) => setErrore(erroreDi(e, "Impossibile caricare i corsi"))); }
   useEffect(load, []);
-  useEffect(() => { api.get("/certificato-templates").then((r) => setTemplates(r.data)); }, []);
+  useEffect(() => { api.get("/certificato-templates").then((r) => setTemplates(r.data)).catch((e) => setErrore(erroreDi(e, "Impossibile caricare i template degli attestati"))); }, []);
 
   // Il PUT riceve le etichette solo quando si cambiano davvero: negli altri casi non si toccano.
   const corpo = (c, campi) => { const { etichette, etichette_mancanti, avvisi_etichette, ...resto } = c; return { ...resto, ...campi }; };
   async function salvaEtichette(c) {
     setErrore(null);
     try { await api.put(`/corsi/${c.id}`, corpo(c, { etichette: etichetteAperte.valore })); setEtichetteAperte(null); load(); }
-    catch (err) { setErrore(err.response?.data?.detail || "Errore nel salvataggio"); }
+    catch (err) { setErrore(erroreDi(err, "Errore nel salvataggio")); }
   }
   async function cambiaRinnovo(c, campi) {
     setErrore(null);
     try { await api.put(`/corsi/${c.id}`, corpo(c, campi)); load(); if (anteprimaId === c.id) setAnteprimaId(null); }
-    catch (err) { setErrore(err.response?.data?.detail?.[0]?.msg || err.response?.data?.detail || "Errore nel salvataggio"); }
+    catch (err) { setErrore(erroreDi(err, "Errore nel salvataggio")); }
   }
   async function mostraAnteprima(c) {
     if (anteprimaId === c.id) { setAnteprimaId(null); return; }
-    setAnteprima((await api.get(`/corsi/${c.id}/rinnovo/anteprima`)).data); setAnteprimaId(c.id);
+    setErrore(null);
+    try { setAnteprima((await api.get(`/corsi/${c.id}/rinnovo/anteprima`)).data); setAnteprimaId(c.id); }
+    catch (err) { setErrore(erroreDi(err, "Impossibile calcolare l'anteprima del rinnovo")); }
   }
 
   async function cambiaTemplate(c, certificato_template_id) {
-    await api.put(`/corsi/${c.id}`, corpo(c, { certificato_template_id: certificato_template_id || null }));
+    setErrore(null);
+    try { await api.put(`/corsi/${c.id}`, corpo(c, { certificato_template_id: certificato_template_id || null })); }
+    catch (err) { setErrore(erroreDi(err, "Impossibile cambiare il template")); }
     load();
   }
 
@@ -63,9 +67,11 @@ export default function Corsi() {
   }
 
   async function confermaNuovaVersione(corsoId) {
-    const r = await api.post(`/corsi/${corsoId}/nuova-versione`, versioneForm);
-    setVersioneMsg(`Versione ${r.data.versione} creata` + (r.data.notificati > 0 ? ` — ${r.data.notificati} notifiche inviate.` : "."));
-    load();
+    try {
+      const r = await api.post(`/corsi/${corsoId}/nuova-versione`, versioneForm);
+      setVersioneMsg(`Versione ${r.data.versione} creata` + (r.data.notificati > 0 ? ` — ${r.data.notificati} notifiche inviate.` : "."));
+      load();
+    } catch (err) { setVersioneMsg(erroreDi(err, "Nuova versione non creata")); }
   }
 
   async function submit(e) {
@@ -77,7 +83,7 @@ export default function Corsi() {
       giorni_scadenza_breve: form.giorni_scadenza_breve ? parseInt(form.giorni_scadenza_breve) : null,
       rinnovo_automatico: !!form.validita_mesi && form.rinnovo_automatico,
       rinnovo_giorni_anticipo: parseInt(form.rinnovo_giorni_anticipo) || 30,
-    }); } catch (err) { setErrore(err.response?.data?.detail || "Errore nella creazione"); return; }
+    }); } catch (err) { setErrore(erroreDi(err, "Errore nella creazione")); return; }
     setForm({ titolo: "", descrizione: "", categoria: "", validita_mesi: "", ha_test_finale: false, azione_test_non_superato: "concludi_comunque", giorni_scadenza_breve: "", confronta_pre_post_test: false, permetti_autoiscrizione: false, richiedi_approvazione_responsabile: false, rinnovo_automatico: false, rinnovo_giorni_anticipo: 30, etichette: [] });
     load();
   }

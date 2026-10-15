@@ -11,6 +11,7 @@ function iOS() {
 }
 
 export default function InstallPwaBanner() {
+  const [errore, setErrore] = useState("");
   const [stato, setStato] = useState(statoInstallazione());
   const [chiuso, setChiuso] = useState(() => {
     try { return !!localStorage.getItem(DISMISS_KEY); } catch { return false; }
@@ -28,8 +29,11 @@ export default function InstallPwaBanner() {
   }
 
   async function installa() {
-    const esito = await installaApp();
-    if (esito) chiudi();
+    setErrore("");
+    try {
+      const esito = await installaApp();
+      if (esito === "accepted") chiudi();  // se l'utente rinuncia, il banner resta per un'altra volta
+    } catch { setErrore("Installazione non riuscita"); }
   }
 
   return (
@@ -39,6 +43,7 @@ export default function InstallPwaBanner() {
         {mostraIos
           ? <>Tocca <strong>Condividi</strong> → <strong>"Aggiungi a schermata Home"</strong> per installare l'app.</>
           : "Installa l'app sulla schermata Home per un accesso più rapido."}
+        {errore && <span style={{ color: "var(--red-text)" }}> {errore}</span>}
       </span>
       {stato.disponibile && (
         <button type="button" className="btn-sm" onClick={installa}>Installa</button>

@@ -4,9 +4,12 @@ import React from "react";
 export function ThOrdina({ campo, ordine, onOrdina, children, primoVerso = "asc" }) {
   const attivo = ordine.campo === campo;
   return (
-    <th className={`ordinabile ${attivo ? "attivo" : ""}`} aria-sort={attivo ? (ordine.verso === "asc" ? "ascending" : "descending") : "none"}
-        onClick={() => onOrdina({ campo, verso: attivo ? (ordine.verso === "asc" ? "desc" : "asc") : primoVerso })}>
-      {children}<span className="freccia">{attivo ? (ordine.verso === "asc" ? "▲" : "▼") : "↕"}</span>
+    <th className={`ordinabile ${attivo ? "attivo" : ""}`} aria-sort={attivo ? (ordine.verso === "asc" ? "ascending" : "descending") : "none"}>
+      {/* un vero pulsante: si usa anche da tastiera (Tab, Invio, Spazio) */}
+      <button type="button" className="th-ordina"
+              onClick={() => onOrdina({ campo, verso: attivo ? (ordine.verso === "asc" ? "desc" : "asc") : primoVerso })}>
+        {children}<span className="freccia">{attivo ? (ordine.verso === "asc" ? "▲" : "▼") : "↕"}</span>
+      </button>
     </th>
   );
 }

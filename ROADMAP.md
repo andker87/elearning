@@ -864,7 +864,7 @@ Otto correzioni su dieci segnalazioni verificate: ruolo dell'ultimo Admin tecnic
 
 
 ### Z5. Rilievi di CodeRabbit sulla cronologia pubblica (v1.8.4 e seguenti)
-La cronologia è stata pubblicata a fasi (PR #1-#8) e ogni fase recensita da CodeRabbit. I rilievi, verificati sul codice attuale, sono in `docs/rilievi-coderabbit.md` e si correggono in quattro blocchi: 1.8.4 sicurezza e integrità dei dati (fatto: file caricati non più pubblici, SSO, reset password, vincoli contro le corse, piano Entra legato all'anteprima), 1.8.5 correttezza e prestazioni del backend (fatto: rinnovo, validazione degli ingressi, esportazioni, pacchetto ispezione, invii, calendario, push), 1.8.6 interfaccia, 1.8.7 documenti. Aperto, da decidere: i video in `/videos` sono ancora serviti senza accesso (servirebbero indirizzi firmati a tempo).
+La cronologia è stata pubblicata a fasi (PR #1-#8) e ogni fase recensita da CodeRabbit. I rilievi, verificati sul codice attuale, sono in `docs/rilievi-coderabbit.md` e si correggono in quattro blocchi: 1.8.4 sicurezza e integrità dei dati (fatto: file caricati non più pubblici, SSO, reset password, vincoli contro le corse, piano Entra legato all'anteprima), 1.8.5 correttezza e prestazioni del backend (fatto: rinnovo, validazione degli ingressi, esportazioni, pacchetto ispezione, invii, calendario, push), 1.8.6 interfaccia (fatto: errori mostrati, tastiera, risposte vecchie scartate, banner), 1.8.7 documenti. Aperto, da decidere: i video in `/videos` sono ancora serviti senza accesso (servirebbero indirizzi firmati a tempo).
 
 ### Y. Etichette dei corsi — SPEDITO (14/10/2026, v1.7.0)
 

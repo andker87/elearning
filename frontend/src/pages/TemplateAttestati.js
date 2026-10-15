@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useRef, useMemo } from "react";
-import api, { downloadFile } from "../api";
+import api, { downloadFile, erroreDi } from "../api";
 
 const CANVAS_WIDTH = 640;
 
@@ -14,14 +14,15 @@ export default function TemplateAttestati() {
   const [nuovoNome, setNuovoNome] = useState("");
   const [drag, setDrag] = useState(null); // { idx, startX, startY, origX, origY }
   const [msg, setMsg] = useState(null);
+  const [errore, setErrore] = useState(null);
   const fileRef = useRef(null);
 
   function carica() {
-    api.get("/certificato-templates").then((r) => setTemplates(r.data));
+    api.get("/certificato-templates").then((r) => setTemplates(r.data)).catch((e) => setErrore(erroreDi(e, "Impossibile caricare i template")));
   }
   useEffect(() => {
     carica();
-    api.get("/certificato-templates/campi-disponibili").then((r) => setCampiDisponibili(r.data));
+    api.get("/certificato-templates/campi-disponibili").then((r) => setCampiDisponibili(r.data)).catch((e) => setErrore(erroreDi(e, "Impossibile caricare i campi disponibili")));
   }, []);
 
   // L'immagine di sfondo e' protetta: si scarica con il token e si mostra da un indirizzo locale.
@@ -42,16 +43,19 @@ export default function TemplateAttestati() {
 
   function apri(t) {
     setSelezionato({ ...t, campi: (t.campi || []).map((c) => ({ ...c })) });
-    setMsg(null);
+    setMsg(null); setErrore(null);
   }
 
   async function creaTemplate(e) {
     e.preventDefault();
     if (!nuovoNome.trim()) return;
-    const r = await api.post("/certificato-templates", { nome: nuovoNome.trim() });
-    setNuovoNome("");
-    carica();
-    apri(r.data);
+    setErrore(null);
+    try {
+      const r = await api.post("/certificato-templates", { nome: nuovoNome.trim() });
+      setNuovoNome("");
+      carica();
+      apri(r.data);
+    } catch (err) { setErrore(erroreDi(err, "Creazione non riuscita")); }
   }
 
   async function eliminaTemplate(id) {
@@ -60,13 +64,14 @@ export default function TemplateAttestati() {
       if (selezionato?.id === id) setSelezionato(null);
       carica();
     } catch (err) {
-      setMsg(err.response?.data?.detail || "Errore nell'eliminazione");
+      setErrore(erroreDi(err, "Errore nell'eliminazione"));
     }
   }
 
   async function caricaImmagine(e) {
     const file = e.target.files[0];
     if (!file) return;
+    setErrore(null);
     const fd = new FormData();
     fd.append("file", file);
     try {
@@ -74,7 +79,7 @@ export default function TemplateAttestati() {
       setSelezionato({ ...r.data, campi: (r.data.campi || []).map((c) => ({ ...c })) });
       carica();
     } catch (err) {
-      setMsg(err.response?.data?.detail || "Errore nel caricamento");
+      setErrore(erroreDi(err, "Errore nel caricamento"));
     } finally {
       if (fileRef.current) fileRef.current.value = "";
     }
@@ -88,13 +93,14 @@ export default function TemplateAttestati() {
   const disponibiliNonUsati = campiDisponibili.filter((c) => !chiaviUsate.has(c.chiave));
 
   function aggiungiCampo(chiave) {
-    setSelezionato({ ...selezionato, campi: [...selezionato.campi, nuovoCampo(chiave)] });
+    setSelezionato((s) => ({ ...s, campi: [...s.campi, nuovoCampo(chiave)] }));
   }
   function rimuoviCampo(idx) {
-    setSelezionato({ ...selezionato, campi: selezionato.campi.filter((_, i) => i !== idx) });
+    setSelezionato((s) => ({ ...s, campi: s.campi.filter((_, i) => i !== idx) }));
   }
   function aggiornaCampo(idx, patch) {
-    setSelezionato({ ...selezionato, campi: selezionato.campi.map((c, i) => (i === idx ? { ...c, ...patch } : c)) });
+    // forma funzionale: durante il trascinamento la funzione e' quella di un render vecchio, e non deve riportare indietro i campi
+    setSelezionato((s) => ({ ...s, campi: s.campi.map((c, i) => (i === idx ? { ...c, ...patch } : c)) }));
   }
 
   function onMouseDownCampo(e, idx) {
@@ -119,21 +125,29 @@ export default function TemplateAttestati() {
   }, [drag, scala]); // eslint-disable-line
 
   async function salva() {
-    const r = await api.put(`/certificato-templates/${selezionato.id}`, { nome: selezionato.nome, campi: selezionato.campi });
-    setSelezionato({ ...r.data, campi: (r.data.campi || []).map((c) => ({ ...c })) });
-    carica();
-    setMsg("Salvato.");
-    setTimeout(() => setMsg(null), 2000);
+    setErrore(null);
+    try {
+      const r = await api.put(`/certificato-templates/${selezionato.id}`, { nome: selezionato.nome, campi: selezionato.campi });
+      setSelezionato({ ...r.data, campi: (r.data.campi || []).map((c) => ({ ...c })) });
+      carica();
+      setMsg("Salvato.");
+      setTimeout(() => setMsg(null), 2000);
+    } catch (err) { setErrore(erroreDi(err, "Salvataggio non riuscito")); }
   }
 
   async function impostaPredefinito() {
-    const r = await api.put(`/certificato-templates/${selezionato.id}`, { is_default: !selezionato.is_default });
-    setSelezionato({ ...r.data, campi: (r.data.campi || []).map((c) => ({ ...c })) });
-    carica();
+    setErrore(null);
+    try {
+      const r = await api.put(`/certificato-templates/${selezionato.id}`, { is_default: !selezionato.is_default });
+      setSelezionato((s) => ({ ...s, is_default: r.data.is_default }));  // i campi in modifica non si toccano
+      carica();
+    } catch (err) { setErrore(erroreDi(err, "Operazione non riuscita")); }
   }
 
   function anteprimaPdf() {
-    downloadFile(`/certificato-templates/${selezionato.id}/anteprima.pdf`, "anteprima_attestato.pdf");
+    setErrore(null);
+    downloadFile(`/certificato-templates/${selezionato.id}/anteprima.pdf`, "anteprima_attestato.pdf")
+      .catch(() => setErrore("Impossibile generare l'anteprima: salva prima i campi e controlla lo sfondo"));
   }
 
   return (
@@ -145,6 +159,7 @@ export default function TemplateAttestati() {
         </div>
       </div>
 
+      {errore && <div className="error-msg">{errore}</div>}
       <div className="row" style={{ alignItems: "flex-start" }}>
         <div style={{ width: 240, flex: "none" }}>
           <div className="card">

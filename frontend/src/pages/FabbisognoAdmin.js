@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from "react";
-import api from "../api";
+import api, { erroreDi } from "../api";
 import ExportButton from "../components/ExportButton";
 import AlberoOrigine from "../components/AlberoOrigine";
 import { ThOrdina, ordinaLocale } from "../components/Ordinabile";
@@ -13,11 +13,15 @@ const periodo = (r) => r.riferimento_periodo || r.periodo || "—";
 // ---- Nuova campagna ---------------------------------------------------------------------
 function NuovaCampagna({ onCreata }) {
   const [form, setForm] = useState({ titolo: "", descrizione: "", scadenza: "" });
+  const [errore, setErrore] = useState(null);
   async function submit(e) {
     e.preventDefault();
-    await api.post("/fabbisogno/campagne", { ...form, scadenza: form.scadenza || null });
-    setForm({ titolo: "", descrizione: "", scadenza: "" });
-    onCreata();
+    setErrore(null);
+    try {
+      await api.post("/fabbisogno/campagne", { ...form, scadenza: form.scadenza || null });
+      setForm({ titolo: "", descrizione: "", scadenza: "" });
+      onCreata();
+    } catch (err) { setErrore(erroreDi(err, "Impossibile creare la campagna")); }
   }
   return (
     <div className="card">
@@ -29,6 +33,7 @@ function NuovaCampagna({ onCreata }) {
           <div className="field"><label>Scadenza (opzionale)</label><input type="datetime-local" value={form.scadenza} onChange={(e) => setForm({ ...form, scadenza: e.target.value })} /></div>
         </div>
         <div className="field"><label>Descrizione</label><input value={form.descrizione} onChange={(e) => setForm({ ...form, descrizione: e.target.value })} /></div>
+        {errore && <div className="error-msg">{errore}</div>}
         <button type="submit">Avvia campagna</button>
       </form>
     </div>
@@ -105,8 +110,9 @@ function RichiesteFormative({ campagne, campagnaIniziale }) {
   const [aperto, setAperto] = useState(null);       // chiave del gruppo espanso
   const [dettaglio, setDettaglio] = useState([]);
   const [origineAperta, setOrigineAperta] = useState(null);
+  const [errore, setErrore] = useState(null);
 
-  useEffect(() => { api.get("/groups").then((r) => setUffici(r.data.filter((g) => g.is_ufficio))); }, []);
+  useEffect(() => { api.get("/groups").then((r) => setUffici(r.data.filter((g) => g.is_ufficio))).catch((e) => setErrore(erroreDi(e, "Impossibile caricare gli uffici"))); }, []);
   const parametri = useCallback(() => {
     const p = { vista, pagina, per_pagina: PER_PAGINA, ordine: ordine.campo, direzione: ordine.verso };
     Object.entries(filtri).forEach(([k, v]) => { if (v) p[k] = v; });
@@ -114,7 +120,8 @@ function RichiesteFormative({ campagne, campagnaIniziale }) {
   }, [vista, pagina, ordine, filtri]);
   useEffect(() => {
     let attuale = true;  // una risposta arrivata in ritardo non deve sovrascrivere la vista corrente
-    api.get("/fabbisogno/richieste-formative", { params: parametri() }).then((r) => { if (attuale) setDati(r.data); });
+    api.get("/fabbisogno/richieste-formative", { params: parametri() }).then((r) => { if (attuale) { setDati(r.data); setErrore(null); } })
+      .catch((e) => { if (attuale) setErrore(erroreDi(e, "Impossibile caricare le richieste")); });
     return () => { attuale = false; };
   }, [parametri]);
 
@@ -128,8 +135,10 @@ function RichiesteFormative({ campagne, campagnaIniziale }) {
     if (aperto === g.chiave) { setAperto(null); return; }
     const p = { vista: "elenco", argomento: g.argomento, per_pagina: 200, ordine: "ufficio", direzione: "asc" };
     Object.entries(filtri).forEach(([k, v]) => { if (v) p[k] = v; });
-    setDettaglio((await api.get("/fabbisogno/richieste-formative", { params: p })).data.items);
-    setAperto(g.chiave);
+    try {
+      setDettaglio((await api.get("/fabbisogno/richieste-formative", { params: p })).data.items);
+      setAperto(g.chiave);
+    } catch (err) { setErrore(erroreDi(err, "Impossibile caricare il dettaglio")); }
   }
   function percorsoExport() {
     const p = new URLSearchParams({ ordine: vista === "elenco" ? ordine.campo : "data", direzione: vista === "elenco" ? ordine.verso : "desc" });
@@ -171,9 +180,10 @@ function RichiesteFormative({ campagne, campagnaIniziale }) {
             <option value="arrivate">Ricevute</option><option value="in_revisione">In revisione</option><option value="rifiutate">Rifiutate dai responsabili</option><option value="tutte">Tutte</option>
           </select>
         </div>
-        <div className="field stretto"><button type="button" className="secondary" onClick={() => { setFiltri(FILTRI_VUOTI); setPagina(1); }}>Azzera</button></div>
+        <div className="field stretto"><button type="button" className="secondary" onClick={() => { setFiltri({ ...FILTRI_VUOTI, campagna_id: campagnaIniziale || "" }); setPagina(1); }}>Azzera</button></div>
       </div>
 
+      {errore && <div className="error-msg">{errore}</div>}
       {r && (
         <div className="riepilogo-numeri">
           <div><strong>{r.richieste}</strong><span>richieste</span></div>
@@ -275,20 +285,24 @@ export default function FabbisognoAdmin() {
   const [scheda, setScheda] = useState("campagne");
   const [campagne, setCampagne] = useState([]);
   const [campagnaFiltro, setCampagnaFiltro] = useState("");
-  const carica = () => api.get("/fabbisogno/campagne").then((r) => setCampagne(r.data));
+  const [errore, setErrore] = useState(null);
+  const carica = () => api.get("/fabbisogno/campagne").then((r) => setCampagne(r.data)).catch((e) => setErrore(erroreDi(e, "Impossibile caricare le campagne")));
   useEffect(() => { carica(); }, []);
 
   async function chiudi(id) {
     if (!window.confirm("Chiudere la campagna? I responsabili non potranno più rispondere agli inviti ancora aperti.")) return;
-    await api.put(`/fabbisogno/campagne/${id}/chiudi`); carica();
+    setErrore(null);
+    try { await api.put(`/fabbisogno/campagne/${id}/chiudi`); } catch (e) { setErrore(erroreDi(e, "Impossibile chiudere la campagna")); }
+    carica();
   }
 
   return (
     <div>
       <div className="page-header"><div><h2>Fabbisogno formativo</h2><p>Avvia una campagna presso i responsabili e consulta le esigenze di formazione che arrivano.</p></div></div>
-      <div className="tabs">
-        {SCHEDE.map((x) => <div key={x.id} className={`tab ${scheda === x.id ? "active" : ""}`} onClick={() => setScheda(x.id)}>{x.label}</div>)}
+      <div className="tabs" role="tablist">
+        {SCHEDE.map((x) => <button type="button" role="tab" aria-selected={scheda === x.id} key={x.id} className={`tab ${scheda === x.id ? "active" : ""}`} onClick={() => setScheda(x.id)}>{x.label}</button>)}
       </div>
+      {errore && <div className="error-msg">{errore}</div>}
       {scheda === "nuova" && <NuovaCampagna onCreata={() => { carica(); setScheda("campagne"); }} />}
       {scheda === "campagne" && <Campagne campagne={campagne} onChiudi={chiudi} onApriRichieste={(id) => { setCampagnaFiltro(id); setScheda("richieste"); }} />}
       {scheda === "richieste" && <RichiesteFormative key={campagnaFiltro} campagne={campagne} campagnaIniziale={campagnaFiltro} />}

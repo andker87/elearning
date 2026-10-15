@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import api from "../api";
+import api, { erroreDi } from "../api";
 
 export default function RichiesteResetPassword() {
   const [dati, setDati] = useState({ richieste: [], smtp_attivo: false });
@@ -13,7 +13,7 @@ export default function RichiesteResetPassword() {
     if (!window.confirm(`Assegnare una password temporanea a ${r.utente?.nome}? Le sessioni aperte verranno chiuse.`)) return;
     setErrore(null);
     try { const res = await api.post(`/auth/password-reset-richieste/${r.id}/genera`); setGenerata(res.data); carica(); }
-    catch (err) { setErrore(err.response?.data?.detail || "Errore"); }
+    catch (err) { setErrore(erroreDi(err, "Errore")); }
   }
 
   return (

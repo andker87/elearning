@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useRef } from "react";
-import api from "../api";
+import api, { erroreDi } from "../api";
 
 export default function Azienda() {
   const [form, setForm] = useState(null);
@@ -7,17 +7,21 @@ export default function Azienda() {
   const [testEmail, setTestEmail] = useState("");
   const [testMsg, setTestMsg] = useState(null);
   const [logoMsg, setLogoMsg] = useState(null);
+  const [errore, setErrore] = useState(null);
   const fileRef = useRef(null);
 
-  function ricarica() { api.get("/azienda").then((r) => setForm(r.data)); }
+  function ricarica() { api.get("/azienda").then((r) => setForm(r.data)).catch((e) => setErrore(erroreDi(e, "Impossibile caricare i dati dell'azienda"))); }
   useEffect(ricarica, []);
 
   async function submit(e) {
     e.preventDefault();
     const { ragione_sociale, partita_iva, codice_fiscale, indirizzo, cap, citta, provincia, nazione, email, pec } = form;
-    await api.put("/azienda", { ragione_sociale, partita_iva, codice_fiscale, indirizzo, cap, citta, provincia, nazione, email, pec });
-    setSaved(true);
-    setTimeout(() => setSaved(false), 2000);
+    setErrore(null);
+    try {
+      await api.put("/azienda", { ragione_sociale, partita_iva, codice_fiscale, indirizzo, cap, citta, provincia, nazione, email, pec });
+      setSaved(true);
+      setTimeout(() => setSaved(false), 2000);
+    } catch (err) { setErrore(erroreDi(err, "Errore nel salvataggio")); }
   }
 
   async function provaSmtp() {
@@ -26,7 +30,7 @@ export default function Azienda() {
       await api.post("/azienda/smtp/test", { destinatario: testEmail });
       setTestMsg("Email inviata correttamente.");
     } catch (e) {
-      setTestMsg(e.response?.data?.detail || "Errore nell'invio");
+      setTestMsg(erroreDi(e, "Errore nell'invio"));
     }
   }
 
@@ -40,22 +44,26 @@ export default function Azienda() {
       await api.post("/azienda/logo", fd, { headers: { "Content-Type": "multipart/form-data" } });
       ricarica();
     } catch (err) {
-      setLogoMsg(err.response?.data?.detail || "Errore nel caricamento");
+      setLogoMsg(erroreDi(err, "Errore nel caricamento"));
     } finally {
       if (fileRef.current) fileRef.current.value = "";
     }
   }
 
   async function rimuoviLogo() {
-    await api.delete("/azienda/logo");
-    ricarica();
+    setLogoMsg(null);
+    try {
+      await api.delete("/azienda/logo");
+      ricarica();
+    } catch (err) { setLogoMsg(erroreDi(err, "Impossibile rimuovere il logo")); }
   }
 
-  if (!form) return <div>Caricamento...</div>;
+  if (!form) return errore ? <div className="error-msg">{errore}</div> : <div>Caricamento...</div>;
 
   return (
     <div>
       <h2>Azienda</h2>
+      {errore && <div className="error-msg">{errore}</div>}
       <div className="card">
         <form onSubmit={submit}>
           <div className="row">

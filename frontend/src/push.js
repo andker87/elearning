@@ -41,7 +41,13 @@ export async function attivaPush() {
     applicationServerKey: base64UrlToUint8Array(data.public_key),
   });
   const json = sub.toJSON();
-  await api.post("/push/subscribe", { endpoint: json.endpoint, keys: json.keys });
+  try {
+    await api.post("/push/subscribe", { endpoint: json.endpoint, keys: json.keys });
+  } catch (err) {
+    // il server non l'ha salvata: si annulla anche nel browser, altrimenti il pulsante direbbe "attive" senza che arrivi nulla
+    try { await sub.unsubscribe(); } catch { /* ignore */ }
+    throw err;
+  }
   return sub;
 }
 
@@ -49,6 +55,6 @@ export async function disattivaPush() {
   const sub = await statoSottoscrizione();
   if (!sub) return;
   const endpoint = sub.endpoint;
+  await api.post("/push/unsubscribe", { endpoint });  // prima il server: se fallisce, il browser resta sottoscritto e coerente
   await sub.unsubscribe();
-  await api.post("/push/unsubscribe", { endpoint });
 }

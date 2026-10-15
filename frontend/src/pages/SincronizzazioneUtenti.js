@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import api from "../api";
+import api, { erroreDi } from "../api";
 
 const data = (d) => (d ? new Date(d).toLocaleString("it-IT") : "-");
 
@@ -32,7 +32,7 @@ export default function SincronizzazioneUtenti() {
   async function anteprima() {
     setLavoro(true); setErrore(null); setEsito(null);
     try { setPiano((await api.post("/admin/entra/anteprima")).data); }
-    catch (err) { setPiano(null); setErrore(err.response?.data?.detail || "Errore"); }
+    catch (err) { setPiano(null); setErrore(erroreDi(err, "Errore")); }
     finally { setLavoro(false); }
   }
 
@@ -43,7 +43,7 @@ export default function SincronizzazioneUtenti() {
       const r = await api.post("/admin/entra/applica", null, { params: { riattiva, forza, impronta: piano?.impronta } });
       setEsito(r.data); setPiano(null); carica();
     } catch (err) {
-      setErrore(err.response?.data?.detail || "Errore");
+      setErrore(erroreDi(err, "Errore"));
       if (err.response?.status === 412) setPiano(null);
       if (err.response?.status === 409) setPiano((p) => ({ ...p, richiediForza: true }));
     } finally { setLavoro(false); }

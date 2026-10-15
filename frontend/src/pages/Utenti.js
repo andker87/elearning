@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import api from "../api";
+import api, { erroreDi } from "../api";
 import ExportButton from "../components/ExportButton";
 import { REQUISITI_PASSWORD } from "../passwordPolicy";
 
@@ -27,7 +27,7 @@ export default function Utenti() {
     const payload = { ...form, organizzazione_id: form.is_external ? form.organizzazione_id : null };
     setCreato(null); setErroreCrea(null);
     try { setCreato((await api.post("/auth/users", payload)).data); }
-    catch (err) { setErroreCrea(err.response?.data?.detail || "Errore nella creazione"); return; }
+    catch (err) { setErroreCrea(erroreDi(err, "Errore nella creazione")); return; }
     setForm({ full_name: "", email: "", password: "", role: "user", is_external: false, organizzazione_id: "", group_ids: [], origine_credenziali: "locale" });
     load();
   }
@@ -50,7 +50,7 @@ export default function Utenti() {
       setCsvRisultato(r.data);
       load();
     } catch (err) {
-      setCsvRisultato({ errore: err.response?.data?.detail || "Errore durante l'import" });
+      setCsvRisultato({ errore: erroreDi(err, "Errore durante l'import") });
     } finally {
       setCsvCaricamento(false);
     }
@@ -125,7 +125,7 @@ export default function Utenti() {
           Colonne attese (intestazione, maiuscole/minuscole indifferenti): <code>email</code>, <code>full_name</code> (o <code>nome</code>),
           e opzionalmente <code>password</code>, <code>role</code> (user/training_admin/admin_tecnico), <code>is_external</code>,
           <code>organizzazione</code> (ragione sociale esatta), <code>gruppi</code> (nomi separati da <code>;</code> o <code>|</code>), <code>data_ingresso</code> (AAAA-MM-GG).
-          Se non indicata, la password viene generata automaticamente; se l'invio email è configurato (pagina Azienda) viene mandata all'utente, altrimenti compare nel risultato qui sotto.
+          Se non indicata, la password viene generata automaticamente: se l'invio email è configurato (pagina Azienda) l'utente riceve un link per scegliere la sua password (non la password stessa), altrimenti la password temporanea compare nel risultato qui sotto.
           <br />Per <strong>disattivare</strong> utenti in blocco (es. cessati) scegli «Disattiva cessati»: basta la colonna <code>email</code> e ogni riga disattiva l'account corrispondente, senza toccarne lo storico formativo. Gli Admin tecnici non si disattivano da qui.
         </p>
         <form onSubmit={importaCsv}>

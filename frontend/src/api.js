@@ -45,4 +45,14 @@ export async function apriFile(path) {
   setTimeout(() => window.URL.revokeObjectURL(blobUrl), 60000);
 }
 
+// Il testo da mostrare per un errore di una richiesta: il "detail" del server (stringa) oppure, per gli errori di
+// validazione (array), i messaggi uniti; senza risposta (rete assente) un testo chiaro invece di niente.
+export function erroreDi(err, predefinito = "Operazione non riuscita") {
+  if (err && !err.response && err.request) return "Il server non risponde: controlla la connessione e riprova";
+  const d = err && err.response && err.response.data && err.response.data.detail;
+  if (typeof d === "string" && d) return d;
+  if (Array.isArray(d) && d.length) return d.map((x) => (x && x.msg) || String(x)).join("; ");
+  return predefinito;
+}
+
 export default api;

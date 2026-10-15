@@ -21,11 +21,12 @@ export default function NotificationPermissionBanner() {
     setErrore("");
     try {
       await attivaPush();
+      setVisibile(false);
     } catch (err) {
-      setErrore(err.message || "Errore nell'attivazione delle notifiche");
+      // il banner resta visibile con il motivo: nascondersi qui farebbe sparire l'errore prima di leggerlo
+      setErrore(err.message || (err.response ? "Il server non ha salvato l'attivazione: riprova" : "Errore nell'attivazione delle notifiche"));
     } finally {
       setCaricamento(false);
-      setVisibile(false);
     }
   }
 
