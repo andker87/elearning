@@ -55,7 +55,9 @@ export default function Informazioni() {
         </div>
       )}
 
-      <div className="card">
+      {!d.changelog && <p className="text-muted">Per assistenza o domande sulla piattaforma rivolgiti all'Ufficio Formazione.</p>}
+
+      {d.changelog && <div className="card">
         <h3>Novità</h3>
         {d.changelog.map((c) => (
           <div key={c.version} style={{ padding: "12px 0", borderTop: "1px solid var(--border)" }}>
@@ -69,7 +71,7 @@ export default function Informazioni() {
             </ul>
           </div>
         ))}
-      </div>
+      </div>}
     </div>
   );
 }
