@@ -43,6 +43,7 @@ Tutto ciò che riguarda l'infrastruttura si imposta **solo qui**, mai dall'inter
 | `ENTRA_SYNC_GRUPPO_ID`, `ENTRA_SYNC_AUTO` | sincronizzazione utenti da Entra ID (permessi `User.Read.All`, `GroupMember.Read.All`) |
 | `PROXY_FIDUCIARI` | reti/indirizzi dei proxy davanti alla piattaforma, separati da virgola |
 | `PROXY_CLOUDFLARE` | `true` solo se davanti c'è Cloudflare |
+| `CORS_ORIGINS` | facoltativo: siti esterni ammessi a chiamare le API (separati da virgola, mai `*`). Vuoto = nessuno; di norma non serve |
 
 ### Proxy e indirizzo IP del client
 L'IP del client serve all'audit e ai limiti di tentativi. La piattaforma **non crede agli header** che lo dichiarano, a meno che la connessione arrivi da un indirizzo elencato in `PROXY_FIDUCIARI`. Dietro un proxy aziendale indica qui l'indirizzo con cui il proxy raggiunge la piattaforma (e il proxy deve valorizzare `X-Forwarded-For`). Se non lo fai, tutto funziona ma l'audit mostra l'IP del proxy.

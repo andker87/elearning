@@ -20,7 +20,7 @@ Le etichette (`v1.0.0` … `v1.8.2`) segnano le fasi; le versioni 1.4.1/1.4.2, 1
 | `2833d49` | 21/09/2026 12:14 | Initial commit |
 | `88a76cb` | 12/10/2026 14:47 | 1.0.0: Piattaforma completa |
 | `2390a12` | 12/10/2026 17:28 | 1.1.0: Accesso aziendale e audit esteso |
-| `c3344fc` | 13/10/2026 07:42 | 1.2.0: Allineamento ai progetti gemelli |
+| `c3344fc` | 13/10/2026 07:42 | 1.2.0: Uniformità di menu, impostazioni e privacy |
 | `dc399b5` | 13/10/2026 10:58 | 1.2.1: Privacy come strumento aziendale |
 | `59b8fd9` | 13/10/2026 11:52 | 1.3.0: Accessi sicuri, matrice e pacchetto per l'ispezione |
 | `f8baacf` | 13/10/2026 12:29 | 1.4.0: Sincronizzazione utenti e test automatici |

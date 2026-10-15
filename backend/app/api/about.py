@@ -17,8 +17,15 @@ PACCHETTI = ["fastapi", "uvicorn", "sqlalchemy", "pydantic", "python-jose", "htt
              "reportlab", "openpyxl", "pywebpush", "psycopg2-binary"]
 
 CHANGELOG = [
+    {"version": "1.9.0", "date": "2026-10", "label": "Video protetti, CORS chiuso, upload a pezzi", "changes": [
+        "Video: non più in una cartella pubblica; ogni riproduzione usa un indirizzo a tempo (2 ore) richiesto da chi ha diritto (iscritto alla sessione, Ufficio Formazione, Admin tecnico); sottotitoli protetti allo stesso modo; il player ne chiede di nuovi quando scadono",
+        "L'elenco dei video e i percorsi dei file sul server non sono più visibili agli utenti comuni",
+        "CORS: nessun sito esterno ammesso di default, senza bisogno di configurare l'indirizzo pubblico; eccezioni solo da ambiente (CORS_ORIGINS)",
+        "Caricamento di video e sottotitoli scritto su disco a pezzi, con limite di dimensione (2 GB e 2 MB); un caricamento fallito non lascia file parziali né rovina quello precedente",
+        "Documentazione: tolti i riferimenti a strumenti e progetti specifici; la piattaforma è generica",
+    ]},
     {"version": "1.8.7", "date": "2026-10", "label": "Documenti e rifiniture (rilievi della revisione pubblica)", "changes": [
-        "Documentazione: il README indica l'indirizzo HTTPS pubblico e di non esporre direttamente la porta 2018; la guida dell'amministratore riporta le regole complete della password; la roadmap elenca i ruoli fissi corretti; il brief per i video indica dove avviare Copilot in Clipchamp e di che account serve",
+        "Documentazione: il README indica l'indirizzo HTTPS pubblico e di non esporre direttamente la porta 2018; la guida dell'amministratore riporta le regole complete della password; la roadmap elenca i ruoli fissi corretti",
         "Chiusa la serie di revisioni della cronologia pubblicata: tutti i rilievi di CodeRabbit sono stati verificati e corretti oppure chiusi con motivazione (registro in docs/rilievi-coderabbit.md)",
     ]},
     {"version": "1.8.6", "date": "2026-10", "label": "Interfaccia (rilievi della revisione pubblica)", "changes": [
@@ -132,7 +139,7 @@ CHANGELOG = [
         "Informativa privacy caricabile dall'Admin tecnico (testo e/o PDF) e consultabile da ogni utente dal proprio profilo, senza accettazione al login",
         "Tolta la richiesta di cancellazione dei dati: la piattaforma è uno strumento aziendale e i dati di formazione si conservano per obbligo. Resta il download dei propri dati",
     ]},
-    {"version": "1.2.0", "date": "2026-10", "label": "Allineamento ai progetti gemelli", "changes": [
+    {"version": "1.2.0", "date": "2026-10", "label": "Uniformità di menu, impostazioni e privacy", "changes": [
         "Pagina Informazioni con versione e novità, pagina Piattaforma (nome, URL pubblico, icona dell'app) con manifest dell'app generato dalle impostazioni",
         "Tema chiaro/scuro, campanella delle notifiche nella barra laterale, impostazioni utente a schede, menu Amministrazione con sottomenu Impostazioni",
         "Privacy: ogni utente può scaricare i propri dati personali",

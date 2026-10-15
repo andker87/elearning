@@ -9,6 +9,13 @@ class Settings(BaseSettings):
     DATABASE_URL: str
     SECRET_KEY: str
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 480
+    # Siti ammessi dal browser per chiamare le API da un altro indirizzo (elenco separato da virgole).
+    # Vuoto = nessuno: la piattaforma funziona sullo stesso indirizzo ovunque sia installata.
+    CORS_ORIGINS: Optional[str] = None
+
+    @property
+    def cors_origins_lista(self):
+        return [o.strip() for o in (self.CORS_ORIGINS or "").split(",") if o.strip() and o.strip() != "*"]
 
     # Microsoft Graph (Teams attendance) - opzionale, fallback manuale se assenti
     GRAPH_TENANT_ID: Optional[str] = None
