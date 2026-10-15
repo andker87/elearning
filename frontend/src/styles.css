@@ -168,6 +168,7 @@ tbody tr:hover td { background: var(--bg3); }
 .login-box { background: var(--bg2); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 2.2rem 2.4rem; width: 100%; max-width: 400px; box-shadow: var(--shadow-card); }
 .login-box h2 { margin-bottom: .3rem; }
 .error-msg { color: var(--red-text); background: var(--red-bg); padding: .5rem .75rem; border-radius: var(--radius); font-size: .8rem; margin-top: .6rem; }
+.success-msg { color: var(--green-text); background: var(--green-bg); padding: .5rem .75rem; border-radius: var(--radius); font-size: .8rem; margin-top: .6rem; }
 
 /* ── KPI cards ── */
 .kpi-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 1rem; margin-bottom: 1.1rem; }
@@ -348,3 +349,16 @@ th.ordinabile.attivo .freccia { opacity: 1; }
 .famiglia-nome { font-size: .8rem; font-weight: 600; color: var(--text2); }
 .famiglia-riga select { max-width: 320px; }
 @media (max-width: 800px) { .famiglia-riga { grid-template-columns: 1fr; } }
+
+/* intestazione ordinabile: pulsante senza aspetto da pulsante, ma raggiungibile da tastiera */
+th.ordinabile .th-ordina { background: none; border: 0; padding: 0; margin: 0; font: inherit; color: inherit; cursor: pointer; text-align: inherit; }
+th.ordinabile .th-ordina:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; border-radius: 3px; }
+
+/* schede come pulsanti: stesso aspetto di prima, ma raggiungibili da tastiera */
+button.tab { background: none; border: 0; border-bottom: 2px solid transparent; border-radius: 0; font-family: inherit; box-shadow: none; }
+button.tab.active { border-bottom-color: var(--primary); }
+button.tab:focus-visible { outline: 2px solid var(--primary); outline-offset: -2px; }
+button.tab:hover:not(:disabled) { background: none; color: var(--text); }
+button.tab.active:hover:not(:disabled) { color: var(--primary); }
+th.ordinabile .th-ordina:hover:not(:disabled) { background: none; color: var(--text); }
+th.ordinabile.attivo .th-ordina { color: var(--primary); }

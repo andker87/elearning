@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import api, { downloadFile, apriFile } from "../api";
+import api, { downloadFile, apriFile, erroreDi } from "../api";
 import { REQUISITI_PASSWORD } from "../passwordPolicy";
 import { pushSupportato, statoSottoscrizione, attivaPush, disattivaPush } from "../push";
 
@@ -16,11 +16,16 @@ function SchedaPrivacy() {
   const [esportando, setEsportando] = useState(false);
   const [errore, setErrore] = useState(null);
 
-  useEffect(() => { api.get("/privacy/informativa").then((r) => setInfo(r.data)); }, []);
+  useEffect(() => {
+    api.get("/privacy/informativa").then((r) => setInfo(r.data))
+      .catch((e) => { setInfo(null); setErrore(erroreDi(e, "Impossibile caricare l'informativa")); });
+  }, []);
 
   async function scarica() {
     setEsportando(true);
+    setErrore(null);
     try { await downloadFile("/privacy/export", "i-miei-dati.json"); }
+    catch { setErrore("Impossibile scaricare i tuoi dati: riprova"); }
     finally { setEsportando(false); }
   }
 
@@ -70,6 +75,7 @@ export default function ImpostazioniUtente() {
   const [pushCaricamento, setPushCaricamento] = useState(false);
   const [calendarioUrl, setCalendarioUrl] = useState(null);
   const [calendarioCopiato, setCalendarioCopiato] = useState(false);
+  const [calendarioErrore, setCalendarioErrore] = useState(null);
 
   useEffect(() => {
     if (!pushSupportato()) { setPushAttivo(false); return; }
@@ -78,7 +84,7 @@ export default function ImpostazioniUtente() {
 
   const [urlPubblico, setUrlPubblico] = useState(null);
   useEffect(() => {
-    api.get("/calendario/url").then((r) => setCalendarioUrl(r.data.url));
+    api.get("/calendario/url").then((r) => setCalendarioUrl(r.data.url)).catch((e) => setCalendarioErrore(erroreDi(e, "Impossibile caricare il link del calendario")));
     api.get("/about").then((r) => setUrlPubblico(r.data.url_pubblico)).catch(() => {});
   }, []);
 
@@ -96,8 +102,11 @@ export default function ImpostazioniUtente() {
 
   async function rigeneraLinkCalendario() {
     if (!window.confirm("Il link attuale smetterà di funzionare nei calendari dove l'hai già aggiunto. Continuare?")) return;
-    const r = await api.post("/calendario/url/rigenera");
-    setCalendarioUrl(r.data.url);
+    setCalendarioErrore(null);
+    try {
+      const r = await api.post("/calendario/url/rigenera");
+      setCalendarioUrl(r.data.url);
+    } catch (err) { setCalendarioErrore(erroreDi(err, "Impossibile rigenerare il link")); }
   }
 
   async function togglePush() {
@@ -123,7 +132,7 @@ export default function ImpostazioniUtente() {
       setMsg("Password aggiornata. Le altre sessioni aperte sono state chiuse.");
       setForm({ current_password: "", new_password: "", confirm: "" });
     } catch (err) {
-      setErrore(err.response?.data?.detail || "Errore durante l'aggiornamento");
+      setErrore(erroreDi(err, "Errore durante l'aggiornamento"));
     }
   }
 
@@ -132,7 +141,7 @@ export default function ImpostazioniUtente() {
       <div className="page-header"><div><h2>Impostazioni utente</h2><p>Preferenze e sicurezza del tuo account.</p></div></div>
       <div className="tabs">
         {SCHEDE.map((x) => (
-          <div key={x.id} className={`tab ${scheda === x.id ? "active" : ""}`} onClick={() => setScheda(x.id)}>{x.label}</div>
+          <button type="button" aria-pressed={scheda === x.id} key={x.id} className={`tab ${scheda === x.id ? "active" : ""}`} onClick={() => setScheda(x.id)}>{x.label}</button>
         ))}
       </div>
 
@@ -220,7 +229,8 @@ export default function ImpostazioniUtente() {
               Outlook: Calendario → Aggiungi calendario → Da Internet. Google Calendar: Altri calendari → Da URL.
             </p>
           </>
-        ) : <p className="text-muted">Caricamento...</p>}
+        ) : (calendarioErrore ? null : <p className="text-muted">Caricamento...</p>)}
+        {calendarioErrore && <div className="error-msg">{calendarioErrore}</div>}
       </div>
       )}
 

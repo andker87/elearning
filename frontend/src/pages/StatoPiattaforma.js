@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import api from "../api";
+import api, { erroreDi } from "../api";
 
 function formatBytes(n) {
   if (n == null) return "-";
@@ -33,12 +33,12 @@ export default function StatoPiattaforma() {
     setErrore(null);
     api.get("/admin/salute")
       .then((r) => setD(r.data))
-      .catch((err) => setErrore(err.response?.data?.detail || "Errore nel caricamento"))
+      .catch((err) => setErrore(erroreDi(err, "Errore nel caricamento")))
       .finally(() => setCaricamento(false));
   }
   useEffect(carica, []);
 
-  if (errore) return <div className="error-msg">{errore}</div>;
+  if (errore) return <div><div className="error-msg">{errore}</div><button type="button" className="secondary btn-sm" style={{ marginTop: 8 }} onClick={carica} disabled={caricamento}>Riprova</button></div>;
   if (!d) return <p className="text-muted">Caricamento...</p>;
 
   const sch = d.scheduler;

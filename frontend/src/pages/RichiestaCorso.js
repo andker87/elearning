@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import api from "../api";
+import api, { erroreDi } from "../api";
 
 const STATO_LABEL = { in_attesa: "In attesa", approvata: "Approvata", rifiutata: "Rifiutata" };
 const STATO_BADGE = { in_attesa: "gray", approvata: "green", rifiutata: "red" };
@@ -9,21 +9,27 @@ export default function RichiestaCorso() {
   const [sottoposti, setSottoposti] = useState([]);
   const [mie, setMie] = useState([]);
   const [form, setForm] = useState({ corso_id: "", argomento: "", note: "", persone_ids: [] });
+  const [errore, setErrore] = useState(null);
+  const [inviata, setInviata] = useState(false);
   const user = JSON.parse(localStorage.getItem("user") || "null");
 
-  function load() { api.get("/richieste-corso").then((r) => setMie(r.data)); }
+  function load() { api.get("/richieste-corso").then((r) => setMie(r.data)).catch((e) => setErrore(erroreDi(e, "Impossibile caricare le richieste"))); }
   useEffect(() => {
     load();
-    api.get("/corsi").then((r) => setCorsi(r.data));
-    if (user?.id) api.get(`/auth/users/${user.id}/sottoposti`).then((r) => setSottoposti(r.data));
+    api.get("/corsi").then((r) => setCorsi(r.data)).catch((e) => setErrore(erroreDi(e, "Impossibile caricare i corsi")));
+    if (user?.id) api.get(`/auth/users/${user.id}/sottoposti`).then((r) => setSottoposti(r.data)).catch((e) => setErrore(erroreDi(e, "Impossibile caricare le persone")));
   }, []);
 
   async function submit(e) {
     e.preventDefault();
-    if (!form.corso_id && !form.argomento) return;
-    await api.post("/richieste-corso", { ...form, corso_id: form.corso_id || null });
-    setForm({ corso_id: "", argomento: "", note: "", persone_ids: [] });
-    load();
+    setErrore(null); setInviata(false);
+    if (!form.corso_id && !form.argomento.trim()) { setErrore("Indica un corso a catalogo o un argomento"); return; }
+    try {
+      await api.post("/richieste-corso", { ...form, corso_id: form.corso_id || null });
+      setForm({ corso_id: "", argomento: "", note: "", persone_ids: [] });
+      setInviata(true);
+      load();
+    } catch (err) { setErrore(erroreDi(err, "Invio non riuscito")); }
   }
 
   return (
@@ -58,6 +64,8 @@ export default function RichiestaCorso() {
               </select>
             </div>
           )}
+          {errore && <div className="error-msg">{errore}</div>}
+          {inviata && <div className="success-msg" role="status">Richiesta inviata.</div>}
           <button type="submit">Invia richiesta</button>
         </form>
       </div>

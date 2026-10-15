@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { Link } from "react-router-dom";
-import api from "../api";
+import api, { erroreDi } from "../api";
 import { useBranding } from "../branding";
 
 export default function PasswordDimenticata() {
@@ -13,7 +13,7 @@ export default function PasswordDimenticata() {
     e.preventDefault();
     setErrore(null);
     try { await api.post("/auth/password-dimenticata", { email }); setInviata(true); }
-    catch (err) { setErrore(err.response?.data?.detail || "Errore nell'invio della richiesta"); }
+    catch (err) { setErrore(erroreDi(err, "Errore nell'invio della richiesta")); }
   }
 
   return (

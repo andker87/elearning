@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import api from "../api";
+import api, { erroreDi } from "../api";
 
 const STATO_LABEL = { in_attesa: "In attesa", approvata: "Approvata", rifiutata: "Rifiutata" };
 const STATO_BADGE = { in_attesa: "gray", approvata: "green", rifiutata: "red" };
@@ -7,18 +7,22 @@ const STATO_BADGE = { in_attesa: "gray", approvata: "green", rifiutata: "red" };
 export default function RichiesteCorsoAdmin() {
   const [list, setList] = useState([]);
   const [note, setNote] = useState({});
+  const [errore, setErrore] = useState(null);
 
-  function load() { api.get("/richieste-corso").then((r) => setList(r.data)); }
+  function load() { api.get("/richieste-corso").then((r) => setList(r.data)).catch((e) => setErrore(erroreDi(e, "Impossibile caricare le richieste"))); }
   useEffect(load, []);
 
   async function valuta(id, stato) {
-    await api.put(`/richieste-corso/${id}/valuta`, { stato, nota_valutazione: note[id] || "" });
+    setErrore(null);
+    try { await api.put(`/richieste-corso/${id}/valuta`, { stato, nota_valutazione: note[id] || "" }); }
+    catch (e) { setErrore(erroreDi(e, "Valutazione non riuscita")); }
     load();
   }
 
   return (
     <div>
       <div className="page-header"><div><h2>Richieste di sessione formativa</h2><p>Richieste dai responsabili, con le persone potenzialmente interessate segnalate.</p></div></div>
+      {errore && <div className="error-msg">{errore}</div>}
       <div className="table-wrap">
         <table>
           <thead><tr><th>Richiedente</th><th>Corso/Argomento</th><th>Note</th><th>Persone</th><th>Stato</th><th></th></tr></thead>

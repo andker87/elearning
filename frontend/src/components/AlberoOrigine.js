@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import api from "../api";
+import api, { erroreDi } from "../api";
 
 const periodoDi = (n) => n.riferimento_periodo || n.periodo || null;
 const dataIt = (d) => new Date(d).toLocaleDateString("it-IT");
@@ -24,7 +24,12 @@ export default function AlberoOrigine({ id }) {
   const [albero, setAlbero] = useState(null);
   const [errore, setErrore] = useState(null);
   useEffect(() => {
-    api.get(`/fabbisogno/richieste/${id}/origine`).then((r) => setAlbero(r.data)).catch((e) => setErrore(e.response?.data?.detail || "Provenienza non disponibile"));
+    let attivo = true;  // cambiando richiesta, l'albero della precedente non resta e una risposta in ritardo non lo sostituisce
+    setAlbero(null); setErrore(null);
+    api.get(`/fabbisogno/richieste/${id}/origine`)
+      .then((r) => { if (attivo) setAlbero(r.data); })
+      .catch((e) => { if (attivo) setErrore(erroreDi(e, "Provenienza non disponibile")); });
+    return () => { attivo = false; };
   }, [id]);
   if (errore) return <p className="text-muted" style={{ fontSize: 13 }}>{errore}</p>;
   if (!albero) return <p className="text-muted" style={{ fontSize: 13 }}>Carico la provenienza...</p>;

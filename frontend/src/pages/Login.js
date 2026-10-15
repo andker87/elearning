@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate, Link } from "react-router-dom";
-import api from "../api";
+import api, { erroreDi } from "../api";
 import { useBranding } from "../branding";
 
 const ERRORI_SSO = {
@@ -64,7 +64,7 @@ export default function Login() {
       localStorage.setItem("user", JSON.stringify(r.data.user));
       navigate("/miei-corsi");
     } catch (err) {
-      setError(err.response?.data?.detail || "Credenziali non valide");
+      setError(erroreDi(err, "Credenziali non valide"));
     }
   }
 

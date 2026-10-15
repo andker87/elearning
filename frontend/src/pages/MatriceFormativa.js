@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import api from "../api";
+import api, { erroreDi } from "../api";
 import ExportButton from "../components/ExportButton";
 import { FiltroEtichette } from "../components/Etichette";
 
@@ -11,13 +11,18 @@ export default function MatriceFormativa() {
   const [uffici, setUffici] = useState([]);
   const [filtri, setFiltri] = useState({ ufficio_id: "", solo_obbligatori: true, etichette: [] });
   const [m, setM] = useState(null);
+  const [errore, setErrore] = useState(null);
 
-  useEffect(() => { api.get("/groups").then((r) => setUffici(r.data.filter((g) => g.is_ufficio))); }, []);
+  useEffect(() => { api.get("/groups").then((r) => setUffici(r.data.filter((g) => g.is_ufficio))).catch((e) => setErrore(erroreDi(e, "Impossibile caricare gli uffici"))); }, []);
   useEffect(() => {
+    let attiva = true;  // una risposta arrivata in ritardo non deve sovrascrivere quella dei filtri attuali
     const params = { solo_obbligatori: filtri.solo_obbligatori };
     if (filtri.ufficio_id) params.ufficio_id = filtri.ufficio_id;
     if (filtri.etichette.length) params.etichette = filtri.etichette;
-    api.get("/registro/matrice", { params, paramsSerializer: { indexes: null } }).then((r) => setM(r.data));
+    api.get("/registro/matrice", { params, paramsSerializer: { indexes: null } })
+      .then((r) => { if (attiva) { setM(r.data); setErrore(null); } })
+      .catch((e) => { if (attiva) setErrore(erroreDi(e, "Impossibile caricare la matrice")); });
+    return () => { attiva = false; };
   }, [filtri]);
 
   function exportPath() {
@@ -38,6 +43,7 @@ export default function MatriceFormativa() {
         <ExportButton path={exportPath()} filename="matrice_formativa" />
       </div>
 
+      {errore && <div className="error-msg">{errore}</div>}
       <div className="card">
         <div className="row">
           <div className="field">

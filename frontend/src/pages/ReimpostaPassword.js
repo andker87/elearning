@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
-import api from "../api";
+import api, { erroreDi } from "../api";
 import { REQUISITI_PASSWORD, passwordValida } from "../passwordPolicy";
 
 export default function ReimpostaPassword() {
@@ -16,7 +16,7 @@ export default function ReimpostaPassword() {
     if (form.nuova !== form.conferma) { setErrore("Le password non coincidono"); return; }
     if (!passwordValida(form.nuova)) { setErrore(`Password non valida: richiesti ${REQUISITI_PASSWORD}`); return; }
     try { await api.post("/auth/reimposta-password", { token, password_nuova: form.nuova }); setFatto(true); }
-    catch (err) { setErrore(err.response?.data?.detail || "Errore nella reimpostazione"); }
+    catch (err) { setErrore(erroreDi(err, "Errore nella reimpostazione")); }
   }
 
   return (

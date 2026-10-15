@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import api from "../api";
+import api, { erroreDi } from "../api";
 import AlberoOrigine from "../components/AlberoOrigine";
 
 const PERIODI = [{ value: "", label: "Periodo..." }, { value: "mese", label: "Mese" }, { value: "trimestre", label: "Trimestre" },
@@ -7,11 +7,13 @@ const PERIODI = [{ value: "", label: "Periodo..." }, { value: "mese", label: "Me
 const STATO_LABEL = { in_revisione: "In revisione", approvata_hr: "Inviata (in carico alla Formazione)", rifiutata: "Rifiutata", fusa: "Unita ad altre richieste" };
 const STATO_BADGE = { in_revisione: "gray", approvata_hr: "blue", rifiutata: "red" };
 const RIGA_VUOTA = { argomento: "", periodo: "", riferimento_periodo: "", numero_persone_stimate: "", note: "" };
+let contatoreRighe = 0;
+const nuovaRiga = () => ({ ...RIGA_VUOTA, _k: ++contatoreRighe });  // chiave stabile: togliere una riga non deve spostare il testo delle altre
 const dataIt = (d) => new Date(d).toLocaleDateString("it-IT");
 
 // Una o piu' esigenze in un solo invio: una riga per argomento, "+" per aggiungerne.
 function RigheForm({ onSubmit, etichettaInvio = "Invia" }) {
-  const [righe, setRighe] = useState([{ ...RIGA_VUOTA }]);
+  const [righe, setRighe] = useState(() => [nuovaRiga()]);
   const [errore, setErrore] = useState(null);
   const [invio, setInvio] = useState(false);
   const imposta = (i, k, v) => setRighe(righe.map((r, n) => (n === i ? { ...r, [k]: v } : r)));
@@ -26,9 +28,9 @@ function RigheForm({ onSubmit, etichettaInvio = "Invia" }) {
         argomento: r.argomento.trim(), periodo: r.periodo || null, riferimento_periodo: r.riferimento_periodo.trim() || null,
         numero_persone_stimate: r.numero_persone_stimate ? parseInt(r.numero_persone_stimate, 10) : null, note: r.note.trim() || null,
       })));
-      setRighe([{ ...RIGA_VUOTA }]);
+      setRighe([nuovaRiga()]);
     } catch (err) {
-      setErrore(err.response?.data?.detail || "Errore nell'invio");
+      setErrore(erroreDi(err, "Errore nell'invio"));
     } finally { setInvio(false); }
   }
 
@@ -38,7 +40,7 @@ function RigheForm({ onSubmit, etichettaInvio = "Invia" }) {
         <span>Argomento</span><span>Periodo</span><span>Riferimento</span><span>N. persone</span><span>Note</span><span />
       </div>
       {righe.map((r, i) => (
-        <div className="riga-esigenza" key={i}>
+        <div className="riga-esigenza" key={r._k}>
           <input aria-label="Argomento" placeholder="Es. Privacy per i nuovi assunti" value={r.argomento} onChange={(e) => imposta(i, "argomento", e.target.value)} />
           <select aria-label="Periodo" value={r.periodo} onChange={(e) => imposta(i, "periodo", e.target.value)}>
             {PERIODI.map((p) => <option key={p.value} value={p.value}>{p.label}</option>)}
@@ -51,7 +53,7 @@ function RigheForm({ onSubmit, etichettaInvio = "Invia" }) {
         </div>
       ))}
       <div className="righe-azioni">
-        <button type="button" className="secondary btn-sm" onClick={() => setRighe([...righe, { ...RIGA_VUOTA }])}>+ Aggiungi un'altra esigenza</button>
+        <button type="button" className="secondary btn-sm" onClick={() => setRighe([...righe, nuovaRiga()])}>+ Aggiungi un'altra esigenza</button>
         <button type="submit" className="btn-sm" disabled={invio || !compilate.length}>
           {compilate.length > 1 ? `${etichettaInvio} (${compilate.length} esigenze)` : etichettaInvio}
         </button>
@@ -127,7 +129,7 @@ function DaValutare({ righe, onCambiato, avvisa }) {
   const alterna = (id) => { const n = new Set(sel); n.has(id) ? n.delete(id) : n.add(id); setSel(n); };
   const alternaGruppo = (g) => { const n = new Set(sel); const tutte = g.righe.every((r) => n.has(r.id)); g.righe.forEach((r) => (tutte ? n.delete(r.id) : n.add(r.id))); setSel(n); };
   const dopo = (testo) => { setSel(new Set()); setRifiuto(null); setUnione(null); setErrore(null); avvisa(testo); onCambiato(); };
-  const errorePre = (err) => setErrore(err.response?.data?.detail || "Operazione non riuscita");
+  const errorePre = (err) => setErrore(erroreDi(err, "Operazione non riuscita"));
 
   async function approva() { try { const r = await api.put("/fabbisogno/richieste/approva-multiple", { ids: selezionate.map((x) => x.id) }); dopo(`${r.data.approvate} richieste approvate: proseguono verso l'alto.`); } catch (e) { errorePre(e); } }
   async function rifiuta() { try { const r = await api.put("/fabbisogno/richieste/rifiuta-multiple", { ids: selezionate.map((x) => x.id), motivo: rifiuto }); dopo(`${r.data.rifiutate} richieste rifiutate.`); } catch (e) { errorePre(e); } }
@@ -234,24 +236,29 @@ export default function Fabbisogno() {
   const [uffici, setUffici] = useState([]);
   const [ufficioSpontanea, setUfficioSpontanea] = useState("");
   const [msg, setMsg] = useState(null);
+  const [erroreGen, setErroreGen] = useState(null);
   const [provenienza, setProvenienza] = useState(null);
   const user = JSON.parse(localStorage.getItem("user") || "null");
 
   function load() {
-    api.get("/fabbisogno/inviti/miei").then((r) => setCampagne(r.data));
-    api.get("/fabbisogno/richieste/da-revisionare").then((r) => setDaRevisionare(r.data));
-    api.get("/fabbisogno/richieste/mie").then((r) => setMieRichieste(r.data));
+    setErroreGen(null);
+    const falla = (e) => setErroreGen(erroreDi(e, "Impossibile caricare le richieste"));
+    api.get("/fabbisogno/inviti/miei").then((r) => setCampagne(r.data)).catch(falla);
+    api.get("/fabbisogno/richieste/da-revisionare").then((r) => setDaRevisionare(r.data)).catch(falla);
+    api.get("/fabbisogno/richieste/mie").then((r) => setMieRichieste(r.data)).catch(falla);
   }
   useEffect(() => {
     load();
-    if (user?.id) api.get(`/auth/users/${user.id}/uffici-guidati`).then((r) => { setUffici(r.data); if (r.data.length) setUfficioSpontanea(r.data[0].id); });
+    if (user?.id) api.get(`/auth/users/${user.id}/uffici-guidati`).then((r) => { setUffici(r.data); if (r.data.length) setUfficioSpontanea(r.data[0].id); }).catch((e) => setErroreGen(erroreDi(e, "Impossibile caricare i tuoi uffici")));
   }, []); // eslint-disable-line
 
   const avvisa = (testo) => { setMsg(testo); setTimeout(() => setMsg(null), 6000); };
   async function delega(invito) {
     if (!window.confirm(`Inoltrare l'invito ai sotto-uffici di ${invito.ufficio_nome} (${invito.sotto_uffici.join(", ")})? Poi non potrai più rispondere tu per questa campagna.`)) return;
-    await api.post(`/fabbisogno/inviti/${invito.id}/delega`);
-    avvisa("Invito inoltrato ai sotto-uffici."); load();
+    setErroreGen(null);
+    try { await api.post(`/fabbisogno/inviti/${invito.id}/delega`); avvisa("Invito inoltrato ai sotto-uffici."); }
+    catch (err) { setErroreGen(erroreDi(err, "Non è stato possibile inoltrare l'invito")); }
+    load();
   }
   async function rispondi(invito, righe) {
     await api.post(`/fabbisogno/inviti/${invito.id}/rispondi`, { righe });
@@ -264,12 +271,13 @@ export default function Fabbisogno() {
   async function scomponi(r) {
     if (!window.confirm(`Annullare l'unione «${r.argomento}»? Le ${r.n_origini} richieste tornano da valutare, come prima.`)) return;
     try { await api.post(`/fabbisogno/richieste/${r.id}/scomponi`); avvisa("Unione annullata: le richieste sono di nuovo da valutare."); load(); }
-    catch (err) { avvisa(err.response?.data?.detail || "Non è stato possibile annullare l'unione"); }
+    catch (err) { avvisa(erroreDi(err, "Non è stato possibile annullare l'unione")); }
   }
 
   return (
     <div>
       <div className="page-header"><div><h2>Richieste di formazione</h2><p>Segnala le esigenze di formazione del tuo ufficio per il periodo successivo: rispondendo a una campagna della Formazione o, in qualsiasi momento, con una richiesta spontanea.</p></div></div>
+      {erroreGen && <div className="error-msg">{erroreGen}</div>}
       {msg && <div className="card" style={{ color: "var(--green-text)", background: "var(--green-bg)", borderColor: "transparent" }}>{msg}</div>}
 
       {campagne.map((c) => (

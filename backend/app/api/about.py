@@ -17,6 +17,14 @@ PACCHETTI = ["fastapi", "uvicorn", "sqlalchemy", "pydantic", "python-jose", "htt
              "reportlab", "openpyxl", "pywebpush", "psycopg2-binary"]
 
 CHANGELOG = [
+    {"version": "1.8.6", "date": "2026-10", "label": "Interfaccia (rilievi della revisione pubblica)", "changes": [
+        "Errori sempre visibili: sessioni del responsabile, richieste di corso, dashboard formazione (sollecito), azienda, piattaforma, template attestati, fabbisogno, dettaglio sessione, corsi, informativa e impostazioni utente mostrano il motivo quando un'operazione o un caricamento falliscono (anche a server irraggiungibile), con «Riprova» dove serve; gli errori di validazione non appaiono più come testo grezzo",
+        "Tastiera e accessibilità: stelle del gradimento, intestazioni ordinabili, schede (impostazioni, KPI, fabbisogno) e dettaglio dell'audit si usano anche senza mouse",
+        "Risposte vecchie scartate: audit, matrice formativa, richieste formative e albero di provenienza non mostrano più il risultato di una richiesta superata dai filtri nuovi",
+        "Template attestati: durante il trascinamento di un campo non si perdono più le modifiche fatte nel frattempo; «predefinito» non ricarica i campi in modifica",
+        "Banner di installazione e notifiche: restano visibili se l'operazione fallisce (con il motivo) e l'installazione rifiutata non li nasconde per sempre; se il server non salva l'attivazione push, il browser torna coerente",
+        "Etichette: i moduli di rinomina e unione si chiudono solo se l'operazione riesce. Fabbisogno: righe del modulo con chiave stabile; «Azzera» mantiene la campagna da cui si arriva. Notifiche push: l'indirizzo da aprire deve essere della piattaforma",
+    ]},
     {"version": "1.8.5", "date": "2026-10", "label": "Correttezza e prestazioni (rilievi della revisione pubblica)", "changes": [
         "Rinnovo automatico: tiene conto della scadenza breve dopo un test non superato, e un'iscrizione a una sessione già iniziata o in bozza non blocca più il rinnovo",
         "Dati in ingresso: richieste di corso, filtri per etichetta, template degli attestati e icona controllano forma e dimensione prima di salvare; un identificativo sbagliato dà un errore chiaro invece di un errore del server; un'immagine non valida non sostituisce più quella buona",

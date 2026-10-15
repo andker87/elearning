@@ -29,7 +29,12 @@ self.addEventListener("push", (event) => {
 
 self.addEventListener("notificationclick", (event) => {
   event.notification.close();
-  const url = (event.notification.data && event.notification.data.url) || "/";
+  // Si apre solo un indirizzo della stessa origine: un url estraneo dentro il messaggio push non porta fuori dalla piattaforma.
+  let url = "/";
+  try {
+    const richiesto = new URL((event.notification.data && event.notification.data.url) || "/", self.location.origin);
+    if (richiesto.origin === self.location.origin) url = richiesto.pathname + richiesto.search + richiesto.hash;
+  } catch (e) { /* url non valido: si apre la home */ }
   event.waitUntil(
     self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((clientList) => {
       for (const client of clientList) {

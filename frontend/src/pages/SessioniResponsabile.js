@@ -1,26 +1,32 @@
 import React, { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import api from "../api";
+import api, { erroreDi } from "../api";
 import { FiltroEtichette, ChipEtichette } from "../components/Etichette";
 
 export default function SessioniResponsabile() {
   const [list, setList] = useState([]);
   const [corsi, setCorsi] = useState([]);
   const [daApprovare, setDaApprovare] = useState([]);
+  const [errore, setErrore] = useState(null);
 
-  function loadApprovazioni() { api.get("/autoiscrizioni/da-approvare").then((r) => setDaApprovare(r.data)); }
+  function loadApprovazioni() { api.get("/autoiscrizioni/da-approvare").then((r) => setDaApprovare(r.data)).catch((e) => setErrore(erroreDi(e, "Impossibile caricare le auto-iscrizioni"))); }
 
   const [filtroEtichette, setFiltroEtichette] = useState([]);
-  useEffect(() => { api.get("/edizioni", { params: filtroEtichette.length ? { etichette: filtroEtichette } : {} }).then((r) => setList(r.data)); }, [filtroEtichette]);
+  useEffect(() => { api.get("/edizioni", { params: filtroEtichette.length ? { etichette: filtroEtichette } : {} }).then((r) => setList(r.data)).catch((e) => setErrore(erroreDi(e, "Impossibile caricare le sessioni"))); }, [filtroEtichette]);
   useEffect(() => {
-    api.get("/corsi").then((r) => setCorsi(r.data));
+    api.get("/corsi").then((r) => setCorsi(r.data)).catch((e) => setErrore(erroreDi(e, "Impossibile caricare i corsi")));
     loadApprovazioni();
   }, []);
 
   const corsoTitolo = (id) => corsi.find((c) => c.id === id)?.titolo || id;
 
-  async function approva(id) { await api.put(`/autoiscrizioni/${id}/approva`); loadApprovazioni(); }
-  async function rifiuta(id) { await api.put(`/autoiscrizioni/${id}/rifiuta`); loadApprovazioni(); }
+  async function decidi(id, azione) {
+    setErrore(null);
+    try { await api.put(`/autoiscrizioni/${id}/${azione}`); } catch (e) { setErrore(erroreDi(e, "Operazione non riuscita")); }
+    loadApprovazioni();
+  }
+  const approva = (id) => decidi(id, "approva");
+  const rifiuta = (id) => decidi(id, "rifiuta");
 
   return (
     <div>
@@ -31,6 +37,7 @@ export default function SessioniResponsabile() {
         </div>
       </div>
 
+      {errore && <div className="error-msg">{errore}</div>}
       {daApprovare.length > 0 && (
         <div className="card">
           <h3>Auto-iscrizioni da approvare</h3>

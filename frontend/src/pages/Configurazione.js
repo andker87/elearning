@@ -1,5 +1,5 @@
 import React, { useRef, useState } from "react";
-import api, { downloadFile } from "../api";
+import api, { downloadFile, erroreDi } from "../api";
 import ExportButton from "../components/ExportButton";
 
 const NOMI = { azienda: "Dati aziendali", gruppi: "Gruppi e uffici", organizzazioni: "Società di formazione", corsi: "Corsi", percorsi: "Percorsi formativi" };
@@ -19,6 +19,7 @@ function Riepilogo({ r }) {
       </p>
       {Object.entries(NOMI).map(([k, nome]) => {
         const s = r.sezioni[k];
+        if (!s) return null;  // il file di un'altra versione puo' non avere questa sezione
         if (!s.creati.length && !s.aggiornati.length) return <p key={k} className="text-muted" style={{ fontSize: 13, margin: "2px 0" }}>{nome}: nessuna differenza{s.invariati ? ` (${s.invariati} già uguali)` : ""}</p>;
         return (
           <div key={k} style={{ margin: ".6rem 0" }}>
@@ -59,7 +60,7 @@ export default function Configurazione() {
     try {
       const r = await api.post("/admin/configurazione/import", { contenuto, applica: false });
       setFile({ nome: f.name, contenuto }); setAnteprima(r.data);
-    } catch (err) { setFile(null); setErrore(err.response?.data?.detail || "Importazione non riuscita"); }
+    } catch (err) { setFile(null); setErrore(erroreDi(err, "Importazione non riuscita")); }
     finally { setLavoro(false); }
   }
 
@@ -69,7 +70,7 @@ export default function Configurazione() {
     try {
       const r = await api.post("/admin/configurazione/import", { contenuto: file.contenuto, applica: true });
       setEsito(r.data); setAnteprima(null); setFile(null);
-    } catch (err) { setErrore(err.response?.data?.detail || "Importazione non riuscita"); }
+    } catch (err) { setErrore(erroreDi(err, "Importazione non riuscita")); }
     finally { setLavoro(false); }
   }
 

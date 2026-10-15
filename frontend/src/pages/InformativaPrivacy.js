@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
-import api, { apriFile } from "../api";
+import api, { apriFile, erroreDi } from "../api";
 
 export default function InformativaPrivacy() {
   const [info, setInfo] = useState(null);
@@ -9,12 +9,12 @@ export default function InformativaPrivacy() {
   const fileRef = useRef(null);
 
   function applica(r) { setInfo(r.data); setTesto(r.data.testo || ""); }
-  useEffect(() => { api.get("/privacy/informativa").then(applica); }, []);
+  useEffect(() => { api.get("/privacy/informativa").then(applica).catch((e) => setErrore(erroreDi(e, "Impossibile caricare l'informativa"))); }, []);
 
   async function esegui(chiamata, ok) {
     setMsg(null); setErrore(null);
     try { applica(await chiamata()); setMsg(ok); }
-    catch (err) { setErrore(err.response?.data?.detail || "Errore nel salvataggio"); }
+    catch (err) { setErrore(erroreDi(err, "Errore nel salvataggio")); }
   }
 
   const salvaTesto = (e) => { e.preventDefault(); esegui(() => api.put("/privacy/informativa", { testo }), "Testo salvato"); };
@@ -31,7 +31,7 @@ export default function InformativaPrivacy() {
     esegui(() => api.delete("/privacy/informativa/pdf"), "PDF rimosso");
   };
 
-  if (!info) return <p className="text-muted">Caricamento...</p>;
+  if (!info) return errore ? <div className="error-msg">{errore}</div> : <p className="text-muted">Caricamento...</p>;
   return (
     <div>
       <div className="page-header"><div><h2>Informativa privacy</h2><p>Gli utenti la consultano dal proprio profilo (Impostazioni, scheda Privacy). Non richiede accettazione.</p></div></div>

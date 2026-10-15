@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
-import api, { downloadFile } from "../api";
+import api, { downloadFile, erroreDi } from "../api";
 import VideoPlayer from "../components/VideoPlayer";
 import TestPlayer from "../components/TestPlayer";
 import Gradimento from "../components/Gradimento";
@@ -23,21 +23,25 @@ export default function EdizioneDetail() {
   const [invioCom, setInvioCom] = useState(false);
   const user = JSON.parse(localStorage.getItem("user") || "null");
 
+  const [erroreCaricamento, setErroreCaricamento] = useState(null);
+  const falla = (testo) => (e) => setErroreCaricamento(erroreDi(e, testo));
+
   function load() {
+    setErroreCaricamento(null);  // un nuovo tentativo parte da zero: se fallisce di nuovo, l'errore ricompare
     api.get(`/edizioni/${id}`).then((r) => {
       setEdizione(r.data);
-      if (r.data.video_id) api.get(`/video/${r.data.video_id}`).then((rv) => setVideo(rv.data));
-      api.get(`/corsi/${r.data.corso_id}/test`).then((rt) => setTests(rt.data));
+      if (r.data.video_id) api.get(`/video/${r.data.video_id}`).then((rv) => setVideo(rv.data)).catch(falla("Impossibile caricare il video"));
+      api.get(`/corsi/${r.data.corso_id}/test`).then((rt) => setTests(rt.data)).catch(falla("Impossibile caricare i test"));
       const puoComunicare = r.data.docenti?.some((d) => d.user_id === user?.id)
         || user?.role === "admin_tecnico" || user?.role === "training_admin";
-      if (puoComunicare) api.get(`/edizioni/${id}/comunicazioni`).then((rc) => setComunicazioni(rc.data));
-    });
-    api.get(`/edizioni/${id}/iscrizioni`).then((r) => setIscrizioni(r.data));
+      if (puoComunicare) api.get(`/edizioni/${id}/comunicazioni`).then((rc) => setComunicazioni(rc.data)).catch(falla("Impossibile caricare le comunicazioni"));
+    }).catch(falla("Impossibile caricare la sessione"));
+    api.get(`/edizioni/${id}/iscrizioni`).then((r) => setIscrizioni(r.data)).catch(falla("Impossibile caricare le iscrizioni"));
   }
   useEffect(() => {
     load();
-    api.get("/auth/users/simple").then((r) => setUtenti(r.data));
-    if (user?.id) api.get(`/auth/users/${user.id}/sottoposti`).then((r) => setSottoposti(r.data));
+    api.get("/auth/users/simple").then((r) => setUtenti(r.data)).catch(falla("Impossibile caricare l'elenco delle persone"));
+    if (user?.id) api.get(`/auth/users/${user.id}/sottoposti`).then((r) => setSottoposti(r.data)).catch(falla("Impossibile caricare le persone sotto la tua responsabilità"));
   }, [id]);
 
   const isDocente = edizione?.docenti?.some((d) => d.user_id === user?.id);
@@ -46,23 +50,32 @@ export default function EdizioneDetail() {
   const miaIscrizione = iscrizioni.find((i) => i.user_id === user?.id && i.stato !== "annullato");
   const sottopostiNonIscritti = sottoposti.filter((s) => !iscrizioni.some((i) => i.user_id === s.id && i.stato !== "annullato"));
 
+  // Esegue un'azione e, se il server la rifiuta, mostra il motivo invece di non dire niente.
+  async function tenta(azione, erroreDefault) {
+    setMsg(null);
+    try { await azione(); } catch (e) { setMsg(erroreDi(e, erroreDefault)); }
+  }
   async function assegnaDocente() {
     if (!selectedUser) return;
-    await api.post(`/edizioni/${id}/docenti`, { user_id: selectedUser, ruolo: "titolare" });
-    setSelectedUser(""); load();
+    await tenta(async () => {
+      await api.post(`/edizioni/${id}/docenti`, { user_id: selectedUser, ruolo: "titolare" });
+      setSelectedUser(""); load();
+    }, "Impossibile assegnare il docente");
   }
   async function iscrivi() {
     if (!selectedUser) return;
-    const r = await api.post(`/edizioni/${id}/iscrizioni`, [selectedUser]);
-    if (r.data.non_iscritti?.length) window.alert(`Iscrizione non effettuata: ${r.data.non_iscritti[0].motivo}`);
-    setSelectedUser(""); load();
+    await tenta(async () => {
+      const r = await api.post(`/edizioni/${id}/iscrizioni`, [selectedUser]);
+      if (r.data.non_iscritti?.length) window.alert(`Iscrizione non effettuata: ${r.data.non_iscritti[0].motivo}`);
+      setSelectedUser(""); load();
+    }, "Iscrizione non riuscita");
   }
   async function iscriviSottoposto() {
     if (!selectedSottoposto) return;
     try {
       const r = await api.post(`/edizioni/${id}/iscrizioni`, [selectedSottoposto]);
       if (r.data.non_iscritti?.length) window.alert(`Iscrizione non effettuata: ${r.data.non_iscritti[0].motivo}`);
-    } catch (err) { window.alert(err.response?.data?.detail || "Iscrizione non riuscita"); }
+    } catch (err) { window.alert(erroreDi(err, "Iscrizione non riuscita")); }
     setSelectedSottoposto(""); load();
   }
   async function autoiscriviti() {
@@ -70,36 +83,32 @@ export default function EdizioneDetail() {
       const r = await api.post(`/autoiscrizioni/edizioni/${id}`);
       setMsg(r.data.stato === "in_attesa_approvazione" ? "Richiesta inviata: in attesa di approvazione del tuo responsabile." : "Iscrizione effettuata.");
       load();
-    } catch (e) { setMsg(e.response?.data?.detail || "Errore"); }
+    } catch (e) { setMsg(erroreDi(e, "Errore")); }
   }
   async function annulla(iscrizioneId) {
     if (!window.confirm("Annullare questa iscrizione?")) return;
-    await api.post(`/edizioni/${id}/iscrizioni/${iscrizioneId}/annulla`);
-    load();
+    await tenta(async () => { await api.post(`/edizioni/${id}/iscrizioni/${iscrizioneId}/annulla`); load(); }, "Impossibile annullare l'iscrizione");
   }
   async function checkinDiscente(momento) {
-    await api.post(`/edizioni/${id}/checkin/discente`, { momento });
-    setMsg(`Check-in ${momento} registrato`);
+    await tenta(async () => { await api.post(`/edizioni/${id}/checkin/discente`, { momento }); setMsg(`Check-in ${momento} registrato`); }, "Check-in non registrato");
   }
   async function checkinDocentePresente(uid) {
-    await api.post(`/edizioni/${id}/checkin/docente`, [{ user_id: uid, presente: true }]);
-    load();
+    await tenta(async () => { await api.post(`/edizioni/${id}/checkin/docente`, [{ user_id: uid, presente: true }]); load(); }, "Presenza non registrata");
   }
   async function linkTeams() {
-    await api.post(`/edizioni/${id}/teams/link`, { join_url: teamsUrl });
-    load();
+    await tenta(async () => { await api.post(`/edizioni/${id}/teams/link`, { join_url: teamsUrl }); load(); }, "Link non salvato");
   }
   async function creaRiunioneAuto() {
     try {
       await api.post(`/edizioni/${id}/teams/crea-riunione`);
       load();
-    } catch (e) { setMsg(e.response?.data?.detail || "Errore"); }
+    } catch (e) { setMsg(erroreDi(e, "Errore")); }
   }
   async function sincronizzaPresenze() {
     try {
       const r = await api.post(`/edizioni/${id}/teams/sincronizza-presenze`);
       setMsg(`Presenze sincronizzate: ${r.data.applicati.length}`);
-    } catch (e) { setMsg(e.response?.data?.detail || "Errore — usa il report manuale"); }
+    } catch (e) { setMsg(erroreDi(e, "Errore — usa il report manuale")); }
   }
   async function inviaComunicazione() {
     if (!oggettoCom.trim() || !messaggioCom.trim()) return;
@@ -110,7 +119,7 @@ export default function EdizioneDetail() {
       setOggettoCom(""); setMessaggioCom("");
       load();
     } catch (e) {
-      setMsg(e.response?.data?.detail || "Errore nell'invio della comunicazione");
+      setMsg(erroreDi(e, "Errore nell'invio della comunicazione"));
     } finally {
       setInvioCom(false);
     }
@@ -118,12 +127,14 @@ export default function EdizioneDetail() {
 
   async function chiudi() {
     if (!window.confirm("Chiudere la sessione? Le evidenze diventeranno definitive e verranno generati i certificati.")) return;
-    const r = await api.post(`/edizioni/${id}/chiudi`);
-    setMsg(`Sessione chiusa. Completati: ${r.data.esiti.filter((x) => x.completato).length}/${r.data.esiti.length}`);
-    load();
+    await tenta(async () => {
+      const r = await api.post(`/edizioni/${id}/chiudi`);
+      setMsg(`Sessione chiusa. Completati: ${r.data.esiti.filter((x) => x.completato).length}/${r.data.esiti.length}`);
+      load();
+    }, "Impossibile chiudere la sessione");
   }
 
-  if (!edizione) return <div>Caricamento...</div>;
+  if (!edizione) return erroreCaricamento ? <div><div className="error-msg">{erroreCaricamento}</div><button type="button" className="secondary btn-sm" onClick={load}>Riprova</button></div> : <div>Caricamento...</div>;
 
   return (
     <div>

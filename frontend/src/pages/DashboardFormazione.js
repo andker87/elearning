@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useMemo } from "react";
 import { Link } from "react-router-dom";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from "recharts";
-import api from "../api";
+import api, { erroreDi } from "../api";
 import { FiltroEtichette } from "../components/Etichette";
 import ExportButton from "../components/ExportButton";
 
@@ -73,14 +73,16 @@ export default function DashboardFormazione() {
     try {
       const r = await api.post(`/edizioni/${edizioneScelta}/iscrizioni`, [iscrizioneAperta.userId]);
       setMsg(r.data.non_iscritti?.length ? `Iscrizione non effettuata: ${r.data.non_iscritti[0].motivo}` : "Iscrizione effettuata.");
-    } catch (err) { setMsg(err.response?.data?.detail || "Iscrizione non riuscita"); }
+    } catch (err) { setMsg(erroreDi(err, "Iscrizione non riuscita")); }
     setIscrizioneAperta(null);
     carica();
   }
 
   async function invioSollecito(userId, corsoId) {
-    await api.post("/dashboard/formazione/sollecito", { user_id: userId, corso_id: corsoId });
-    setMsg("Sollecito inviato.");
+    try {
+      await api.post("/dashboard/formazione/sollecito", { user_id: userId, corso_id: corsoId });
+      setMsg("Sollecito inviato.");
+    } catch (err) { setMsg(erroreDi(err, "Sollecito non inviato")); }
   }
 
   function exportPath() {
