@@ -125,3 +125,62 @@ def test_con_password_assegnata_si_puo_solo_cambiarla(client, auth, crea_utente)
 def test_chi_usa_il_dominio_non_e_bloccato_dal_cambio_password(client, auth, crea_utente):
     u = crea_utente(password_da_cambiare=True, origine_credenziali="dominio")
     assert client.get("/api/privacy/informativa", headers=auth(u)).status_code == 200
+
+
+# --- quarto giro di revisione ---------------------------------------------------------------------
+
+def test_non_si_degrada_l_ultimo_admin_tecnico_ne_se_stessi(client, auth, admin, crea_utente):
+    r = client.put(f"/api/auth/users/{admin.id}", json={"role": "user"}, headers=auth(admin))
+    assert r.status_code == 400
+    secondo = crea_utente("admin2@test.it", UserRole.admin_tecnico)
+    # un altro admin si puo' degradare, se ne resta almeno uno attivo
+    assert client.put(f"/api/auth/users/{secondo.id}", json={"role": "user"}, headers=auth(admin)).status_code == 200
+    # ma non se stessi
+    assert client.put(f"/api/auth/users/{admin.id}", json={"role": "user"}, headers=auth(admin)).status_code == 400
+
+
+def test_autoiscrizione_solo_in_sessioni_aperte(client, auth, utente, crea_corso, crea_edizione):
+    from app.models.edizione import StatoEdizione
+    corso = crea_corso("Aperto", permetti_autoiscrizione=True)
+    for stato in (StatoEdizione.chiusa, StatoEdizione.annullata, StatoEdizione.bozza):
+        e = crea_edizione(corso, stato=stato)
+        assert client.post(f"/api/autoiscrizioni/edizioni/{e.id}", headers=auth(utente)).status_code == 400
+    aperta = crea_edizione(corso, stato=StatoEdizione.pianificata)
+    assert client.post(f"/api/autoiscrizioni/edizioni/{aperta.id}", headers=auth(utente)).status_code == 200
+
+
+def test_i_csv_neutralizzano_le_formule():
+    from app.services.export import neutralizza, _a_csv
+    for pericoloso in ("=1+1", "+cmd", "-2+3", "@SOMMA(A1)"):
+        assert neutralizza(pericoloso).startswith("'")
+    assert neutralizza("Mario Rossi") == "Mario Rossi"
+    assert b"'=HYPERLINK" in _a_csv(["Nome"], [["=HYPERLINK(\"http://x\")"]])
+
+
+def test_il_formatore_di_una_sessione_chiusa_non_gestisce_piu_il_test(db, crea_utente, crea_corso, crea_edizione):
+    from app.api.test import _puo_gestire_test
+    from app.models.edizione import EdizioneDocente, StatoEdizione
+    doc = crea_utente("doc@test.it")
+    corso = crea_corso("Con test")
+    e = crea_edizione(corso, stato=StatoEdizione.chiusa)
+    db.add(EdizioneDocente(edizione_id=e.id, user_id=doc.id)); db.commit()
+    assert not _puo_gestire_test(db, doc, str(corso.id))
+    e2 = crea_edizione(corso, stato=StatoEdizione.pianificata)
+    db.add(EdizioneDocente(edizione_id=e2.id, user_id=doc.id)); db.commit()
+    assert _puo_gestire_test(db, doc, str(corso.id))
+
+
+def test_freno_entra_su_installazioni_piccole(db, crea_utente):
+    from app.services.entra_sync import calcola_piano
+    for n in range(4):
+        crea_utente(f"p{n}@azienda.it")
+    membri = [{"email": "altro@azienda.it", "indirizzi": ["altro@azienda.it"], "nome": "Altro", "attivo": True, "assunto_il": None}]
+    piano = calcola_piano(db, membri)
+    assert len(piano["disattiva"]) == 4 and piano["freno"]
+
+
+def test_reset_password_invia_in_sottofondo_e_import_csv_dopo_il_commit():
+    import inspect
+    from app.api import password_reset, auth
+    assert "in_sottofondo(invia_email" in inspect.getsource(password_reset.password_dimenticata)
+    assert "dopo_il_commit(db, invia_invito" in inspect.getsource(auth)

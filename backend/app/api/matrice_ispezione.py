@@ -20,6 +20,7 @@ from ..models.group import Group, UserGroup
 from ..models.percorso import PercorsoAssegnazione, PercorsoFormativo, PercorsoStep
 from ..models.user import User
 from ..services import audit as audit_svc
+from ..services.export import neutralizza
 from ..services.export import esporta, _a_excel, _a_pdf
 from ..services.gerarchia import persone_ufficio_e_sottouffici
 from .deps import require_training_admin
@@ -237,7 +238,7 @@ def pacchetto_ispezione(request: Request, ufficio_id: Optional[str] = Query(None
     w = csv.writer(indice)
     w.writerow(["Persona", "Email", "Corso", "Tipo documento", "Codice di verifica", "Data completamento", "File nel pacchetto"])
     for cartella, nome, _, riga in docs:
-        w.writerow([riga[0], riga[1], riga[2], riga[3], riga[4], riga[5].strftime("%d/%m/%Y") if riga[5] else "", f"{cartella}/{nome}"])
+        w.writerow([neutralizza(riga[0]), neutralizza(riga[1]), neutralizza(riga[2]), riga[3], riga[4], riga[5].strftime("%d/%m/%Y") if riga[5] else "", f"{cartella}/{nome}"])
 
     radice = f"pacchetto-ispezione-{ora.strftime('%Y%m%d')}"
     tmp = tempfile.SpooledTemporaryFile(max_size=50 * 1024 * 1024)

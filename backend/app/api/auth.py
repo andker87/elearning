@@ -17,7 +17,7 @@ from ..models.notification import Notification
 from ..services import audit as audit_svc
 from ..services.percorsi_sync import sincronizza_assegnazioni
 from ..services.gerarchia import responsabili_di, sottoposti_di, e_responsabile, uffici_guidati_da
-from ..services.email import invia_email
+from ..services.email import invia_email, dopo_il_commit
 from ..services.inviti import crea_link_invito, invia_invito
 from ..services.offboarding import disattiva_utente, invita_promossi
 from .deps import get_current_user, require_training_admin, require_admin_tecnico
@@ -305,7 +305,9 @@ async def import_users_csv(file: UploadFile = File(...), modo: str = Query("nuov
 
         link = crea_link_invito(db, u)
         db.flush()
-        inviata = bool(link) and invia_invito(email, full_name, link)  # il link, mai la password per email
+        inviata = bool(link)
+        if link:
+            dopo_il_commit(db, invia_invito, email, full_name, link)  # il link, mai la password; parte solo a commit riuscito
         creati += 1
         messaggio = "creato"
         if gruppi_non_trovati:
@@ -422,7 +424,13 @@ def update_user(user_id: str, data: UserUpdate, request: Request,
         u.tentativi_falliti = 0
         u.bloccato_fino = None
         password_cambiata = True
-    if data.role is not None: u.role = data.role
+    if data.role is not None and data.role != u.role:
+        if u.role == UserRole.admin_tecnico:
+            if str(u.id) == str(current.id):
+                raise HTTPException(400, "Non puoi cambiare il tuo stesso ruolo")
+            if u.is_active and db.query(User).filter(User.role == UserRole.admin_tecnico, User.is_active == True, User.id != u.id).count() == 0:  # noqa: E712
+                raise HTTPException(400, "È l'ultimo Admin tecnico attivo: non si può cambiare il suo ruolo")
+        u.role = data.role
     if data.is_external is not None: u.is_external = data.is_external
     if data.organizzazione_id is not None: u.organizzazione_id = data.organizzazione_id or None
     if u.is_external and not u.organizzazione_id:

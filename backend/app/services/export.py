@@ -25,6 +25,12 @@ def _cella(v):
         return "Sì" if v else ""
     if isinstance(v, (datetime, date)):
         return v.strftime("%d/%m/%Y")
+    return neutralizza(v)
+
+def neutralizza(v):
+    """Un testo che inizia con = + - @ verrebbe eseguito come formula da Excel/LibreOffice: lo si rende testo."""
+    if isinstance(v, str) and v[:1] in ("=", "+", "-", "@", "\t", "\r"):
+        return "'" + v
     return v
 
 def _a_csv(colonne, righe) -> bytes:

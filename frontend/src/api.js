@@ -12,7 +12,9 @@ api.interceptors.request.use((config) => {
 api.interceptors.response.use(
   (r) => r,
   (err) => {
-    if (err.response && err.response.status === 401) {
+    // Un login sbagliato risponde 401: il messaggio va mostrato, non ricaricata la pagina.
+    const url = (err.config && err.config.url) || "";
+    if (err.response && err.response.status === 401 && !url.includes("/auth/login")) {
       localStorage.removeItem("token");
       localStorage.removeItem("user");
       window.location.href = "/login";

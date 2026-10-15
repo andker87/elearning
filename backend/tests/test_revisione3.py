@@ -33,7 +33,7 @@ def test_la_gerarchia_non_gira_in_tondo_anche_con_dati_incoerenti(db, crea_utent
 def test_il_formatore_che_modifica_un_test_non_perde_le_risposte_giuste(client, db, auth, crea_utente, crea_corso, crea_edizione):
     corso = crea_corso("Con test")
     docente = crea_utente("docente@test.it")
-    ed = crea_edizione(corso)
+    ed = crea_edizione(corso, stato=SE.pianificata)
     db.add(EdizioneDocente(edizione_id=ed.id, user_id=docente.id, ruolo=RuoloDocente.titolare))
     t = Test(corso_id=corso.id, titolo="Finale")
     db.add(t); db.flush()

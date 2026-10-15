@@ -858,6 +858,10 @@ create nella stessa richiesta) e in sessioni chiuse; promossi senza invito dopo 
 lista d'attesa ferma quando aumentano i posti. Chiarita: il "motivo dell'obbligo" dei percorsi
 non si salva piu' per scelta (l'obbligo e' del corso), il frontend non lo manda piu'.
 
+
+### Z4. Quarta revisione del codice (14/10/2026, v1.8.3)
+Otto correzioni su dieci segnalazioni verificate: ruolo dell'ultimo Admin tecnico, auto-iscrizione in sessioni non aperte, invii email in sottofondo (reset password, inviti CSV), formule CSV/Excel, test del formatore, freno Entra su installazioni piccole, importazione configurazione (gruppi di sistema, campi assenti), messaggio di login errato. Il blocco account dopo 5 tentativi resta (temporaneo, risposta uniforme, avviso agli Admin tecnici): è il compromesso accettato.
+
 ### Y. Etichette dei corsi — SPEDITO (14/10/2026, v1.7.0)
 
 Ragionata con Andrea: una sola categoria per corso non basta (un corso di sicurezza

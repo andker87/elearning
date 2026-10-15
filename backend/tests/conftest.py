@@ -59,6 +59,11 @@ def pulizia(schema, monkeypatch):
                  "GRAPH_TENANT_ID", "GRAPH_CLIENT_ID", "GRAPH_CLIENT_SECRET"):
         monkeypatch.setattr(settings, nome, None)
     monkeypatch.setattr(settings, "SSO_PROVISIONA_UTENTI", False)
+
+    class _Immediato:  # gli invii in sottofondo nei test girano subito, cosi' si possono verificare
+        def submit(self, funzione, *args):
+            funzione(*args)
+    monkeypatch.setattr("app.services.email._esecutore", _Immediato())
     yield
 
 

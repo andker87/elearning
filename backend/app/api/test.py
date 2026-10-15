@@ -13,6 +13,7 @@ from ..models.corso import Corso
 from ..models.user import User, UserRole
 from ..services import certificati as cert_svc
 from ..services import audit as audit_svc
+from ..services.export import neutralizza
 from .deps import get_current_user, require_training_admin
 
 router = APIRouter(tags=["test"])
@@ -20,11 +21,12 @@ router = APIRouter(tags=["test"])
 def _puo_gestire_test(db: Session, user: User, corso_id: str) -> bool:
     """Creazione/modifica test riservata a Ufficio Formazione/Admin o a un
     Formatore che ha effettivamente insegnato questo corso (docente di
-    almeno un'edizione) - mai all'assistente, sempre un umano autorizzato."""
+    almeno un'edizione ancora aperta) - mai all'assistente, sempre un umano autorizzato."""
     if user.role in (UserRole.admin_tecnico, UserRole.training_admin):
         return True
     return db.query(EdizioneDocente).join(Edizione, Edizione.id == EdizioneDocente.edizione_id).filter(
-        Edizione.corso_id == corso_id, EdizioneDocente.user_id == user.id).first() is not None
+        Edizione.corso_id == corso_id, EdizioneDocente.user_id == user.id,
+        Edizione.stato.notin_((StatoEdizione.chiusa, StatoEdizione.annullata))).first() is not None
 
 class OpzioneIn(BaseModel):
     testo: str
@@ -204,7 +206,7 @@ def report_test_csv(test_id: str, db: Session = Depends(get_db), user=Depends(re
     for r in rows:
         iscr = db.query(Iscrizione).filter(Iscrizione.id == r.iscrizione_id).first()
         u = db.query(User).filter(User.id == iscr.user_id).first() if iscr else None
-        w.writerow([u.full_name if u else "", u.email if u else "", r.punteggio_pct,
+        w.writerow([neutralizza(u.full_name) if u else "", u.email if u else "", r.punteggio_pct,
                     "Sì" if r.superato else "No", r.completato_at.strftime("%d/%m/%Y %H:%M") if r.completato_at else ""])
     buf.seek(0)
     return StreamingResponse(iter([buf.getvalue()]), media_type="text/csv",
