@@ -22,3 +22,8 @@ def decode_token(token: str):
         return jwt.decode(token, settings.SECRET_KEY, algorithms=["HS256"])
     except JWTError:
         return None
+
+def token_per_utente(user) -> str:
+    """Token di sessione legato alla versione delle credenziali: cambiare o
+    reimpostare la password lo rende invalido ovunque (vedi deps.get_current_user)."""
+    return create_access_token({"sub": user.email, "tv": user.token_version or 0})

@@ -1,4 +1,4 @@
-from sqlalchemy import Column, String, Boolean, DateTime, Enum as SAEnum, ForeignKey
+from sqlalchemy import Column, String, Boolean, Integer, DateTime, Enum as SAEnum, ForeignKey
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.sql import func
 import uuid, enum
@@ -25,7 +25,10 @@ class User(Base):
     is_external = Column(Boolean, default=False, nullable=False)
     organizzazione_id = Column(UUID(as_uuid=True), ForeignKey("organizzazioni.id"), nullable=True)
 
-    manager_id  = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
+    # Visibilità totale indipendente dalla gerarchia uffici (es. ufficio
+    # formazione/HR). Il "chi è il responsabile di chi" NON vive qui: si
+    # deriva dagli uffici (Group.is_ufficio + responsabile_id), vedi
+    # services/gerarchia.py — una sola fonte di verità, niente da conciliare.
     can_see_all = Column(Boolean, default=False)
 
     # Data di ingresso in azienda: aggancio per i percorsi con trigger "ingresso in azienda".
@@ -35,5 +38,24 @@ class User(Base):
     # Altri valori (es. "dominio") disabilitano il cambio password in UI - pensato
     # per una futura integrazione SSO/AD, senza doverci ritornare sopra allora.
     origine_credenziali = Column(String, nullable=False, default="locale")
+
+    # Identificativo stabile (claim "sub") dell'utente presso l'IdP aziendale,
+    # fissato al primo accesso SSO: da li' in poi conta il sub, non solo
+    # l'email (un indirizzo riassegnato a un'altra persona non eredita l'account).
+    sso_subject = Column(String, nullable=True, unique=True)
+
+    # Token opaco per il feed iCal personale (sezione H): generato al primo
+    # accesso a GET /api/calendario/url, non all'onboarding - niente di
+    # segreto sul piano dei permessi (dà solo le date dei propri corsi), ma
+    # va comunque rigenerabile se qualcuno lo condivide per sbaglio.
+    calendar_token = Column(String, nullable=True, unique=True)
+
+    # Sicurezza accessi: blocco temporaneo dopo troppi tentativi falliti,
+    # versione del token (ogni cambio/reset password invalida le altre sessioni),
+    # obbligo di scegliere una password propria dopo averne ricevuta una assegnata.
+    tentativi_falliti   = Column(Integer, nullable=False, default=0, server_default="0")
+    bloccato_fino       = Column(DateTime(timezone=True), nullable=True)
+    token_version       = Column(Integer, nullable=False, default=0, server_default="0")
+    password_da_cambiare = Column(Boolean, nullable=False, default=False, server_default="false")
 
     created_at = Column(DateTime(timezone=True), server_default=func.now())

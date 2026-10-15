@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import api from "../api";
+import { REQUISITI_PASSWORD } from "../passwordPolicy";
 
 export default function Setup() {
   const [form, setForm] = useState({ full_name: "", email: "", password: "" });
@@ -37,8 +38,9 @@ export default function Setup() {
           </div>
           <div className="field">
             <label>Password</label>
-            <input required type="password" minLength={6} value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} />
+            <input required type="password" autoComplete="new-password" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} />
           </div>
+          <p className="text-muted" style={{ fontSize: 12 }}>La password deve avere {REQUISITI_PASSWORD}.</p>
           <button type="submit">Configura piattaforma</button>
           {error && <div className="error-msg">{error}</div>}
         </form>
