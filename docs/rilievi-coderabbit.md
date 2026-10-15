@@ -88,7 +88,7 @@ Stato: `DA FARE` fondato · `VERIFICARE` probabile, da guardare nel codice prima
 | CHIUSO | services/configurazione.py | un gruppo senza `percorso` nel file importato manda in errore l'ordinamento: segnalarlo o saltarlo con avviso (verificato; già rifiutato con errore 400 che nomina il campo, c'è il test) |
 | FATTO 1.8.6 | frontend AlberoOrigine.js | l'albero mostrato non è legato all'`id`: si aggiorna male cambiando richiesta |
 | FATTO 1.8.6 | frontend Configurazione.js | `r.sezioni[k]` senza controllo se manca la chiave |
-| DA FARE | docs/brief-video-formativi.md | chiarire quale voce va verificata (riga 53) e aggiornare il percorso di avvio di Copilot in Clipchamp (riga 30) |
+| FATTO 1.8.7 | docs/brief-video-formativi.md | chiarire quale voce va verificata (riga 53) e aggiornare il percorso di avvio di Copilot in Clipchamp (riga 30) — voce e percorso di Copilot in Clipchamp aggiornati dalla documentazione Microsoft (il menu cambia con account e versione) |
 
 ## PR #6 — fasi 1.7.0, 1.7.1 e 1.7.2 (4 commenti in linea + 1 di rifinitura)
 
@@ -106,9 +106,9 @@ Stato: `DA FARE` fondato · `VERIFICARE` probabile, da guardare nel codice prima
 | FATTO 1.8.5 | app/schema_legacy.py | `porta_a_baseline` usa `Base.metadata.create_all` con i modelli di OGGI: per un database precedente alle migrazioni, quando arriveranno migrazioni 0002+ lo schema "0001" non sarebbe più quello di partenza (verificato nel codice). Congelare lo schema 0001 (rilievo più importante di questa PR) — non congelato (nessun database vecchio da portare avanti): regola scritta in schema_legacy.py, ogni migrazione dalla 0002 è idempotente |
 | FATTO 1.8.5 | app/migrazioni.py | dopo un errore la transazione è interrotta e lo sblocco `pg_advisory_unlock` fallisce: fare rollback prima di rilasciare il blocco (verificato) |
 | FATTO 1.8.5 | services/inviti.py | normalizzare `SSO_PUBLIC_URL` (spazi, barre finali) prima di usarlo come alternativa (verificato: solo `rstrip("/")`) |
-| DA FARE | README.md | indicare l'URL HTTPS pubblico e limitare l'accesso diretto alla porta 2018 (documentazione; la parte di rete è infrastruttura dell'utente: solo testo) |
-| DA FARE | ROADMAP.md (riga 10) | cita ancora i "Formatori" tra i ruoli di sistema (verificato): i ruoli fissi sono Admin tecnico, Ufficio Formazione e Utenti |
-| DA FARE | docs/guida-amministratore.md, guida-utente.md | allineare le regole della password nelle due guide (la politica è: 14 caratteri, maiuscola, numero, carattere speciale) |
+| FATTO 1.8.7 | README.md | indicare l'URL HTTPS pubblico e limitare l'accesso diretto alla porta 2018 (documentazione; la parte di rete è infrastruttura dell'utente: solo testo) — aggiunto l’indirizzo HTTPS pubblico e l’indicazione di non esporre la porta 2018 direttamente (solo testo) |
+| FATTO 1.8.7 | ROADMAP.md (riga 10) | cita ancora i "Formatori" tra i ruoli di sistema (verificato): i ruoli fissi sono Admin tecnico, Ufficio Formazione e Utenti |
+| FATTO 1.8.7 | docs/guida-amministratore.md, guida-utente.md | allineare le regole della password nelle due guide (la politica è: 14 caratteri, maiuscola, numero, carattere speciale) — la guida utente era già corretta, allineata la guida amministratore |
 | FATTO 1.8.5 | scripts/modo-revisione.sh | togliere il file indice temporaneo anche in caso di errore |
 | FATTO 1.8.5 | tests/test_revisione2.py, test_revisione3.py | asserzioni mancanti: successo dell'annullamento da lista d'attesa e dell'aggiornamento del test; validare la risposta di riserva come PNG |
 
@@ -121,7 +121,7 @@ Stato: `DA FARE` fondato · `VERIFICARE` probabile, da guardare nel codice prima
 | FATTO 1.8.4 | services/configurazione.py | `is_ufficio` nullo nel file importato diventa `False` e cancella l'ufficio esistente (verificato: `bool(d["ufficio"])`); trattarlo come campo assente |
 | FATTO 1.8.4 | services/entra_sync.py | con meno di 4 utenti in ambito il minimo di 2 lascia passare tutte le disattivazioni (verificato: 2 su 2, 2 su 3): il freno deve valere per ogni dimensione |
 | FATTO 1.8.4 | services/export.py | l'apice di neutralizzazione compare anche nelle celle dei PDF: applicarla solo a CSV ed Excel |
-| VERIFICARE | services/export.py | testi che iniziano con un ritorno a capo o spazi prima del `=`: probabilmente innocui (in un campo tra virgolette restano testo), da provare in Excel/LibreOffice prima di cambiare |
+| CHIUSO | services/export.py | testi che iniziano con un ritorno a capo o spazi prima del `=`: probabilmente innocui (in un campo tra virgolette restano testo), da provare in Excel/LibreOffice prima di cambiare — con uno spazio o un a capo davanti al segno il campo resta testo; non provato in Excel, rischio basso: lasciato com’è |
 
 ## Le prossime PR
 Aggiungere qui sotto una sezione per ogni PR, appena arriva la review della fase.
@@ -156,3 +156,9 @@ Aggiungere qui sotto una sezione per ogni PR, appena arriva la review della fase
 | FATTO 1.8.6 | frontend Fabbisogno.js | errore generale mai azzerato dopo un ricaricamento riuscito: azzerato all'inizio di `load` |
 | FATTO 1.8.6 | frontend FabbisognoAdmin.js | errore di pagina persistente tra le schede: azzerato a ogni caricamento e al cambio scheda |
 | FATTO 1.8.6 | frontend Azienda.js | «Riprova» mancante se il caricamento fallisce: aggiunto |
+
+## PR #12 (1.8.7, documenti e rifiniture)
+
+| Stato | File | Rilievo |
+|---|---|---|
+| FATTO 1.8.7 | docs/brief-video-formativi.md (riga 30) | percorsi di avvio di Copilot in Clipchamp: indicati come documentati l'area Create e il comando «Genera un video»; la pagina iniziale resta solo condizionale; aggiunti piano Microsoft 365, Copilot Chat e Clipchamp abilitato dall'amministratore |

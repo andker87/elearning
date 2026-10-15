@@ -18,7 +18,7 @@ Per chi configura e fa funzionare la piattaforma (ruolo **Admin tecnico**) e per
 - **Import CSV** (colonne: `email`, `full_name`, facoltative `password`, `role`, `is_external`, `organizzazione`, `gruppi`, `data_ingresso`). Per **disattivare** i cessati scegli «Disattiva cessati» (basta la colonna `email`; gli Admin tecnici non si disattivano da qui).
 - **Disattivare un utente** chiude l'account e le sessioni, annulla le iscrizioni aperte (chi era in lista d'attesa sale) e toglie dispositivi e calendario. Lo storico formativo resta. Docenze aperte e responsabilità di ufficio vengono segnalate da riassegnare.
 - **Reset password**: se la posta non è attiva le richieste arrivano nella voce *Reset password*; generi una password temporanea da comunicare a parte.
-- **Accessi**: password di almeno 14 caratteri; dopo 5 tentativi falliti l'account è sospeso 15 minuti (la risposta è identica a una password sbagliata) e gli Admin tecnici ricevono una notifica; *Password dimenticata* toglie la sospensione.
+- **Accessi**: password di almeno 14 caratteri, con una maiuscola, un numero e un carattere speciale; dopo 5 tentativi falliti l'account è sospeso 15 minuti (la risposta è identica a una password sbagliata) e gli Admin tecnici ricevono una notifica; *Password dimenticata* toglie la sospensione.
 
 ## 3. Accesso aziendale e sincronizzazione (facoltativi, da `.env`)
 - **Accesso aziendale (SSO)**: configurato in `.env`. Un utente esistente si collega al primo accesso per email; l'Admin tecnico non si collega e resta con la password. Con `SSO_PROVISIONA_UTENTI=true` chi non esiste viene creato come utente semplice.

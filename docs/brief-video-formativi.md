@@ -27,7 +27,7 @@ Non puoi generare video né audio: scrivi i testi e le indicazioni, io faccio il
 4. **Sottotitoli** in formato WebVTT (`WEBVTT`, poi blocchi con tempi `00:00:00.000 --> 00:00:04.000`), costruiti dal copione con i tempi calcolati sulla durata di lettura. Dopo il montaggio ti darò la durata reale per riallinearli.
 5. **Quiz finale**: 6-8 domande a risposta multipla (4 opzioni, una sola corretta), che verificano i comportamenti dell'obiettivo e non la memoria di dettagli. Per ogni domanda indica la risposta corretta e perché le altre sono sbagliate. Formato:
    `Domanda | A) ... | B) ... | C) ... | D) ... | Corretta: B`
-6. **Istruzioni per Clipchamp**: il prompt da dare a Copilot nella pagina iniziale di Clipchamp, e come sostituire la bozza con il tuo copione se la voce o le immagini non vanno bene.
+6. **Istruzioni per Clipchamp**: il prompt da dare a Copilot e dove inserirlo (l'area *Create* di Copilot o il comando «Genera un video» nell'editor di Clipchamp, che sono i percorsi indicati da Microsoft; la pagina iniziale di Clipchamp solo se nella tua versione compare la stessa voce. La funzione richiede un account di lavoro con un piano Microsoft 365, accesso a Copilot Chat e Clipchamp abilitato dall'amministratore: controlla quale voce vedi), e come sostituire la bozza con il tuo copione se la voce o le immagini non vanno bene.
 
 ## Regole
 
@@ -50,4 +50,4 @@ Fammi le domande che ti servono per i campi mancanti, poi proponi la scaletta (p
 3. **Capitoli**: aggiungili dalla scheda del video (titolo e secondo di inizio).
 4. **Quiz**: *Corsi* → «Gestisci test» → crea il test finale e inserisci le domande; imposta la soglia di superamento.
 5. **Sessione**: crea una sessione in modalità *video* collegata al contenuto. Se il corso ha una validità e vuoi il rinnovo automatico, spunta l'opzione nelle impostazioni del corso: una sessione video sempre aperta funziona bene.
-6. **Prima di pubblicarlo**: guardalo tu dall'inizio alla fine con la voce vera, controlla pronuncia di sigle e nomi, e fallo vedere a una persona del pubblico.
+6. **Prima di pubblicarlo**: guardalo tu dall'inizio alla fine con la voce sintetica italiana scelta, controlla pronuncia di sigle e nomi, e fallo vedere a una persona del pubblico.
