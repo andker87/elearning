@@ -33,7 +33,7 @@ async def _salva_a_pezzi(file: UploadFile, destinazione: str, limite: int):
     """Scrive il file su disco un blocco alla volta (mai intero in memoria) e si ferma
     se supera il limite, senza lasciare file parziali."""
     scritti = 0
-    provvisorio = destinazione + ".parte"   # un nuovo caricamento fallito non distrugge il file precedente
+    provvisorio = f"{destinazione}.{uuid.uuid4().hex}.parte"   # nome unico: due caricamenti insieme non si mescolano; un nuovo caricamento fallito non distrugge il file precedente
     try:
         with open(provvisorio, "wb") as out:
             while blocco := await file.read(1024 * 1024):
@@ -140,8 +140,9 @@ def _servi(db: Session, video_id: str, tipo: str, t: str, media_type: str):
     if dati.get("typ") != "video" or dati.get("vid") != video_id or dati.get("k") != tipo:
         raise HTTPException(401, "Indirizzo scaduto o non valido")
     v = db.query(VideoContenuto).filter(VideoContenuto.id == video_id).first()
-    percorso = v.file_path if tipo == "file" else v.sottotitoli_path if v else None
-    if not v or not percorso or not os.path.isfile(percorso): raise HTTPException(404)
+    if not v: raise HTTPException(404)
+    percorso = v.file_path if tipo == "file" else v.sottotitoli_path
+    if not percorso or not os.path.isfile(percorso): raise HTTPException(404)
     return FileResponse(percorso, media_type=media_type, headers={"Cache-Control": "private, no-store"})
 
 @router.get("/api/video/{video_id}/file")

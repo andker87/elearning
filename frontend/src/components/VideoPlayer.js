@@ -9,12 +9,14 @@ export default function VideoPlayer({ video, iscrizioneId }) {
   const [accesso, setAccesso] = useState(null);   // indirizzi a tempo del video
   const [erroreVideo, setErroreVideo] = useState(null);
 
+  const generazione = useRef(0);   // le risposte di una richiesta superata (altro video, nuovo tentativo) si scartano
   const richiediAccesso = React.useCallback(() => {
+    const mia = ++generazione.current;
     setErroreVideo(null);
-    api.get(`/video/${video.id}/accesso`).then((r) => setAccesso(r.data))
-      .catch((err) => setErroreVideo(erroreDi(err, "Impossibile aprire il video")));
+    api.get(`/video/${video.id}/accesso`).then((r) => { if (mia === generazione.current) setAccesso(r.data); })
+      .catch((err) => { if (mia === generazione.current) setErroreVideo(erroreDi(err, "Impossibile aprire il video")); });
   }, [video.id]);
-  useEffect(() => { richiediAccesso(); }, [richiediAccesso]);
+  useEffect(() => { setAccesso(null); richiediAccesso(); }, [richiediAccesso]);
 
   // Gli indirizzi scadono dopo un po': se il video smette di caricarsi se ne chiedono di nuovi,
   // riprendendo dal punto in cui si era.
@@ -23,11 +25,15 @@ export default function VideoPlayer({ video, iscrizioneId }) {
     if (++tentativi.current > 3) { setErroreVideo("Il video non si carica. Riprova più tardi."); return; }   // niente cicli infiniti
     const el = videoRef.current;
     const ripresa = el ? el.currentTime : 0;
+    const mia = ++generazione.current;
     api.get(`/video/${video.id}/accesso`).then((r) => {
+      if (mia !== generazione.current) return;
       setAccesso(r.data);
       setTimeout(() => { if (videoRef.current) videoRef.current.currentTime = ripresa; }, 300);
-    }).catch((err) => setErroreVideo(erroreDi(err, "Impossibile aprire il video")));
+    }).catch((err) => { if (mia === generazione.current) setErroreVideo(erroreDi(err, "Impossibile aprire il video")); });
   }
+  function riprova() { tentativi.current = 0; richiediAccesso(); }
+  function onVideoPronto() { tentativi.current = 0; }
 
   useEffect(() => {
     api.get(`/iscrizioni/${iscrizioneId}/progresso`).then((r) => {
@@ -68,10 +74,10 @@ export default function VideoPlayer({ video, iscrizioneId }) {
   return (
     <div className="video-layout">
       <div className="video-main">
-        {erroreVideo && <div className="error-msg">{erroreVideo} <button type="button" className="secondary btn-sm" onClick={richiediAccesso}>Riprova</button></div>}
+        {erroreVideo && <div className="error-msg">{erroreVideo} <button type="button" className="secondary btn-sm" onClick={riprova}>Riprova</button></div>}
         {videoUrl && (
           <video key={videoUrl} ref={videoRef} controls width="100%" style={{ borderRadius: 12, background: "#000" }}
-                 src={videoUrl} onError={onErroreVideo} onTimeUpdate={onTimeUpdate} onSeeking={onSeeking}>
+                 src={videoUrl} onError={onErroreVideo} onCanPlay={onVideoPronto} onTimeUpdate={onTimeUpdate} onSeeking={onSeeking}>
             {subUrl && <track src={subUrl} kind="subtitles" srcLang="it" label="Italiano" default />}
           </video>
         )}

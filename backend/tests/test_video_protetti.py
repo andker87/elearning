@@ -116,3 +116,10 @@ def test_upload_sottotitoli_oltre_limite_rifiutato(client, auth, formazione, vid
                     files={"file": ("a.vtt", io.BytesIO(b"x" * 500), "text/vtt")})
     assert r.status_code == 413 and list(cartella.iterdir()) == []
     assert open(video_pronto.sottotitoli_path).read().startswith("WEBVTT")   # quello precedente resta
+
+
+def test_indirizzo_valido_di_video_cancellato_da_404(client):
+    vid = "00000000-0000-0000-0000-000000000000"
+    tok = jwt.encode({"typ": "video", "vid": vid, "k": "file", "exp": datetime.now(timezone.utc) + timedelta(hours=1)},
+                     settings.SECRET_KEY, algorithm="HS256")
+    assert client.get(f"/api/video/{vid}/file?t={tok}").status_code == 404

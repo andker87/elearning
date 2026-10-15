@@ -160,3 +160,12 @@ Aggiungere qui sotto una sezione per ogni PR, appena arriva la review della fase
 
 | Stato | File | Rilievo |
 |---|---|---|
+
+## PR #13 (1.9.0, video protetti e CORS)
+
+| Stato | File | Rilievo |
+|---|---|---|
+| FATTO 1.9.0 | api/video.py | due caricamenti dello stesso file usavano lo stesso nome provvisorio e si mescolavano: nome unico per ogni caricamento |
+| FATTO 1.9.0 | api/video.py | indirizzo valido di un video cancellato dava errore 500: ora 404 (aggiunto test) |
+| FATTO 1.9.0 | VideoPlayer.js | risposte di un video precedente potevano sostituire quello corrente: scartate le richieste superate e azzerato l'accesso al cambio video |
+| FATTO 1.9.0 | VideoPlayer.js | il contatore dei tentativi non si azzerava dopo una riproduzione riuscita o con «Riprova»: ora sì |
