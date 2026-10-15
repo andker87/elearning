@@ -37,4 +37,12 @@ export async function downloadFile(path, filename) {
   window.URL.revokeObjectURL(blobUrl);
 }
 
+// Per aprire un file protetto (PDF) in una nuova scheda: un link diretto non porta il token.
+export async function apriFile(path) {
+  const res = await api.get(path, { responseType: "blob" });
+  const blobUrl = window.URL.createObjectURL(res.data);
+  window.open(blobUrl, "_blank", "noopener");
+  setTimeout(() => window.URL.revokeObjectURL(blobUrl), 60000);
+}
+
 export default api;

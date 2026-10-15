@@ -184,3 +184,118 @@ def test_reset_password_invia_in_sottofondo_e_import_csv_dopo_il_commit():
     from app.api import password_reset, auth
     assert "in_sottofondo(invia_email" in inspect.getsource(password_reset.password_dimenticata)
     assert "dopo_il_commit(db, invia_invito" in inspect.getsource(auth)
+
+
+# --- quinto giro: rilievi di CodeRabbit (blocco sicurezza e integrita') ---------------------------
+
+def test_solo_logo_e_icona_sono_pubblici(client):
+    import os
+    os.makedirs("/app/uploads/azienda", exist_ok=True)
+    for nome, pubblico in (("logo.png", True), ("informativa-privacy.pdf", False)):
+        with open(f"/app/uploads/azienda/{nome}", "wb") as f:
+            f.write(b"%PDF-1.4 x")
+        assert (client.get(f"/uploads/azienda/{nome}").status_code == 200) is pubblico
+    for percorso in ("certificati/x.pdf", "attestati_esterni/x.pdf", "template_attestati/x.png"):
+        assert client.get(f"/uploads/{percorso}").status_code == 404
+
+
+def test_l_informativa_pdf_richiede_il_login(client, db, auth, utente):
+    from app.models.azienda import Azienda
+    with open("/app/uploads/azienda/informativa-privacy.pdf", "wb") as f:
+        f.write(b"%PDF-1.4 x")
+    db.add(Azienda(privacy_pdf_path="/app/uploads/azienda/informativa-privacy.pdf")); db.commit()
+    assert client.get("/api/privacy/informativa.pdf").status_code in (401, 403)
+    assert client.get("/api/privacy/informativa.pdf", headers=auth(utente)).status_code == 200
+
+
+def test_il_nome_dell_allegato_esterno_non_esce_dalla_cartella(client, db, auth, formazione, crea_utente, crea_corso, crea_edizione, crea_iscrizione):
+    from app.models.evidenza import Evidenza
+    e = crea_edizione(crea_corso("C"))
+    i = crea_iscrizione(e, crea_utente("p@test.it"))
+    r = client.post(f"/api/edizioni/{e.id}/evidenze/{i.id}/upload", headers=auth(formazione),
+                    files={"file": ("../../../tmp/x.pdf", b"%PDF-1.4", "application/pdf")})
+    assert r.status_code == 200, r.text
+    ev = db.query(Evidenza).filter(Evidenza.iscrizione_id == i.id).first()
+    assert ev.file_allegato_path.startswith("/app/uploads/attestati_esterni/") and ".." not in ev.file_allegato_path
+
+
+def test_sso_senza_email_usa_upn_solo_per_il_tenant_dichiarato():
+    import pytest
+    from app.services import sso
+    tid = "11111111-2222-3333-4444-555555555555"
+    ok = {"preferred_username": "Mario@Az.it", "tid": tid, "iss": f"https://login.microsoftonline.com/{tid}/v2.0"}
+    assert sso.email_da_claims(ok) == "mario@az.it"
+    for claims in ({"preferred_username": "mario@az.it"},
+                   {"preferred_username": "mario@az.it", "tid": tid, "iss": "https://altro.idp.it/"}):
+        with pytest.raises(sso.SsoErrore):
+            sso.email_da_claims(claims)
+
+
+def test_reset_manuale_solo_per_account_attivi_e_locali(client, db, auth, admin, crea_utente):
+    from app.models.password_reset import RichiestaResetPassword
+    u = crea_utente("sospeso@test.it", is_active=False)
+    r = RichiestaResetPassword(user_id=u.id); db.add(r); db.commit()
+    assert client.post(f"/api/auth/password-reset-richieste/{r.id}/genera", headers=auth(admin)).status_code == 400
+
+
+def test_il_formatore_di_una_bozza_non_gestisce_il_test(db, crea_utente, crea_corso, crea_edizione):
+    from app.api.test import _puo_gestire_test
+    from app.models.edizione import EdizioneDocente, StatoEdizione
+    doc = crea_utente("doc2@test.it")
+    corso = crea_corso("Bozza")
+    e = crea_edizione(corso, stato=StatoEdizione.bozza)
+    db.add(EdizioneDocente(edizione_id=e.id, user_id=doc.id)); db.commit()
+    assert not _puo_gestire_test(db, doc, str(corso.id))
+
+
+def test_il_freno_entra_scatta_se_escono_tutti(db, crea_utente):
+    from app.services.entra_sync import calcola_piano
+    crea_utente("solo@azienda.it")
+    membri = [{"email": "altro@azienda.it", "indirizzi": ["altro@azienda.it"], "nome": "Altro", "attivo": True, "assunto_il": None}]
+    assert calcola_piano(db, membri)["freno"]
+
+
+def test_il_database_impedisce_doppioni_anche_se_i_controlli_vengono_aggirati(db, crea_utente, crea_corso, crea_edizione, crea_iscrizione):
+    import pytest
+    from sqlalchemy.exc import IntegrityError
+    from app.models.iscrizione import Iscrizione, StatoIscrizione
+    from app.models.test import Gradimento
+    e = crea_edizione(crea_corso("U"))
+    u = crea_utente("u@test.it")
+    i = crea_iscrizione(e, u)
+    db.add(Iscrizione(edizione_id=e.id, user_id=u.id, stato=StatoIscrizione.iscritto))
+    with pytest.raises(IntegrityError):
+        db.commit()
+    db.rollback()
+    # una iscrizione annullata non conta: ci si puo' iscrivere di nuovo
+    i.stato = StatoIscrizione.annullato; db.commit()
+    db.add(Iscrizione(edizione_id=e.id, user_id=u.id, stato=StatoIscrizione.iscritto)); db.commit()
+    iscr = db.query(Iscrizione).filter(Iscrizione.user_id == u.id, Iscrizione.stato == StatoIscrizione.iscritto).first()
+    db.add(Gradimento(iscrizione_id=iscr.id, voto_corso=4)); db.commit()
+    db.add(Gradimento(iscrizione_id=iscr.id, voto_corso=5))
+    with pytest.raises(IntegrityError):
+        db.commit()
+    db.rollback()
+
+
+def test_non_si_risponde_a_una_campagna_chiusa(client, db, auth, formazione, crea_ufficio, crea_utente):
+    from app.models.fabbisogno import FabbisognoCampagna, FabbisognoCampagnaInvito, StatoCampagna
+    resp = crea_utente("resp@test.it")
+    uff = crea_ufficio("Ufficio X", responsabile=resp)
+    c = FabbisognoCampagna(titolo="2026", creata_da_id=formazione.id, stato=StatoCampagna.chiusa)
+    db.add(c); db.flush()
+    inv = FabbisognoCampagnaInvito(campagna_id=c.id, ufficio_id=uff.id); db.add(inv); db.commit()
+    r = client.post(f"/api/fabbisogno/inviti/{inv.id}/delega", headers=auth(resp))
+    assert r.status_code == 400 and "chiusa" in r.json()["detail"]
+
+
+def test_i_posti_liberati_contano_solo_chi_occupava_un_posto(db, crea_utente, crea_corso, crea_edizione, crea_iscrizione):
+    from app.models.edizione import StatoEdizione
+    from app.models.iscrizione import StatoIscrizione
+    from app.services.offboarding import disattiva_utente
+    e = crea_edizione(crea_corso("L"), stato=StatoEdizione.pianificata, posti_max=1, lista_attesa_abilitata=True)
+    primo, secondo = crea_utente("a@test.it"), crea_utente("b@test.it")
+    crea_iscrizione(e, primo)
+    crea_iscrizione(e, secondo, stato=StatoIscrizione.in_lista_attesa)
+    esito = disattiva_utente(db, secondo)
+    assert esito["posti_liberati"] == 0

@@ -113,12 +113,19 @@ def calcola_piano(db: Session, membri: list) -> dict:
 
     # Mai oltre la meta' degli utenti in ambito: su installazioni piccole un gruppo sbagliato non li disattiva tutti.
     limite = min(max(SOGLIA_DISATTIVAZIONI_MIN, in_ambito * SOGLIA_DISATTIVAZIONI_PCT // 100), max(2, in_ambito // 2))
-    if len(piano["disattiva"]) > limite:
+    if len(piano["disattiva"]) > limite or (in_ambito and len(piano["disattiva"]) >= in_ambito):
         piano["freno"] = (f"{len(piano['disattiva'])} disattivazioni su {in_ambito} utenti in ambito (limite {limite}): "
                           "controlla che il gruppo Entra sia quello giusto")
     elif len(piano["crea"]) > SOGLIA_CREAZIONI:
         piano["freno"] = f"{len(piano['crea'])} nuovi utenti in un solo giro (limite {SOGLIA_CREAZIONI})"
     return piano
+
+
+def impronta_piano(piano: dict) -> str:
+    """Identifica le persone coinvolte: chi applica deve applicare quello che ha visto in anteprima."""
+    import hashlib
+    voci = sorted(f"{k}:{x['email']}" for k in ("crea", "aggiorna", "disattiva", "riattiva") for x in piano[k])
+    return hashlib.sha256("\n".join(voci).encode()).hexdigest()[:16]
 
 
 def applica_piano(db: Session, piano: dict, request=None, admin=None, riattiva: bool = False) -> dict:

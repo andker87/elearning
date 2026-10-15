@@ -24,6 +24,22 @@ export default function TemplateAttestati() {
     api.get("/certificato-templates/campi-disponibili").then((r) => setCampiDisponibili(r.data));
   }, []);
 
+  // L'immagine di sfondo e' protetta: si scarica con il token e si mostra da un indirizzo locale.
+  const [sfondoUrl, setSfondoUrl] = useState(null);
+  const immagineUrl = selezionato && selezionato.immagine_url;
+  const idSelezionato = selezionato && selezionato.id;
+  useEffect(() => {
+    let attivo = true, locale = null;
+    setSfondoUrl(null);
+    if (immagineUrl) {
+      api.get(immagineUrl, { responseType: "blob" }).then((r) => {
+        locale = window.URL.createObjectURL(r.data);
+        if (attivo) setSfondoUrl(locale); else window.URL.revokeObjectURL(locale);
+      }).catch(() => {});
+    }
+    return () => { attivo = false; if (locale) window.URL.revokeObjectURL(locale); };
+  }, [immagineUrl, idSelezionato]);
+
   function apri(t) {
     setSelezionato({ ...t, campi: (t.campi || []).map((c) => ({ ...c })) });
     setMsg(null);
@@ -179,7 +195,7 @@ export default function TemplateAttestati() {
                     className="tpl-canvas-wrap"
                     style={{ width: canvasW, height: canvasH }}
                   >
-                    <img src={selezionato.immagine_url} alt="sfondo" className="tpl-canvas-img" style={{ width: canvasW, height: canvasH }} />
+                    <img src={sfondoUrl || undefined} alt="sfondo" className="tpl-canvas-img" style={{ width: canvasW, height: canvasH }} />
                     {selezionato.campi.map((c, idx) => {
                       const label = campiDisponibili.find((d) => d.chiave === c.chiave)?.etichetta || c.chiave;
                       const fontPx = Math.max(9, Math.round((c.font_size || 14) * scala));

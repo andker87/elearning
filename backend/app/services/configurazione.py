@@ -215,7 +215,7 @@ def _gruppi(db, elenco, rapporto):
                               ("sort_order", "ordine"), ("is_active", "attivo")):
             if d.get(chiave) is not None:  # un campo assente nel file non cancella quello esistente
                 valori[campo] = d[chiave]
-        if "ufficio" in d:
+        if d.get("ufficio") is not None:
             valori["is_ufficio"] = bool(d["ufficio"])
         responsabile = None
         if d.get("responsabile"):

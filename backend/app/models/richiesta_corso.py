@@ -1,4 +1,4 @@
-from sqlalchemy import Column, String, Text, DateTime, ForeignKey, Enum as SAEnum
+from sqlalchemy import Column, String, Text, DateTime, ForeignKey, UniqueConstraint, Enum as SAEnum
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
@@ -33,6 +33,7 @@ class RichiestaCorso(Base):
 class RichiestaCorsoPersona(Base):
     """Pre-iscrizione: persone che il responsabile segnala come interessate."""
     __tablename__ = "richieste_corso_persone"
+    __table_args__ = (UniqueConstraint("richiesta_id", "user_id", name="uq_richiesta_persona"),)
     id          = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     richiesta_id = Column(UUID(as_uuid=True), ForeignKey("richieste_corso.id"), nullable=False)
     user_id     = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)

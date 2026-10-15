@@ -21,12 +21,12 @@ router = APIRouter(tags=["test"])
 def _puo_gestire_test(db: Session, user: User, corso_id: str) -> bool:
     """Creazione/modifica test riservata a Ufficio Formazione/Admin o a un
     Formatore che ha effettivamente insegnato questo corso (docente di
-    almeno un'edizione ancora aperta) - mai all'assistente, sempre un umano autorizzato."""
+    almeno un'edizione pianificata o in corso) - mai all'assistente, sempre un umano autorizzato."""
     if user.role in (UserRole.admin_tecnico, UserRole.training_admin):
         return True
     return db.query(EdizioneDocente).join(Edizione, Edizione.id == EdizioneDocente.edizione_id).filter(
         Edizione.corso_id == corso_id, EdizioneDocente.user_id == user.id,
-        Edizione.stato.notin_((StatoEdizione.chiusa, StatoEdizione.annullata))).first() is not None
+        Edizione.stato.in_((StatoEdizione.pianificata, StatoEdizione.in_corso))).first() is not None
 
 class OpzioneIn(BaseModel):
     testo: str

@@ -93,7 +93,7 @@ def reimposta_password(data: ReimpostaIn, request: Request, db: Session = Depend
         raise HTTPException(400, f"Password non valida: richiesti {REQUISITI_PASSWORD}")
     t = db.query(PasswordResetToken).filter(PasswordResetToken.token_hash == _hash(data.token),
                                             PasswordResetToken.usato == False,  # noqa: E712
-                                            PasswordResetToken.scade_at > datetime.now(timezone.utc)).first()
+                                            PasswordResetToken.scade_at > datetime.now(timezone.utc)).with_for_update().first()
     u = db.query(User).filter(User.id == t.user_id).first() if t else None
     if not t or not u or not u.is_active or u.origine_credenziali != "locale":
         raise HTTPException(400, "Link non valido o scaduto: richiedine uno nuovo.")
@@ -128,6 +128,8 @@ def genera(richiesta_id: str, request: Request, db: Session = Depends(get_db), a
     u = db.query(User).filter(User.id == r.user_id).first()
     if not u:
         raise HTTPException(404, "Utente non trovato")
+    if not u.is_active or u.origine_credenziali != "locale":
+        raise HTTPException(400, "L'account è disattivato o accede con le credenziali aziendali: non c'è una password locale da reimpostare")
     temporanea = genera_password_temporanea()
     u.hashed_password = hash_password(temporanea)
     u.token_version = (u.token_version or 0) + 1

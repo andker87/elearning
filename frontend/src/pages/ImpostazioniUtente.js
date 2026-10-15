@@ -14,6 +14,7 @@ const SCHEDE = [
 function SchedaPrivacy() {
   const [info, setInfo] = useState(undefined);
   const [esportando, setEsportando] = useState(false);
+  const [errore, setErrore] = useState(null);
 
   useEffect(() => { api.get("/privacy/informativa").then((r) => setInfo(r.data)); }, []);
 
@@ -30,7 +31,8 @@ function SchedaPrivacy() {
         {info === undefined && <p className="text-muted">Caricamento...</p>}
         {info && !info.presente && <p className="text-muted">L'azienda non ha ancora pubblicato un'informativa.</p>}
         {info && info.testo && <div style={{ whiteSpace: "pre-wrap", fontSize: 14, lineHeight: 1.55 }}>{info.testo}</div>}
-        {info && info.pdf_url && <p><a href={info.pdf_url} target="_blank" rel="noreferrer">Apri l'informativa in PDF</a></p>}
+        {info && info.pdf_url && <p><button type="button" className="secondary btn-sm" onClick={() => apriFile(info.pdf_url).catch(() => setErrore("Impossibile aprire il PDF"))}>Apri l'informativa in PDF</button></p>}
+        {errore && <div className="error-msg">{errore}</div>}
         {info && info.presente && info.aggiornata_at && (
           <p className="text-muted" style={{ fontSize: 12 }}>Aggiornata il {new Date(info.aggiornata_at).toLocaleDateString("it-IT")}</p>
         )}

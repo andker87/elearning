@@ -2,6 +2,7 @@ import csv, io
 from ..services.export import neutralizza
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import StreamingResponse
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, joinedload
 from pydantic import BaseModel
 from typing import Optional, Dict
@@ -41,7 +42,11 @@ def crea_gradimento(iscrizione_id: str, data: GradimentoIn, db: Session = Depend
     db.add(g); db.flush()
     for docente_id, voto in data.voti_docenti.items():
         db.add(GradimentoDocente(gradimento_id=g.id, docente_id=docente_id, voto=voto))
-    db.commit()
+    try:
+        db.commit()
+    except IntegrityError:  # due invii in parallelo: il vincolo del database lascia passare il primo
+        db.rollback()
+        raise HTTPException(400, "Gradimento già inviato per questa iscrizione")
     return {"ok": True}
 
 @router.get("/api/edizioni/{edizione_id}/gradimenti")

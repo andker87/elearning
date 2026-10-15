@@ -1,4 +1,4 @@
-from sqlalchemy import Column, DateTime, Integer, ForeignKey, Enum as SAEnum
+from sqlalchemy import Column, DateTime, Index, Integer, ForeignKey, Enum as SAEnum, text
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
@@ -14,6 +14,9 @@ class StatoIscrizione(str, enum.Enum):
 
 class Iscrizione(Base):
     __tablename__ = "iscrizioni"
+    # Una persona ha una sola iscrizione "viva" per sessione (le annullate restano come storico).
+    __table_args__ = (Index("uq_iscrizione_viva", "edizione_id", "user_id", unique=True,
+                            postgresql_where=text("stato <> 'annullato'")),)
     id          = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     edizione_id = Column(UUID(as_uuid=True), ForeignKey("edizioni.id"), nullable=False)
     user_id     = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
