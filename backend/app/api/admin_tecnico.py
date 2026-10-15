@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session
 from ..database import get_db
 from ..config import settings
 from ..services.export import esporta
+from ..services.audit import AZIONI_ROUTINE
 from ..models.audit import AuditLog
 from ..models.job_run import JobRun
 from ..models.user import User
@@ -100,8 +101,10 @@ def salute(db: Session = Depends(get_db), user=Depends(require_admin_tecnico)):
     }
 
 
-def _filtra_audit(db: Session, q, action, entity_type, utente, ip, da, a):
+def _filtra_audit(db: Session, q, action, entity_type, utente, ip, da, a, livello="importanti"):
     query = db.query(AuditLog)
+    if livello != "tutti" and not action:   # scegliendo un'azione precisa si vede comunque, anche se di routine
+        query = query.filter(AuditLog.action.notin_(AZIONI_ROUTINE))
     if action:
         query = query.filter(AuditLog.action == action)
     if entity_type:
@@ -136,14 +139,40 @@ def _serialize_audit(r: AuditLog):
 def lista_audit(
     q: Optional[str] = None, action: Optional[str] = None, entity_type: Optional[str] = None,
     utente: Optional[str] = None, ip: Optional[str] = None,
-    da: Optional[datetime] = None, a: Optional[datetime] = None,
+    da: Optional[datetime] = None, a: Optional[datetime] = None, livello: str = "importanti",
     pagina: int = Query(1, ge=1), per_pagina: int = Query(50, ge=1, le=200),
     db: Session = Depends(get_db), user=Depends(require_admin_tecnico),
 ):
-    query = _filtra_audit(db, q, action, entity_type, utente, ip, da, a)
+    query = _filtra_audit(db, q, action, entity_type, utente, ip, da, a, livello)
     totale = query.count()
     righe = query.order_by(AuditLog.created_at.desc(), AuditLog.id.desc()).offset((pagina - 1) * per_pagina).limit(per_pagina).all()
     return {"totale": totale, "pagina": pagina, "per_pagina": per_pagina, "items": [_serialize_audit(r) for r in righe]}
+
+
+@router.get("/audit/riepilogo")
+def riepilogo_audit(db: Session = Depends(get_db), user=Depends(require_admin_tecnico)):
+    """Contatori per periodo e stato della manutenzione: danno il quadro senza scorrere l'elenco."""
+    now = datetime.now(timezone.utc)
+    periodi = {}
+    for nome, ore in (("24 ore", 24), ("7 giorni", 24 * 7), ("30 giorni", 24 * 30)):
+        da = now - timedelta(hours=ore)
+        conta = lambda *c: db.query(func.count(AuditLog.id)).filter(AuditLog.created_at >= da, *c).scalar() or 0
+        periodi[nome] = {
+            "totali": conta(), "importanti": conta(AuditLog.action.notin_(AZIONI_ROUTINE)),
+            "accessi": conta(AuditLog.action == "LOGIN"), "accessi_falliti": conta(AuditLog.action == "LOGIN_FAILED"),
+            "account_bloccati": conta(AuditLog.action == "ACCOUNT_BLOCCATO"),
+        }
+    ultimo = db.query(JobRun).filter(JobRun.job_id == "manutenzione_audit").order_by(JobRun.started_at.desc()).first()
+    return {
+        "periodi": periodi,
+        "righe": db.query(func.count(AuditLog.id)).scalar() or 0,
+        "piu_vecchio": db.query(func.min(AuditLog.created_at)).scalar(),
+        "conservazione_mesi": settings.AUDIT_RETENZIONE_MESI,
+        "esportazione_attiva": bool(settings.AUDIT_EXPORT_DIR),
+        "copia_su_output": bool(settings.AUDIT_LOG_STDOUT),
+        "ultima_manutenzione": {"started_at": ultimo.started_at, "esito": ultimo.esito, "dettaglio": ultimo.dettaglio,
+                                "errore": ultimo.errore} if ultimo else None,
+    }
 
 
 @router.get("/audit/filtri")
@@ -159,13 +188,13 @@ def esporta_audit(
     formato: str = "csv", pagina: str = "A4",
     q: Optional[str] = None, action: Optional[str] = None, entity_type: Optional[str] = None,
     utente: Optional[str] = None, ip: Optional[str] = None,
-    da: Optional[datetime] = None, a: Optional[datetime] = None,
+    da: Optional[datetime] = None, a: Optional[datetime] = None, livello: str = "importanti",
     db: Session = Depends(get_db), user=Depends(require_admin_tecnico),
 ):
     """Stessi filtri dell'elenco, senza paginazione. Il PDF e' limitato: migliaia
     di righe in una tabella A4/A3 non sono leggibili, per quelle serve Excel."""
     limite = LIMITE_ESPORTAZIONE_PDF if formato == "pdf" else LIMITE_ESPORTAZIONE_CSV
-    query = _filtra_audit(db, q, action, entity_type, utente, ip, da, a)
+    query = _filtra_audit(db, q, action, entity_type, utente, ip, da, a, livello)
     totale = query.count()
     righe = query.order_by(AuditLog.created_at.desc(), AuditLog.id.desc()).limit(limite).all()
     colonne = ["Data", "Utente", "Azione", "Tipo entità", "ID entità", "Nome entità", "Dettaglio", "IP"]

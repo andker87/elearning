@@ -865,7 +865,7 @@ La cronologia è stata pubblicata a fasi (PR #1-#8) e ogni fase recensita da Cod
 ### Z6. Sicurezza per l'uso aziendale (verso la 2.0.0)
 Obiettivo: superare controlli di sicurezza (SAST, analisi delle dipendenze) e proteggere i dati degli utenti. Quattro passi, ciascuno una release:
 - [x] **1.9.0 Video e CORS** — i video non sono più una cartella pubblica: ogni riproduzione passa da un indirizzo a tempo (2 ore, legato al video) richiesto da chi ha diritto (iscritto alla sessione, Ufficio Formazione, Admin). CORS chiuso di default (`CORS_ORIGINS` solo da ambiente, mai `*`): funziona su qualsiasi indirizzo. Upload video e sottotitoli scritti a pezzi con limite. Tolti dalla documentazione i riferimenti a strumenti e progetti specifici del committente: la piattaforma è generica.
-- [ ] **1.9.1 Registro attività** — due livelli (importanti / tutti), conservazione `AUDIT_RETENZIONE_MESI` (24 predefiniti, da ambiente), riepiloghi, indici; esportazione periodica dei log verso un sistema di gestione (da discutere).
+- [x] **1.9.1 Registro attività** — due livelli (importanti / tutti), conservazione `AUDIT_RETENZIONE_MESI` (24 mesi, da ambiente), riepilogo per periodo, indici; esportazione giornaliera in file NDJSON (`AUDIT_EXPORT_DIR`) e copia in tempo reale sull'output (`AUDIT_LOG_STDOUT`) per un sistema di gestione dei log. Da verificare in produzione con un collettore reale.
 - [ ] **1.9.2 Pagina Info** — agli utenti solo nome e versione; changelog e dettagli tecnici solo all'Admin tecnico.
 - [ ] **1.9.3 Cifratura dei dati** — file e campi sensibili cifrati con chiave da ambiente; documento di sicurezza (disco, backup, trasporto).
 - [ ] Controlli automatici di sicurezza del codice (Bandit, pip-audit/npm audit, Semgrep, Trivy) e poi **2.0.0**.

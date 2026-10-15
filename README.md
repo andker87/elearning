@@ -43,6 +43,9 @@ Tutto ciò che riguarda l'infrastruttura si imposta **solo qui**, mai dall'inter
 | `ENTRA_SYNC_GRUPPO_ID`, `ENTRA_SYNC_AUTO` | sincronizzazione utenti da Entra ID (permessi `User.Read.All`, `GroupMember.Read.All`) |
 | `PROXY_FIDUCIARI` | reti/indirizzi dei proxy davanti alla piattaforma, separati da virgola |
 | `PROXY_CLOUDFLARE` | `true` solo se davanti c'è Cloudflare |
+| `AUDIT_RETENZIONE_MESI` | mesi di conservazione del registro attività (24 predefiniti, `0` = per sempre) |
+| `AUDIT_EXPORT_DIR` | facoltativo: cartella dove scrivere ogni giorno un file `.ndjson` con gli eventi del giorno (con `/app/audit-export` finiscono nel volume `audit_export`). Un collettore di log (Filebeat, Promtail, Fluentd...) può prelevarli |
+| `AUDIT_LOG_STDOUT` | `true` per scrivere ogni evento anche sull'output del container come riga `AUDIT {json}` |
 | `CORS_ORIGINS` | facoltativo: siti esterni ammessi a chiamare le API (separati da virgola, mai `*`). Vuoto = nessuno; di norma non serve |
 
 ### Proxy e indirizzo IP del client
@@ -62,7 +65,7 @@ Le **migrazioni dello schema** partono da sole all'avvio, una volta sola anche c
 ## Backup
 Il backup è compito dell'infrastruttura, non della piattaforma. Servono:
 - il **database**: `docker exec elearning-db pg_dump -U <utente> <database> > backup.sql`;
-- i volumi **`uploads`** e **`videos`**;
+- i volumi **`uploads`** e **`videos`** (e `audit_export`, se usi l'esportazione dei log);
 - il file **`.env`** (contiene i segreti: conservalo a parte).
 
 La pagina *Impostazioni → Configurazione* esporta e reimporta solo le **impostazioni** (gruppi, corsi, percorsi, etichette, dati aziendali): serve a ricostruire una configurazione o a spostarla da un ambiente all'altro, non sostituisce il backup.

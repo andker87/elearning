@@ -33,6 +33,8 @@ Per chi configura e fa funzionare la piattaforma (ruolo **Admin tecnico**) e per
 - **Video**: carica il file, la piattaforma lo converte; puoi aggiungere capitoli e sottotitoli (`.vtt`).
 
 ## 5. Controllo e audit
+
+- **Audit log** (solo Admin tecnico): di default mostra gli eventi importanti; scegli «Tutti» per vedere anche accessi riusciti e attività di routine. In cima trovi i contatori delle ultime 24 ore, 7 e 30 giorni. Gli eventi si conservano per `AUDIT_RETENZIONE_MESI` mesi (24 di default) e poi vengono cancellati ogni notte; per archiviarli o inviarli a un sistema di gestione dei log, vedi `AUDIT_EXPORT_DIR` e `AUDIT_LOG_STDOUT` nel README.
 - **Registro formazione**, **Matrice formativa** (persone × corsi richiesti dai percorsi, con stato di ogni cella) e **Dashboard** si filtrano per ufficio, persona, periodo ed **etichetta**.
 - **Pacchetto ispezione** (dal Registro): uno ZIP con registro, matrice, attestati emessi e caricati e un indice, per l'intera azienda o per un perimetro (ufficio, persona, etichetta, periodo). Per un audit su una norma filtra per *Riferimento normativo*.
 - **Audit log** (*Impostazioni*): chi ha fatto cosa, quando e da dove, con filtri ed export. Le azioni dei discenti (check-in, test, video) sono registrate; il gradimento resta anonimo.

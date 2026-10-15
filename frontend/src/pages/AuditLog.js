@@ -2,7 +2,7 @@ import React, { useEffect, useState } from "react";
 import api, { erroreDi } from "../api";
 import ExportButton from "../components/ExportButton";
 
-const VUOTI = { q: "", action: "", entity_type: "", utente: "", ip: "", da: "", a: "" };
+const VUOTI = { q: "", action: "", entity_type: "", utente: "", ip: "", da: "", a: "", livello: "importanti" };
 const PER_PAGINA = 50;
 
 function badgeAzione(a) {
@@ -26,7 +26,9 @@ export default function AuditLog() {
   const [opzioni, setOpzioni] = useState({ azioni: [], entita: [] });
   const [aperta, setAperta] = useState(null);
   const [errore, setErrore] = useState(null);
+  const [riepilogo, setRiepilogo] = useState(null);
 
+  useEffect(() => { api.get("/admin/audit/riepilogo").then((r) => setRiepilogo(r.data)).catch(() => {}); }, []);
   useEffect(() => { api.get("/admin/audit/filtri").then((r) => setOpzioni(r.data)).catch((err) => setErrore(erroreDi(err, "Impossibile caricare i filtri"))); }, []);
 
   // Se i filtri cambiano mentre una richiesta e' ancora in corso, la risposta vecchia viene scartata.
@@ -60,14 +62,40 @@ export default function AuditLog() {
       <div className="page-header">
         <div>
           <h2>Audit log</h2>
-          <p>Chi ha fatto cosa, quando e da dove. Registro in sola lettura delle azioni sulla piattaforma.</p>
+          <p>Chi ha fatto cosa, quando e da dove. Registro in sola lettura delle azioni sulla piattaforma. Di default si vedono gli eventi importanti; gli accessi riusciti e le attività di routine si vedono scegliendo «Tutti».</p>
         </div>
         <ExportButton path={percorsoExport()} filename="audit_log" />
       </div>
 
+      {riepilogo && (
+        <div className="card">
+          <div style={{ display: "flex", gap: 24, flexWrap: "wrap" }}>
+            {Object.entries(riepilogo.periodi).map(([nome, p]) => (
+              <div key={nome} style={{ fontSize: 13 }}>
+                <strong>Ultime {nome}</strong><br />
+                {p.importanti} importanti su {p.totali} · {p.accessi} accessi · <span className={p.accessi_falliti ? "badge red" : ""}>{p.accessi_falliti} falliti</span>
+                {p.account_bloccati > 0 && <> · <span className="badge red">{p.account_bloccati} account bloccati</span></>}
+              </div>
+            ))}
+          </div>
+          <p className="text-muted" style={{ fontSize: 12, margin: ".6rem 0 0" }}>
+            {riepilogo.righe} eventi conservati{riepilogo.conservazione_mesi ? ` per ${riepilogo.conservazione_mesi} mesi` : " senza scadenza"}
+            {" · "}esportazione giornaliera {riepilogo.esportazione_attiva ? "attiva" : "non attiva"}
+            {riepilogo.copia_su_output && " · copia in tempo reale sull'output attiva"}
+            {riepilogo.ultima_manutenzione && ` · ultima manutenzione: ${riepilogo.ultima_manutenzione.esito === "ok" ? riepilogo.ultima_manutenzione.dettaglio : "ERRORE"}`}
+          </p>
+        </div>
+      )}
+
       <form className="card" onSubmit={applica}>
         <div className="row">
           <div className="field"><label>Cerca (nome, dettaglio, id, utente)</label><input value={filtri.q} onChange={set("q")} placeholder="Testo libero" /></div>
+          <div className="field"><label>Livello</label>
+            <select value={filtri.livello} onChange={set("livello")}>
+              <option value="importanti">Solo importanti</option>
+              <option value="tutti">Tutti (compresi accessi e attività di routine)</option>
+            </select>
+          </div>
           <div className="field"><label>Azione</label>
             <select value={filtri.action} onChange={set("action")}>
               <option value="">Tutte</option>

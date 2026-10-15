@@ -13,6 +13,12 @@ class Settings(BaseSettings):
     # Vuoto = nessuno: la piattaforma funziona sullo stesso indirizzo ovunque sia installata.
     CORS_ORIGINS: Optional[str] = None
 
+    # Registro attivita': conservazione in mesi (0 = per sempre), cartella dove scrivere ogni giorno i file
+    # NDJSON da far prelevare a un sistema di gestione dei log, e copia in tempo reale sull'output del container.
+    AUDIT_RETENZIONE_MESI: int = 24
+    AUDIT_EXPORT_DIR: Optional[str] = None
+    AUDIT_LOG_STDOUT: bool = False
+
     @property
     def cors_origins_lista(self):
         return [o.strip() for o in (self.CORS_ORIGINS or "").split(",") if o.strip() and o.strip() != "*"]
