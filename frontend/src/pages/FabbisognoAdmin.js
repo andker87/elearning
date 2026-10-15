@@ -286,7 +286,7 @@ export default function FabbisognoAdmin() {
   const [campagne, setCampagne] = useState([]);
   const [campagnaFiltro, setCampagnaFiltro] = useState("");
   const [errore, setErrore] = useState(null);
-  const carica = () => api.get("/fabbisogno/campagne").then((r) => setCampagne(r.data)).catch((e) => setErrore(erroreDi(e, "Impossibile caricare le campagne")));
+  const carica = () => { setErrore(null); return api.get("/fabbisogno/campagne").then((r) => setCampagne(r.data)).catch((e) => setErrore(erroreDi(e, "Impossibile caricare le campagne"))); };
   useEffect(() => { carica(); }, []);
 
   async function chiudi(id) {
@@ -299,8 +299,8 @@ export default function FabbisognoAdmin() {
   return (
     <div>
       <div className="page-header"><div><h2>Fabbisogno formativo</h2><p>Avvia una campagna presso i responsabili e consulta le esigenze di formazione che arrivano.</p></div></div>
-      <div className="tabs" role="tablist">
-        {SCHEDE.map((x) => <button type="button" role="tab" aria-selected={scheda === x.id} key={x.id} className={`tab ${scheda === x.id ? "active" : ""}`} onClick={() => setScheda(x.id)}>{x.label}</button>)}
+      <div className="tabs">
+        {SCHEDE.map((x) => <button type="button" aria-pressed={scheda === x.id} key={x.id} className={`tab ${scheda === x.id ? "active" : ""}`} onClick={() => { setErrore(null); setScheda(x.id); }}>{x.label}</button>)}
       </div>
       {errore && <div className="error-msg">{errore}</div>}
       {scheda === "nuova" && <NuovaCampagna onCreata={() => { carica(); setScheda("campagne"); }} />}

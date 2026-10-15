@@ -27,8 +27,9 @@ export default function EdizioneDetail() {
   const falla = (testo) => (e) => setErroreCaricamento(erroreDi(e, testo));
 
   function load() {
+    setErroreCaricamento(null);  // un nuovo tentativo parte da zero: se fallisce di nuovo, l'errore ricompare
     api.get(`/edizioni/${id}`).then((r) => {
-      setEdizione(r.data); setErroreCaricamento(null);
+      setEdizione(r.data);
       if (r.data.video_id) api.get(`/video/${r.data.video_id}`).then((rv) => setVideo(rv.data)).catch(falla("Impossibile caricare il video"));
       api.get(`/corsi/${r.data.corso_id}/test`).then((rt) => setTests(rt.data)).catch(falla("Impossibile caricare i test"));
       const puoComunicare = r.data.docenti?.some((d) => d.user_id === user?.id)

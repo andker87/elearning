@@ -146,3 +146,13 @@ Aggiungere qui sotto una sezione per ogni PR, appena arriva la review della fase
 | FATTO 1.8.5 | api/push.py | la sottoscrizione dopo due tentativi falliti rispondeva "ok": ora risponde 409 |
 | FATTO 1.8.5 | services/certificati.py | coordinate non convertibili (intero di 400 cifre): rifiutate al salvataggio (limite -10000..100000) e gestite anche in generazione |
 | FATTO 1.8.5 | docs/rilievi-coderabbit.md | note con una quarta cella nelle righe 27, 32, 64, 106: sistemate |
+
+## PR #11 (1.8.6, interfaccia)
+
+| Stato | File | Rilievo |
+|---|---|---|
+| FATTO 1.8.6 | frontend DashboardKpi.js, FabbisognoAdmin.js, ImpostazioniUtente.js | ruoli `tab` senza pannelli e frecce: tolti, le schede sono pulsanti con `aria-pressed` |
+| FATTO 1.8.6 | frontend EdizioneDetail.js | «Riprova» non azzerava l'errore: ora `load` lo azzera all'inizio |
+| FATTO 1.8.6 | frontend Fabbisogno.js | errore generale mai azzerato dopo un ricaricamento riuscito: azzerato all'inizio di `load` |
+| FATTO 1.8.6 | frontend FabbisognoAdmin.js | errore di pagina persistente tra le schede: azzerato a ogni caricamento e al cambio scheda |
+| FATTO 1.8.6 | frontend Azienda.js | «Riprova» mancante se il caricamento fallisce: aggiunto |

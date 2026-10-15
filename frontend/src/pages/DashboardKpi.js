@@ -136,8 +136,8 @@ export default function DashboardKpi() {
         </div>
       )}
 
-      <div className="tabs" role="tablist">
-        {TABS.map((t) => <button type="button" role="tab" aria-selected={tab === t.key} key={t.key} className={`tab ${tab === t.key ? "active" : ""}`} onClick={() => setTab(t.key)}>{t.label}</button>)}
+      <div className="tabs">
+        {TABS.map((t) => <button type="button" aria-pressed={tab === t.key} key={t.key} className={`tab ${tab === t.key ? "active" : ""}`} onClick={() => setTab(t.key)}>{t.label}</button>)}
       </div>
 
       {tab === "per-corso" && (

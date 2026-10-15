@@ -241,6 +241,7 @@ export default function Fabbisogno() {
   const user = JSON.parse(localStorage.getItem("user") || "null");
 
   function load() {
+    setErroreGen(null);
     const falla = (e) => setErroreGen(erroreDi(e, "Impossibile caricare le richieste"));
     api.get("/fabbisogno/inviti/miei").then((r) => setCampagne(r.data)).catch(falla);
     api.get("/fabbisogno/richieste/da-revisionare").then((r) => setDaRevisionare(r.data)).catch(falla);

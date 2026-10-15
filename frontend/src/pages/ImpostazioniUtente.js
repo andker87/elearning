@@ -139,9 +139,9 @@ export default function ImpostazioniUtente() {
   return (
     <div>
       <div className="page-header"><div><h2>Impostazioni utente</h2><p>Preferenze e sicurezza del tuo account.</p></div></div>
-      <div className="tabs" role="tablist">
+      <div className="tabs">
         {SCHEDE.map((x) => (
-          <button type="button" role="tab" aria-selected={scheda === x.id} key={x.id} className={`tab ${scheda === x.id ? "active" : ""}`} onClick={() => setScheda(x.id)}>{x.label}</button>
+          <button type="button" aria-pressed={scheda === x.id} key={x.id} className={`tab ${scheda === x.id ? "active" : ""}`} onClick={() => setScheda(x.id)}>{x.label}</button>
         ))}
       </div>
 

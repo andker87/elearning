@@ -58,7 +58,7 @@ export default function Azienda() {
     } catch (err) { setLogoMsg(erroreDi(err, "Impossibile rimuovere il logo")); }
   }
 
-  if (!form) return errore ? <div className="error-msg">{errore}</div> : <div>Caricamento...</div>;
+  if (!form) return errore ? <div><div className="error-msg">{errore}</div><button type="button" className="secondary btn-sm" style={{ marginTop: 8 }} onClick={() => { setErrore(null); ricarica(); }}>Riprova</button></div> : <div>Caricamento...</div>;
 
   return (
     <div>
