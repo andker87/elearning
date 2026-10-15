@@ -46,11 +46,15 @@ services:
       PROXY_FIDUCIARI: ${PROXY_FIDUCIARI:-}
       PROXY_CLOUDFLARE: ${PROXY_CLOUDFLARE:-false}
       CORS_ORIGINS: ${CORS_ORIGINS:-}
+      AUDIT_RETENZIONE_MESI: ${AUDIT_RETENZIONE_MESI:-24}
+      AUDIT_EXPORT_DIR: ${AUDIT_EXPORT_DIR:-}
+      AUDIT_LOG_STDOUT: ${AUDIT_LOG_STDOUT:-false}
       ENTRA_SYNC_GRUPPO_ID: ${ENTRA_SYNC_GRUPPO_ID:-}
       ENTRA_SYNC_AUTO: ${ENTRA_SYNC_AUTO:-false}
     volumes:
       - uploads:/app/uploads
       - videos:/app/videos
+      - audit_export:/app/audit-export
 
   # Suite di test automatici: docker compose --profile test run --rm tests
   # Usa un database separato (<nome>_test, creato al volo): non tocca mai i dati veri.
@@ -97,3 +101,4 @@ volumes:
   postgres_data:
   uploads:
   videos:
+  audit_export:

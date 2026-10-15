@@ -1,8 +1,18 @@
 import ipaddress
+import json
+import logging
+from sqlalchemy import event
 from sqlalchemy.orm import Session
 from fastapi import Request
 from ..config import settings
 from ..models.audit import AuditLog
+
+# Eventi di routine: si vedono solo scegliendo "tutti". Gli altri sono i "importanti" (modifiche, accessi
+# falliti, cancellazioni, permessi, configurazione...) e sono il livello predefinito.
+AZIONI_ROUTINE = ("LOGIN", "VIDEO_AVVIATO", "VIDEO_COMPLETATO", "TEST_TENTATIVO", "CHECKIN_INIZIO")
+
+_log_audit = logging.getLogger("audit")
+
 
 def _ip_valido(testo):
     try:
@@ -56,6 +66,24 @@ def log_from_request(db: Session, request: Request, user, action: str,
     )
     db.add(entry)
     db.flush()
+    if settings.AUDIT_LOG_STDOUT:
+        from .audit_manutenzione import evento_json
+        db.refresh(entry)   # legge la data assegnata dal database
+        db.info.setdefault("audit_da_emettere", []).append(evento_json(entry))   # si emette solo dopo il commit
+
+
+@event.listens_for(Session, "after_commit")
+def _emetti_audit(session):
+    for evento in session.info.pop("audit_da_emettere", []):
+        try:
+            print("AUDIT " + json.dumps(evento, ensure_ascii=False), flush=True)
+        except Exception:
+            _log_audit.exception("emissione evento audit non riuscita")
+
+
+@event.listens_for(Session, "after_rollback")
+def _scarta_audit(session):
+    session.info.pop("audit_da_emettere", None)
 
 
 def nome_utente(db: Session, uid) -> str:

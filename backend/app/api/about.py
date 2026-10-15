@@ -17,6 +17,14 @@ PACCHETTI = ["fastapi", "uvicorn", "sqlalchemy", "pydantic", "python-jose", "htt
              "reportlab", "openpyxl", "pywebpush", "psycopg2-binary"]
 
 CHANGELOG = [
+    {"version": "1.9.1", "date": "2026-10", "label": "Registro attività gestibile", "changes": [
+        "Audit log: di default si vedono solo gli eventi importanti; accessi riusciti e attività di routine si vedono scegliendo «Tutti» (anche nelle esportazioni)",
+        "Riepilogo in cima alla pagina: eventi, accessi, accessi falliti e account bloccati nelle ultime 24 ore, 7 e 30 giorni, più lo stato della manutenzione",
+        "Conservazione configurabile (AUDIT_RETENZIONE_MESI, 24 mesi di default): ogni notte gli eventi più vecchi vengono cancellati e la pulizia lascia una traccia nel registro",
+        "Esportazione giornaliera facoltativa (AUDIT_EXPORT_DIR): un file .ndjson per giorno da far prelevare a un sistema di gestione dei log; con l'esportazione attiva si cancella solo ciò che è già stato esportato (i giorni esportati sono registrati nel database, quindi il collettore può spostare o cancellare i file)",
+        "Copia in tempo reale facoltativa sull'output del container (AUDIT_LOG_STDOUT), emessa solo dopo il salvataggio dell'evento",
+        "Indici sul registro per mantenere veloci ricerche e filtri con molti eventi",
+    ]},
     {"version": "1.9.0", "date": "2026-10", "label": "Video protetti, CORS chiuso, upload a pezzi", "changes": [
         "Video: non più in una cartella pubblica; ogni riproduzione usa un indirizzo a tempo (2 ore) richiesto da chi ha diritto (iscritto alla sessione, Ufficio Formazione, Admin tecnico); sottotitoli protetti allo stesso modo; il player ne chiede di nuovi quando scadono",
         "L'elenco dei video e i percorsi dei file sul server non sono più visibili agli utenti comuni",

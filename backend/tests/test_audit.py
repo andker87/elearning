@@ -23,7 +23,7 @@ def test_login_fallito_registrato_senza_utente(client, db):
 def test_filtri_dell_elenco(client, admin, utente, auth):
     client.post("/api/auth/login", json={"email": utente.email, "password": PASSWORD})
     client.post("/api/auth/login", json={"email": utente.email, "password": "sbagliata"})
-    voci = lambda **p: client.get("/api/admin/audit", headers=auth(admin), params=p).json()
+    voci = lambda **p: client.get("/api/admin/audit", headers=auth(admin), params={"livello": "tutti", **p}).json()
     assert {v["action"] for v in voci()["items"]} == {"LOGIN", "LOGIN_FAILED"}
     assert [v["action"] for v in voci(action="LOGIN")["items"]] == ["LOGIN"]
     assert voci(utente=utente.email)["totale"] == 1  # il tentativo fallito non ha utente associato
