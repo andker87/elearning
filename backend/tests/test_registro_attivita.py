@@ -12,7 +12,10 @@ from app.services import audit_manutenzione as man
 
 
 def _evento(db, azione, giorni_fa=0, email="x@test.it"):
-    e = AuditLog(action=azione, user_email=email, created_at=datetime.now(timezone.utc) - timedelta(days=giorni_fa, hours=1))
+    """A mezzogiorno UTC di `giorni_fa` giorni fa (oggi: un'ora fa): il giorno di calendario non dipende dall'ora del test."""
+    adesso = datetime.now(timezone.utc)
+    quando = adesso - timedelta(hours=1) if giorni_fa == 0 else datetime.combine((adesso - timedelta(days=giorni_fa)).date(), datetime.min.time(), tzinfo=timezone.utc) + timedelta(hours=12)
+    e = AuditLog(action=azione, user_email=email, created_at=quando)
     db.add(e); db.commit()
     return e
 
@@ -57,6 +60,9 @@ def test_esportazione_giornaliera_scrive_i_giorni_passati_una_volta(db, tmp_path
     assert {r["azione"] for r in righe} == {"UPDATE", "LOGIN"} and righe[0]["utente"] == "x@test.it"
     assert man.esporta_giorni_trascorsi(db) == 0          # niente di nuovo: i file non si riscrivono
     assert not [f for f in os.listdir(tmp_path) if f.endswith(".parte")]
+    # un collettore che porta via i file non fa riesportare gli stessi giorni
+    for f in file: os.remove(tmp_path / f)
+    assert man.esporta_giorni_trascorsi(db) == 0 and os.listdir(tmp_path) == []
 
 
 def test_pulizia_cancella_oltre_la_conservazione(db, monkeypatch):
@@ -77,9 +83,11 @@ def test_con_esportazione_attiva_non_si_cancella_cio_che_non_e_esportato(db, tmp
     monkeypatch.setattr(settings, "AUDIT_EXPORT_DIR", str(tmp_path))
     monkeypatch.setattr(settings, "AUDIT_RETENZIONE_MESI", 1)
     _evento(db, "UPDATE", giorni_fa=90)
-    assert man.pulisci_vecchi(db) == 0                    # nessun file del giorno: si aspetta
+    assert man.pulisci_vecchi(db) == 0                    # giorno non ancora esportato: si aspetta
     man.esporta_giorni_trascorsi(db)
+    for f in os.listdir(tmp_path): os.remove(tmp_path / f)   # il collettore ha prelevato e tolto i file
     assert man.pulisci_vecchi(db) == 1
+    db.commit()
 
 
 def test_manutenzione_lascia_traccia_della_pulizia(db, monkeypatch):
@@ -104,3 +112,15 @@ def test_copia_in_tempo_reale_solo_dopo_il_commit(client, auth, admin, db, monke
 def test_indici_presenti_dopo_le_migrazioni(db):
     nomi = {i["name"] for i in sa.inspect(db.get_bind()).get_indexes("audit_log")}
     assert {"ix_audit_log_created_at", "ix_audit_log_action_created_at"} <= nomi
+
+
+def test_pulizia_e_sua_traccia_sono_atomiche(db, monkeypatch):
+    monkeypatch.setattr(settings, "AUDIT_EXPORT_DIR", None)
+    monkeypatch.setattr(settings, "AUDIT_RETENZIONE_MESI", 1)
+    _evento(db, "UPDATE", giorni_fa=90)
+    def guasto(*a, **k): raise RuntimeError("guasto")
+    monkeypatch.setattr(db, "commit", guasto)
+    with pytest.raises(RuntimeError):
+        man.manutenzione(db)
+    monkeypatch.undo()
+    assert [r.action for r in db.query(AuditLog).all()] == ["UPDATE"]    # niente cancellato senza traccia

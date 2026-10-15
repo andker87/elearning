@@ -169,3 +169,12 @@ Aggiungere qui sotto una sezione per ogni PR, appena arriva la review della fase
 | FATTO 1.9.0 | api/video.py | indirizzo valido di un video cancellato dava errore 500: ora 404 (aggiunto test) |
 | FATTO 1.9.0 | VideoPlayer.js | risposte di un video precedente potevano sostituire quello corrente: scartate le richieste superate e azzerato l'accesso al cambio video |
 | FATTO 1.9.0 | VideoPlayer.js | il contatore dei tentativi non si azzerava dopo una riproduzione riuscita o con «Riprova»: ora sì |
+
+## PR #14 (1.9.1, registro attività)
+
+| Stato | File | Rilievo |
+|---|---|---|
+| FATTO 1.9.1 | services/audit_manutenzione.py | file provvisorio con nome fisso: con più processi due esportazioni si mescolavano. Nome unico per ogni esportazione |
+| FATTO 1.9.1 | services/audit_manutenzione.py | se un collettore sposta o cancella i file, i giorni venivano riesportati e la pulizia si bloccava: i giorni esportati sono ora registrati nel database (tabella `audit_esportazioni`, migrazione 0004), indipendentemente dai file |
+| FATTO 1.9.1 | services/audit_manutenzione.py | cancellazioni con commit intermedi e traccia a parte: ora cancellazioni e riga «AUDIT_PULIZIA» stanno in una sola transazione |
+| FATTO 1.9.1 | tests/test_registro_attivita.py | test dipendente dall'ora di esecuzione (tra 00:00 e 01:00 UTC): eventi ora a mezzogiorno UTC di giorni fissi |

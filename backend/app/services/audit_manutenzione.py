@@ -2,19 +2,21 @@
 
 - AUDIT_EXPORT_DIR: se impostata, ogni giorno trascorso viene scritto in <cartella>/audit-AAAA-MM-GG.ndjson
   (una riga JSON per evento, giorni in UTC). Un collettore (Filebeat, Promtail, Fluentd, uno script...) puo'
-  prelevare quei file. I giorni gia' esportati non si riscrivono.
+  prelevare quei file, anche spostandoli o cancellandoli: i giorni esportati sono registrati nel database
+  (tabella audit_esportazioni) e non si riscrivono.
 - AUDIT_RETENZIONE_MESI: gli eventi piu' vecchi si cancellano (0 = mai). Se l'esportazione e' attiva, si
   cancella solo cio' che e' gia' stato esportato: un'esportazione fallita non fa perdere eventi.
 """
 import json
 import os
+import uuid
 from datetime import date, datetime, time, timedelta, timezone
 
 from sqlalchemy import delete, func
 from sqlalchemy.orm import Session
 
 from ..config import settings
-from ..models.audit import AuditLog
+from ..models.audit import AuditLog, AuditEsportazione
 
 GIORNI_PER_MESE = 30.44
 
@@ -40,7 +42,7 @@ def _estremi_giorno(giorno: date):
 def _esporta_giorno(db: Session, giorno: date) -> int:
     inizio, fine = _estremi_giorno(giorno)
     percorso = _file_giorno(giorno)
-    provvisorio = f"{percorso}.parte"
+    provvisorio = f"{percorso}.{uuid.uuid4().hex}.parte"   # nome unico: due processi insieme non si mescolano
     n = 0
     try:
         with open(provvisorio, "w", encoding="utf-8") as out:
@@ -49,10 +51,16 @@ def _esporta_giorno(db: Session, giorno: date) -> int:
                 out.write(json.dumps(evento_json(r), ensure_ascii=False) + "\n")
                 n += 1
         os.replace(provvisorio, percorso)
+        db.merge(AuditEsportazione(giorno=giorno, righe=n))
+        db.commit()
     except BaseException:
         if os.path.exists(provvisorio): os.remove(provvisorio)
         raise
     return n
+
+
+def _giorni_esportati(db: Session) -> set:
+    return {r[0] for r in db.query(AuditEsportazione.giorno).all()}
 
 
 def esporta_giorni_trascorsi(db: Session) -> int:
@@ -64,9 +72,10 @@ def esporta_giorni_trascorsi(db: Session) -> int:
     if primo is None:
         return 0
     oggi = datetime.now(timezone.utc).date()
+    fatti = _giorni_esportati(db)
     giorno, scritti = primo.astimezone(timezone.utc).date(), 0
     while giorno < oggi:
-        if not os.path.exists(_file_giorno(giorno)):
+        if giorno not in fatti:
             _esporta_giorno(db, giorno)
             scritti += 1
         giorno += timedelta(days=1)
@@ -82,23 +91,27 @@ def pulisci_vecchi(db: Session) -> int:
     primo = db.query(func.min(AuditLog.created_at)).scalar()
     if primo is None:
         return 0
+    fatti = _giorni_esportati(db) if settings.AUDIT_EXPORT_DIR else None
     giorno, cancellati = primo.astimezone(timezone.utc).date(), 0
     while giorno < limite:
-        if settings.AUDIT_EXPORT_DIR and not os.path.exists(_file_giorno(giorno)):
+        if fatti is not None and giorno not in fatti:
             break    # non ancora esportato: si aspetta
         inizio, fine = _estremi_giorno(giorno)
         cancellati += db.execute(delete(AuditLog).where(AuditLog.created_at >= inizio, AuditLog.created_at < fine)).rowcount
-        db.commit()
         giorno += timedelta(days=1)
-    return cancellati
+    return cancellati   # nessun commit qui: lo fa chi chiama, insieme alla traccia della pulizia
 
 
 def manutenzione(db: Session) -> str:
     """Job giornaliero. Il testo restituito finisce nello storico dei job."""
     scritti = esporta_giorni_trascorsi(db)
-    cancellati = pulisci_vecchi(db)
-    if cancellati:
-        db.add(AuditLog(action="AUDIT_PULIZIA", entity_type="audit_log",
-                        detail=f"cancellati {cancellati} eventi oltre {settings.AUDIT_RETENZIONE_MESI} mesi"))
+    try:
+        cancellati = pulisci_vecchi(db)
+        if cancellati:   # cancellazioni e relativa traccia nella stessa transazione: o tutte e due o nessuna
+            db.add(AuditLog(action="AUDIT_PULIZIA", entity_type="audit_log",
+                            detail=f"cancellati {cancellati} eventi oltre {settings.AUDIT_RETENZIONE_MESI} mesi"))
         db.commit()
+    except BaseException:
+        db.rollback()
+        raise
     return f"file esportati: {scritti}; eventi cancellati: {cancellati}"

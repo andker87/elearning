@@ -1,4 +1,4 @@
-from sqlalchemy import Column, String, Text, DateTime, ForeignKey, Index
+from sqlalchemy import Column, String, Text, DateTime, ForeignKey, Index, Date, Integer
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.sql import func
 import uuid
@@ -17,3 +17,12 @@ class AuditLog(Base):
     detail      = Column(Text, nullable=True)
     ip_address  = Column(String, nullable=True)
     created_at  = Column(DateTime(timezone=True), server_default=func.now())
+
+
+class AuditEsportazione(Base):
+    """Giorni del registro gia' esportati: tiene il conto indipendentemente dai file, che un
+    collettore di log puo' spostare o cancellare dopo averli prelevati."""
+    __tablename__ = "audit_esportazioni"
+    giorno      = Column(Date, primary_key=True)
+    righe       = Column(Integer, nullable=False, default=0)
+    esportato_at = Column(DateTime(timezone=True), server_default=func.now())
