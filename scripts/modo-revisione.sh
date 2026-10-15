@@ -16,8 +16,10 @@ AUTORE_NOME="${GIT_AUTHOR_NAME:-$(git config user.name || echo 'Andrea Crestani'
 AUTORE_EMAIL="${GIT_AUTHOR_EMAIL:-$(git config user.email || echo 'and.crestani@gmail.com')}"
 corrente="$(git branch --show-current)"
 
+IDX_TMP=""
+trap 'rm -f "$IDX_TMP"' EXIT  # il file indice temporaneo sparisce anche se un comando fallisce a meta'
 albero_cartella() {  # id dell'albero con TUTTO quello che c'e' nella cartella (file nuovi compresi)
-  local idx; idx="$(mktemp -u)"
+  local idx; idx="$(mktemp -u)"; IDX_TMP="$idx"
   GIT_INDEX_FILE="$idx" git read-tree "$1"
   GIT_INDEX_FILE="$idx" git add -A
   GIT_INDEX_FILE="$idx" git write-tree

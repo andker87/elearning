@@ -35,15 +35,18 @@ def _in_scadenza(db: Session, corso: Corso, ora: datetime) -> list:
     risultato = []
     for user_id, i in ultime.items():
         scadenza = i.completato_at + relativedelta(months=corso.validita_mesi)
+        if i.ripeti_entro and i.ripeti_entro < scadenza:  # test non superato con scadenza breve: vale la data piu' vicina
+            scadenza = i.ripeti_entro
         if scadenza > soglia:
             continue
         u = db.query(User).filter(User.id == user_id).first()
         if not u or not u.is_active:
             continue
-        gia_iscritto = (db.query(Iscrizione).join(Edizione, Edizione.id == Iscrizione.edizione_id)
-                        .filter(Iscrizione.user_id == user_id, Edizione.corso_id == corso.id,
-                                Iscrizione.stato.in_(STATI_ISCRIZIONE_APERTA), Edizione.stato.in_(STATI_SESSIONE_UTILE + (StatoEdizione.bozza,))).first())
-        if not gia_iscritto:
+        # conta solo l'iscrizione a una sessione ancora utilizzabile: una gia' iniziata o in bozza non rinnova nulla
+        aperte = (db.query(Edizione).join(Iscrizione, Edizione.id == Iscrizione.edizione_id)
+                  .filter(Iscrizione.user_id == user_id, Edizione.corso_id == corso.id,
+                          Iscrizione.stato.in_(STATI_ISCRIZIONE_APERTA), Edizione.stato.in_(STATI_SESSIONE_UTILE)).all())
+        if not any(e.data_inizio is None or e.data_inizio >= ora for e in aperte):
             risultato.append((u, scadenza))
     return sorted(risultato, key=lambda x: x[1])
 

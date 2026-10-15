@@ -1,3 +1,4 @@
+import re
 import secrets, os
 from datetime import datetime
 from reportlab.lib.pagesizes import A4
@@ -60,6 +61,34 @@ def genera_pdf(path: str, *, nome_discente: str, titolo_corso: str,
     c.showPage()
     c.save()
 
+def _numero(valore, predefinito, minimo, massimo):
+    try:
+        n = float(valore)
+    except (TypeError, ValueError, OverflowError):
+        return predefinito
+    if n != n or n in (float("inf"), float("-inf")):  # NaN o infinito
+        return predefinito
+    return max(minimo, min(massimo, n))
+
+
+def valida_campo(campo) -> dict:
+    """Un campo del template salvato dall'editor: forma e valori controllati prima di finire nel database."""
+    if not isinstance(campo, dict):
+        raise ValueError("Ogni campo deve essere un oggetto")
+    for k in ("x", "y"):
+        v = campo.get(k, 0)
+        if not isinstance(v, (int, float)) or isinstance(v, bool) or not -10000 <= v <= 100000:  # un intero di 400 cifre non si converte in float
+            raise ValueError(f"Il valore di «{k}» deve essere un numero tra -10000 e 100000")
+    if "font_size" in campo and campo["font_size"] is not None and (
+            not isinstance(campo["font_size"], (int, float)) or isinstance(campo["font_size"], bool) or not 4 <= campo["font_size"] <= 120):
+        raise ValueError("La dimensione del testo deve essere un numero tra 4 e 120")
+    if campo.get("align") not in (None, "left", "center", "right"):
+        raise ValueError("Allineamento non valido")
+    if campo.get("colore") is not None and not re.fullmatch(r"#[0-9a-fA-F]{6}", str(campo["colore"])):
+        raise ValueError("Il colore deve essere nel formato #RRGGBB")
+    return campo
+
+
 def genera_pdf_da_template(path: str, *, template, valori: dict):
     """Sfondo grafico del template (immagine) + campi posizionati dall'editor
     drag-and-drop (api/certificato_templates.py), con le coordinate convertite
@@ -83,9 +112,9 @@ def genera_pdf_da_template(path: str, *, template, valori: dict):
         testo = valori.get(campo.get("chiave"), "")
         if not testo:
             continue
-        x = (campo.get("x") or 0) * scala
-        y = pdf_h - (campo.get("y") or 0) * scala  # editor: y dall'alto; PDF: y dal basso
-        font_size = campo.get("font_size") or 14
+        x = _numero(campo.get("x"), 0, -10000, 100000) * scala
+        y = pdf_h - _numero(campo.get("y"), 0, -10000, 100000) * scala  # editor: y dall'alto; PDF: y dal basso
+        font_size = _numero(campo.get("font_size"), 14, 4, 120)
         grassetto = bool(campo.get("bold"))
         allineamento = campo.get("align") or "left"
         colore = campo.get("colore") or "#000000"

@@ -6,14 +6,16 @@ import uuid
 
 import sqlalchemy as sa
 
-_url = os.environ["DATABASE_URL"]
-_base, _, _nome = _url.rpartition("/")
+# Il nome del database si legge con il parser di SQLAlchemy (regge password con "/" e parametri in coda).
+_url = sa.engine.make_url(os.environ["DATABASE_URL"])
+_nome = _url.database
 if not _nome.endswith("_test"):
     _nome += "_test"
-os.environ["DATABASE_URL"] = f"{_base}/{_nome}"
-assert os.environ["DATABASE_URL"].endswith("_test")
+_url_test = _url.set(database=_nome)
+os.environ["DATABASE_URL"] = _url_test.render_as_string(hide_password=False)
+assert _url_test.database.endswith("_test")
 
-_admin = sa.create_engine(f"{_base}/postgres", isolation_level="AUTOCOMMIT")
+_admin = sa.create_engine(_url.set(database="postgres"), isolation_level="AUTOCOMMIT")
 with _admin.connect() as _c:
     if not _c.execute(sa.text("SELECT 1 FROM pg_database WHERE datname = :n"), {"n": _nome}).first():
         _c.execute(sa.text(f'CREATE DATABASE "{_nome}"'))

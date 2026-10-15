@@ -4,7 +4,11 @@ Serve UNA volta sola, per i database nati prima delle migrazioni: li porta all'u
 descritto dai modelli di allora, poi `migrazioni.esegui_migrazioni` li marca come gia' alla
 migrazione di partenza (0001). Per le installazioni nuove e per ogni cambio futuro non si
 usa: lo schema lo costruiscono e lo cambiano le migrazioni in `migrations/versions`.
-NON aggiungere altro qui."""
+NON aggiungere altro qui.
+
+Attenzione: `create_all` usa i modelli di OGGI, non quelli di quando e' nata la 0001. Per questo ogni
+migrazione dalla 0002 in poi DEVE essere idempotente (controllare se la colonna/il vincolo c'e' gia'
+prima di crearlo): un database vecchio arriva alla 0001 con gia' le novita' dei modelli attuali."""
 from sqlalchemy import text
 
 from .database import Base

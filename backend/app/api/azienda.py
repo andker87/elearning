@@ -103,17 +103,25 @@ def update_piattaforma(data: PiattaformaIn, request: Request, db: Session = Depe
     db.commit()
     return _serialize(a)
 
+ICONA_MAX_BYTE = 5 * 1024 * 1024
+ICONA_MAX_PIXEL = 25_000_000
+
 @router.post("/icona")
 def upload_icona(request: Request, file: UploadFile = File(...), db: Session = Depends(get_db), user=Depends(require_admin_tecnico)):
     estensione = LOGO_ESTENSIONI.get(file.content_type)
     if not estensione:
         raise HTTPException(400, "Formato non supportato: usa PNG, JPG o WEBP")
-    contenuto = file.file.read()
+    contenuto = file.file.read(ICONA_MAX_BYTE + 1)
+    if len(contenuto) > ICONA_MAX_BYTE:
+        raise HTTPException(400, "Il file è troppo grande (massimo 5 MB)")
     try:
         img = Image.open(io.BytesIO(contenuto))
         larghezza, altezza = img.size
+        if larghezza * altezza > ICONA_MAX_PIXEL:
+            raise ValueError("troppi pixel")
+        img.load()  # decodifica completa prima di toccare il file in uso
     except Exception:
-        raise HTTPException(400, "Immagine non valida")
+        raise HTTPException(400, "Immagine non valida o troppo grande (massimo 5 MB e 25 megapixel)")
     if min(larghezza, altezza) < 192:
         raise HTTPException(400, "L'icona deve essere almeno 192x192 pixel (meglio 512x512, quadrata)")
     a = _get_or_create(db)
@@ -195,7 +203,9 @@ def icona(size: int = Query(192), db: Session = Depends(get_db)):
     quadro = None
     if sorgente_path:
         try:
-            sorgente = Image.open(sorgente_path).convert("RGBA")
+            sorgente = Image.open(sorgente_path)
+            sorgente.thumbnail((1024, 1024))  # mai elaborare l'originale intero: l'endpoint e' pubblico
+            sorgente = sorgente.convert("RGBA")
             lato = max(sorgente.size)
             quadro = Image.new("RGBA", (lato, lato), (255, 255, 255, 255))
             quadro.paste(sorgente, ((lato - sorgente.size[0]) // 2, (lato - sorgente.size[1]) // 2), sorgente)

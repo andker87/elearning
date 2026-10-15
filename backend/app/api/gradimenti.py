@@ -44,9 +44,9 @@ def crea_gradimento(iscrizione_id: str, data: GradimentoIn, db: Session = Depend
         db.add(GradimentoDocente(gradimento_id=g.id, docente_id=docente_id, voto=voto))
     try:
         db.commit()
-    except IntegrityError:  # due invii in parallelo: il vincolo del database lascia passare il primo
+    except IntegrityError as err:  # due invii in parallelo: il vincolo del database lascia passare il primo
         db.rollback()
-        raise HTTPException(400, "Gradimento già inviato per questa iscrizione")
+        raise HTTPException(400, "Gradimento già inviato per questa iscrizione") from err
     return {"ok": True}
 
 @router.get("/api/edizioni/{edizione_id}/gradimenti")
@@ -66,8 +66,9 @@ def list_gradimenti(edizione_id: str, db: Session = Depends(get_db), user=Depend
         for vd in g.voti_docenti:
             per_docente.setdefault(str(vd.docente_id), []).append(vd.voto)
     docenti_out = []
+    nomi = {str(u.id): u for u in db.query(User).filter(User.id.in_(list(per_docente))).all()} if per_docente else {}
     for docente_id, voti in per_docente.items():
-        d = db.query(User).filter(User.id == docente_id).first()
+        d = nomi.get(docente_id)
         docenti_out.append({"docente_id": docente_id, "docente_nome": d.full_name if d else None,
                              "voto_medio": round(sum(voti) / len(voti), 2), "n_voti": len(voti)})
 
@@ -77,7 +78,8 @@ def list_gradimenti(edizione_id: str, db: Session = Depends(get_db), user=Depend
 def report_gradimenti_csv(edizione_id: str, db: Session = Depends(get_db), user=Depends(require_training_admin)):
     edizione = db.query(Edizione).filter(Edizione.id == edizione_id).first()
     docenti_rows = db.query(EdizioneDocente).filter(EdizioneDocente.edizione_id == edizione_id).all()
-    docenti = [(str(d.user_id), db.query(User).filter(User.id == d.user_id).first()) for d in docenti_rows]
+    utenti = {str(u.id): u for u in db.query(User).filter(User.id.in_([d.user_id for d in docenti_rows])).all()} if docenti_rows else {}
+    docenti = [(str(d.user_id), utenti.get(str(d.user_id))) for d in docenti_rows]
 
     rows = (db.query(Gradimento).options(joinedload(Gradimento.voti_docenti))
             .join(Iscrizione, Gradimento.iscrizione_id == Iscrizione.id)

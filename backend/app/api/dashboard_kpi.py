@@ -194,7 +194,7 @@ def confronto_edizioni(corso_id: str = Query(...), docente_id: Optional[str] = Q
                         user=Depends(require_training_admin)):
     edizioni = _edizioni_filtrate(db, corso_id, docente_id, da, a, etichette)
     out = []
-    for e in sorted(edizioni, key=lambda x: x.data_inizio or datetime.min.replace(tzinfo=None)):
+    for e in sorted(edizioni, key=lambda x: (x.data_inizio is None, x.data_inizio.timestamp() if x.data_inizio else 0)):
         m = _metriche(db, [e], ufficio_id, docente_focus_id=docente_id)
         iscr_ids = [i.id for i in _iscrizioni_di(db, [e.id], ufficio_id)]
         versioni = [i.versione_corso for i in db.query(Iscrizione).filter(

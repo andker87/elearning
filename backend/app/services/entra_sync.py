@@ -123,8 +123,10 @@ def calcola_piano(db: Session, membri: list) -> dict:
 
 def impronta_piano(piano: dict) -> str:
     """Identifica le persone coinvolte: chi applica deve applicare quello che ha visto in anteprima."""
-    import hashlib
-    voci = sorted(f"{k}:{x['email']}" for k in ("crea", "aggiorna", "disattiva", "riattiva") for x in piano[k])
+    import hashlib, json
+    # oltre a chi e all'azione, i valori che verranno scritti (nome, data di ingresso): se cambiano in Entra dopo l'anteprima, l'impronta cambia
+    voci = sorted(json.dumps([k, x], sort_keys=True, default=str) for k in ("crea", "aggiorna", "disattiva", "riattiva")
+                  for x in ({c: v for c, v in y.items() if c != "avvisi"} for y in piano[k]))
     return hashlib.sha256("\n".join(voci).encode()).hexdigest()[:16]
 
 

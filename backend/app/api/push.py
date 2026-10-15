@@ -1,4 +1,5 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
 from ..database import get_db
@@ -31,15 +32,20 @@ def stato(db: Session = Depends(get_db), user=Depends(get_current_user)):
 
 @router.post("/subscribe")
 def subscribe(data: SubscriptionIn, db: Session = Depends(get_db), user=Depends(get_current_user)):
-    esistente = db.query(PushSubscription).filter(PushSubscription.endpoint == data.endpoint).first()
-    if esistente:
-        esistente.user_id = user.id
-        esistente.p256dh = data.keys.p256dh
-        esistente.auth = data.keys.auth
-    else:
-        db.add(PushSubscription(user_id=user.id, endpoint=data.endpoint, p256dh=data.keys.p256dh, auth=data.keys.auth))
-    db.commit()
-    return {"ok": True}
+    for _ in range(2):  # due richieste insieme con lo stesso endpoint: la seconda trova la riga creata dalla prima
+        esistente = db.query(PushSubscription).filter(PushSubscription.endpoint == data.endpoint).first()
+        if esistente:
+            esistente.user_id = user.id
+            esistente.p256dh = data.keys.p256dh
+            esistente.auth = data.keys.auth
+        else:
+            db.add(PushSubscription(user_id=user.id, endpoint=data.endpoint, p256dh=data.keys.p256dh, auth=data.keys.auth))
+        try:
+            db.commit()
+            return {"ok": True}
+        except IntegrityError:
+            db.rollback()
+    raise HTTPException(409, "Sottoscrizione non salvata: riprova")  # due tentativi falliti: non si dice "ok" se non e' stato salvato
 
 @router.post("/unsubscribe")
 def unsubscribe(data: UnsubscribeIn, db: Session = Depends(get_db), user=Depends(get_current_user)):

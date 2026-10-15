@@ -23,7 +23,7 @@ def url_base(db: Session) -> str:
     """URL da mettere nei link inviati per email: solo quello configurato (pagina Piattaforma o
     SSO_PUBLIC_URL), mai un indirizzo preso dalla richiesta."""
     a = db.query(Azienda).first()
-    return ((a.url_pubblico if a else None) or settings.SSO_PUBLIC_URL or "").rstrip("/")
+    return ((a.url_pubblico if a else None) or "").strip().rstrip("/") or (settings.SSO_PUBLIC_URL or "").strip().rstrip("/")
 
 
 def canale_email_disponibile(db: Session) -> bool:

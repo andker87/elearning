@@ -19,6 +19,8 @@ from .deps import require_admin_tecnico
 router = APIRouter(prefix="/api/admin", tags=["admin-tecnico"])
 
 JOB_NOTIFICHE = "notifiche_giornaliere"
+LIMITE_ESPORTAZIONE_CSV = 50000
+LIMITE_ESPORTAZIONE_PDF = 2000
 CARTELLE_STORAGE = {"video": "/app/videos", "upload": "/app/uploads"}
 
 
@@ -56,7 +58,10 @@ def salute(db: Session = Depends(get_db), user=Depends(require_admin_tecnico)):
     ultime = db.query(JobRun).filter(JobRun.job_id == JOB_NOTIFICHE).order_by(JobRun.started_at.desc()).limit(10).all()
     ultima = ultime[0] if ultime else None
 
-    disco = shutil.disk_usage("/app/videos")
+    try:
+        disco = shutil.disk_usage("/app/videos")
+    except OSError:  # cartella non montata: la salute del resto va mostrata lo stesso
+        disco = None
     video_per_stato = dict(db.query(VideoContenuto.stato, func.count(VideoContenuto.id)).group_by(VideoContenuto.stato).all())
 
     return {
@@ -81,7 +86,8 @@ def salute(db: Session = Depends(get_db), user=Depends(require_admin_tecnico)):
         "sso": {"configurato": bool(settings.sso_enabled), "provisioning": bool(settings.SSO_PROVISIONA_UTENTI),
                 "utenti_collegati": db.query(func.count(User.id)).filter(User.sso_subject.isnot(None)).scalar() or 0},
         "storage": {
-            "disco_totale": disco.total, "disco_usato": disco.used, "disco_libero": disco.free,
+            "disco_totale": disco.total if disco else None, "disco_usato": disco.used if disco else None,
+            "disco_libero": disco.free if disco else None,
             "video_bytes": _dimensione_cartella(CARTELLE_STORAGE["video"]),
             "upload_bytes": _dimensione_cartella(CARTELLE_STORAGE["upload"]),
             "video_per_stato": {(k.value if hasattr(k, "value") else str(k)): v for k, v in video_per_stato.items()},
@@ -107,7 +113,9 @@ def _filtra_audit(db: Session, q, action, entity_type, utente, ip, da, a):
     if da:
         query = query.filter(AuditLog.created_at >= da)
     if a:
-        query = query.filter(AuditLog.created_at < a + timedelta(days=1))
+        # "a" e' una data (mezzanotte): vale tutto quel giorno; con un orario preciso vale fino a quell'istante
+        fine_giorno = a.hour == a.minute == a.second == a.microsecond == 0
+        query = query.filter(AuditLog.created_at < a + timedelta(days=1)) if fine_giorno else query.filter(AuditLog.created_at <= a)
     if q:
         like = f"%{q}%"
         query = query.filter(or_(AuditLog.entity_name.ilike(like), AuditLog.detail.ilike(like),
@@ -134,7 +142,7 @@ def lista_audit(
 ):
     query = _filtra_audit(db, q, action, entity_type, utente, ip, da, a)
     totale = query.count()
-    righe = query.order_by(AuditLog.created_at.desc()).offset((pagina - 1) * per_pagina).limit(per_pagina).all()
+    righe = query.order_by(AuditLog.created_at.desc(), AuditLog.id.desc()).offset((pagina - 1) * per_pagina).limit(per_pagina).all()
     return {"totale": totale, "pagina": pagina, "per_pagina": per_pagina, "items": [_serialize_audit(r) for r in righe]}
 
 
@@ -156,9 +164,13 @@ def esporta_audit(
 ):
     """Stessi filtri dell'elenco, senza paginazione. Il PDF e' limitato: migliaia
     di righe in una tabella A4/A3 non sono leggibili, per quelle serve Excel."""
-    limite = 2000 if formato == "pdf" else 50000
-    righe = _filtra_audit(db, q, action, entity_type, utente, ip, da, a).order_by(AuditLog.created_at.desc()).limit(limite).all()
+    limite = LIMITE_ESPORTAZIONE_PDF if formato == "pdf" else LIMITE_ESPORTAZIONE_CSV
+    query = _filtra_audit(db, q, action, entity_type, utente, ip, da, a)
+    totale = query.count()
+    righe = query.order_by(AuditLog.created_at.desc(), AuditLog.id.desc()).limit(limite).all()
     colonne = ["Data", "Utente", "Azione", "Tipo entità", "ID entità", "Nome entità", "Dettaglio", "IP"]
     dati = [[r.created_at.strftime("%Y-%m-%d %H:%M:%S") if r.created_at else "", r.user_email or "", r.action,
              r.entity_type or "", r.entity_id or "", r.entity_name or "", r.detail or "", r.ip_address or ""] for r in righe]
+    if totale > limite:  # il taglio non deve passare inosservato: l'ultima riga del file lo dice
+        dati.append(["", "", "ATTENZIONE", "", "", "", f"Esportate {limite} righe su {totale}: restringi i filtri o usa Excel", ""])
     return esporta(formato, "audit_log", "Audit log", colonne, dati, pagina)

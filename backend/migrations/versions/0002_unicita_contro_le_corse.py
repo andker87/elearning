@@ -23,7 +23,7 @@ def _gia_presente(tabella, nome):
 
 
 def upgrade():
-    # Prima si eliminano gli eventuali doppioni gia' presenti (si tiene il piu' vecchio), altrimenti il vincolo non si crea.
+    # Prima si eliminano gli eventuali doppioni gia' presenti (si tiene il piu' vecchio; per gli inviti quello piu' avanzato: risposto, poi delegato), altrimenti il vincolo non si crea.
     op.execute("""
         DELETE FROM gradimenti_docenti WHERE gradimento_id IN (
             SELECT id FROM (SELECT id, row_number() OVER (PARTITION BY iscrizione_id ORDER BY created_at, id) AS n FROM gradimenti) t WHERE n > 1)
@@ -34,7 +34,7 @@ def upgrade():
     """)
     op.execute("""
         DELETE FROM fabbisogno_campagna_inviti WHERE id IN (
-            SELECT id FROM (SELECT id, row_number() OVER (PARTITION BY campagna_id, ufficio_id ORDER BY created_at, id) AS n FROM fabbisogno_campagna_inviti) t WHERE n > 1)
+            SELECT id FROM (SELECT id, row_number() OVER (PARTITION BY campagna_id, ufficio_id ORDER BY CASE stato WHEN 'risposto' THEN 2 WHEN 'delegato' THEN 1 ELSE 0 END DESC, created_at, id) AS n FROM fabbisogno_campagna_inviti) t WHERE n > 1)
     """)
     op.execute("""
         DELETE FROM richieste_corso_persone WHERE id IN (
@@ -57,7 +57,7 @@ def upgrade():
 
 
 def downgrade():
-    op.drop_index('uq_iscrizione_viva', table_name='iscrizioni', postgresql_where=sa.text("stato <> 'annullato'"))
+    op.drop_index('uq_iscrizione_viva', table_name='iscrizioni')
     op.drop_constraint('uq_richiesta_persona', 'richieste_corso_persone', type_='unique')
     op.drop_constraint('uq_invito_campagna_ufficio', 'fabbisogno_campagna_inviti', type_='unique')
     op.drop_constraint('uq_gradimento_iscrizione', 'gradimenti', type_='unique')

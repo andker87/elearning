@@ -203,8 +203,14 @@ def create_user(data: UserCreate, request: Request, db: Session = Depends(get_db
     mostra = password if (u.origine_credenziali == "locale" and not scelta_dall_admin and not invitato) else None
     return {**_serialize_user(u, db), "invito_inviato": invitato, "password_temporanea": mostra}
 
+def _leggi_csv(file: UploadFile) -> str:
+    try:
+        return file.file.read().decode("utf-8-sig")
+    except UnicodeDecodeError:
+        raise HTTPException(400, "Il file non è in UTF-8: salvalo come CSV UTF-8")
+
 @router.post("/users/import-csv")
-async def import_users_csv(file: UploadFile = File(...), modo: str = Query("nuovi"), request: Request = None,
+def import_users_csv(file: UploadFile = File(...), modo: str = Query("nuovi"), request: Request = None,
                             db: Session = Depends(get_db), user=Depends(require_admin_tecnico)):
     """Import bulk per onboarding: CSV con colonne (case-insensitive) email,
     full_name, password (opz.), role (opz., default 'user'), is_external
@@ -222,9 +228,9 @@ async def import_users_csv(file: UploadFile = File(...), modo: str = Query("nuov
     if modo == "nuovi" and "cessat" in (file.filename or "").lower():
         raise HTTPException(400, "Il nome del file suggerisce un elenco di cessati, ma hai scelto di creare nuovi utenti: scegli «Disattiva cessati» se è quello che vuoi.")
     if modo == "cessati":
-        return await _disattiva_utenti_csv(file, request, db, user)
+        return _disattiva_utenti_csv(file, request, db, user)
 
-    raw = (await file.read()).decode("utf-8-sig")
+    raw = _leggi_csv(file)
     righe_testo = raw.splitlines()
     if not righe_testo:
         raise HTTPException(400, "File vuoto")
@@ -323,8 +329,8 @@ async def import_users_csv(file: UploadFile = File(...), modo: str = Query("nuov
     db.commit()
     return {"totale": len(righe), "creati": creati, "errori": len(righe) - creati, "righe": righe}
 
-async def _disattiva_utenti_csv(file: UploadFile, request: Request, db: Session, user) -> dict:
-    raw = (await file.read()).decode("utf-8-sig")
+def _disattiva_utenti_csv(file: UploadFile, request: Request, db: Session, user) -> dict:
+    raw = _leggi_csv(file)
     righe_testo = raw.splitlines()
     if not righe_testo:
         raise HTTPException(400, "File vuoto")

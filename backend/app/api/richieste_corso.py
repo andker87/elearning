@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, Request
 from ..services import audit as audit_svc
+from uuid import UUID
 from sqlalchemy.orm import Session, joinedload
 from pydantic import BaseModel
 from typing import Optional, List
@@ -26,9 +27,17 @@ class RichiestaCorsoValuta(BaseModel):
 def _is_admin(user: User) -> bool:
     return user.role in (UserRole.admin_tecnico, UserRole.training_admin)
 
-def _serialize(r: RichiestaCorso, db: Session):
-    richiedente = db.query(User).filter(User.id == r.richiedente_id).first()
-    corso = db.query(Corso).filter(Corso.id == r.corso_id).first() if r.corso_id else None
+def _uuid(valore: str, cosa: str) -> str:
+    try:
+        return str(UUID(str(valore)))
+    except ValueError:
+        raise HTTPException(400, f"{cosa} non valido")
+
+def _serialize(r: RichiestaCorso, db: Session, richiedenti: Optional[dict] = None, corsi: Optional[dict] = None):
+    """Con i dizionari richiedenti/corsi (elenco) non si fa una query per riga."""
+    richiedente = richiedenti[r.richiedente_id] if richiedenti is not None and r.richiedente_id in richiedenti else (
+        db.query(User).filter(User.id == r.richiedente_id).first() if richiedenti is None else None)
+    corso = (corsi.get(r.corso_id) if corsi is not None else db.query(Corso).filter(Corso.id == r.corso_id).first()) if r.corso_id else None
     return {
         "id": str(r.id),
         "richiedente_id": str(r.richiedente_id), "richiedente_nome": richiedente.full_name if richiedente else None,
@@ -44,34 +53,42 @@ def _serialize(r: RichiestaCorso, db: Session):
 def crea_richiesta(data: RichiestaCorsoIn, request: Request, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
     if not _is_admin(user) and not e_responsabile(db, user.id):
         raise HTTPException(403, "Solo un responsabile può richiedere una sessione formativa")
-    if not data.corso_id and not data.argomento:
+    argomento = (data.argomento or "").strip() or None
+    if not data.corso_id and not argomento:
         raise HTTPException(400, "Indica un corso a catalogo o un argomento")
-    if data.corso_id and not db.query(Corso).filter(Corso.id == data.corso_id).first():
+    corso_id = _uuid(data.corso_id, "Corso") if data.corso_id else None
+    if corso_id and not db.query(Corso).filter(Corso.id == corso_id).first():
         raise HTTPException(404, "Corso non trovato")
-    if data.persone_ids and not _is_admin(user):
-        sottoposti_ids = {str(s.id) for s in sottoposti_di(db, user.id)}
-        non_autorizzati = [uid for uid in data.persone_ids if uid not in sottoposti_ids]
-        if non_autorizzati:
-            raise HTTPException(403, "Puoi pre-iscrivere solo le persone sotto la tua responsabilità")
+    persone_ids = list(dict.fromkeys(_uuid(uid, "Identificativo della persona") for uid in data.persone_ids))
+    if persone_ids:
+        if db.query(User).filter(User.id.in_(persone_ids)).count() != len(persone_ids):
+            raise HTTPException(404, "Una o più persone non esistono")
+        if not _is_admin(user):
+            sottoposti_ids = {str(s.id) for s in sottoposti_di(db, user.id)}
+            non_autorizzati = [uid for uid in persone_ids if uid not in sottoposti_ids]
+            if non_autorizzati:
+                raise HTTPException(403, "Puoi pre-iscrivere solo le persone sotto la tua responsabilità")
 
-    r = RichiestaCorso(richiedente_id=user.id, corso_id=data.corso_id or None,
-                        argomento=data.argomento, note=data.note)
+    r = RichiestaCorso(richiedente_id=user.id, corso_id=corso_id,
+                        argomento=argomento, note=data.note)
     db.add(r); db.flush()
-    for uid in set(data.persone_ids):
+    for uid in persone_ids:
         db.add(RichiestaCorsoPersona(richiesta_id=r.id, user_id=uid))
-    corso_rich = db.query(Corso).filter(Corso.id == data.corso_id).first() if data.corso_id else None
+    corso_rich = db.query(Corso).filter(Corso.id == corso_id).first() if corso_id else None
     audit_svc.log_from_request(db, request, user, "CREATE", entity_type="richiesta_corso", entity_id=str(r.id),
-                                entity_name=corso_rich.titolo if corso_rich else data.argomento)
+                                entity_name=corso_rich.titolo if corso_rich else argomento)
     db.commit(); db.refresh(r)
     return _serialize(r, db)
 
 @router.get("")
 def list_richieste(db: Session = Depends(get_db), user: User = Depends(get_current_user)):
-    q = db.query(RichiestaCorso).options(joinedload(RichiestaCorso.persone))
+    q = db.query(RichiestaCorso).options(joinedload(RichiestaCorso.persone).joinedload(RichiestaCorsoPersona.utente))
     if not _is_admin(user):
         q = q.filter(RichiestaCorso.richiedente_id == user.id)
     rows = q.order_by(RichiestaCorso.created_at.desc()).all()
-    return [_serialize(r, db) for r in rows]
+    richiedenti = {u.id: u for u in db.query(User).filter(User.id.in_({r.richiedente_id for r in rows})).all()} if rows else {}
+    corsi = {c.id: c for c in db.query(Corso).filter(Corso.id.in_({r.corso_id for r in rows if r.corso_id})).all()} if rows else {}
+    return [_serialize(r, db, richiedenti, corsi) for r in rows]
 
 @router.put("/{richiesta_id}/valuta")
 def valuta_richiesta(richiesta_id: str, data: RichiestaCorsoValuta, request: Request,
@@ -80,6 +97,8 @@ def valuta_richiesta(richiesta_id: str, data: RichiestaCorsoValuta, request: Req
     if not r: raise HTTPException(404)
     if data.stato == StatoRichiestaCorso.in_attesa:
         raise HTTPException(400, "Lo stato di valutazione deve essere approvata o rifiutata")
+    if r.stato != StatoRichiestaCorso.in_attesa:
+        raise HTTPException(400, "La richiesta è già stata valutata")
     r.stato = data.stato
     r.nota_valutazione = data.nota_valutazione
     r.valutata_da_id = user.id

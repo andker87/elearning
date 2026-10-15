@@ -1,3 +1,5 @@
+import logging
+import re
 import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
@@ -10,6 +12,8 @@ from sqlalchemy.orm import Session
 
 from ..config import settings
 
+log = logging.getLogger(__name__)
+
 # Invii in sottofondo: una richiesta che genera centinaia di notifiche non aspetta l'SMTP,
 # e un invio fallito non tocca la transazione.
 _esecutore = ThreadPoolExecutor(max_workers=2, thread_name_prefix="invii")
@@ -19,7 +23,7 @@ def _esegui(funzione, args):
     try:
         funzione(*args)
     except Exception as e:
-        print(f"[invii] {getattr(funzione, '__name__', funzione)} fallito: {e}")
+        log.warning("invii: %s fallito: %s", getattr(funzione, "__name__", funzione), e)
 
 
 def in_sottofondo(funzione, *args):
@@ -36,12 +40,21 @@ def dopo_il_commit(db: Session, funzione, *args):
 @event.listens_for(Session, "after_commit")
 def _invii_dopo_commit(session):
     for funzione, args in session.info.pop("invii_in_attesa", []):
-        in_sottofondo(funzione, *args)
+        try:
+            in_sottofondo(funzione, *args)
+        except Exception as e:  # es. esecutore chiuso: la transazione e' gia' salva, un invio perso non deve far fallire la richiesta
+            log.warning("invii: impossibile accodare %s: %s", getattr(funzione, "__name__", funzione), e)
 
 
 @event.listens_for(Session, "after_rollback")
 def _invii_annullati(session):
     session.info.pop("invii_in_attesa", None)
+
+def _nome_allegato(nome: str) -> str:
+    """Nel nome del file niente virgolette, a capo o percorsi: finirebbe in un header."""
+    pulito = re.sub(r'[\r\n"\\/]+', "_", nome or "").strip()
+    return pulito[:100] or "allegato"
+
 
 def _oggetto(testo: str) -> str:
     """Un a capo in un header lo spezzerebbe (e l'invio fallirebbe in silenzio): si riduce a una riga."""
@@ -73,7 +86,7 @@ def invia_email(to_email: str, subject: str, body: str) -> bool:
                 server.sendmail(msg["From"], [to_email], msg.as_string())
         return True
     except Exception as e:
-        print(f"[email] invio a {to_email} fallito: {e}")
+        log.warning("email: invio a %s fallito: %s", to_email, e)
         return False
 
 def invia_email_con_allegato(to_email: str, subject: str, body: str,
@@ -93,7 +106,7 @@ def invia_email_con_allegato(to_email: str, subject: str, body: str,
         parte = MIMEBase(tipo, sottotipo or "octet-stream")
         parte.set_payload(allegato_bytes)
         encoders.encode_base64(parte)
-        parte.add_header("Content-Disposition", f'attachment; filename="{allegato_nome}"')
+        parte.add_header("Content-Disposition", f'attachment; filename="{_nome_allegato(allegato_nome)}"')
         msg.attach(parte)
         if settings.SMTP_TLS:
             with smtplib.SMTP(settings.SMTP_HOST, settings.SMTP_PORT or 587, timeout=10) as server:

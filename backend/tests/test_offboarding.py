@@ -231,6 +231,14 @@ def test_applica_rifiuta_un_piano_diverso_da_quello_visto(client, admin, auth, e
     assert client.post("/api/admin/entra/applica", headers=auth(admin)).status_code == 412  # senza impronta nemmeno
 
 
+def test_l_impronta_cambia_se_cambia_il_nome_dopo_l_anteprima(client, admin, auth, entra, crea_utente):
+    crea_utente("resta@az.it")
+    entra.membri = [membro("admin@test.it", "Admin Test"), membro("resta@az.it", "Nome vecchio")]
+    impronta = client.post("/api/admin/entra/anteprima", headers=auth(admin)).json()["impronta"]
+    entra.membri = [membro("admin@test.it", "Admin Test"), membro("resta@az.it", "Nome nuovo")]  # stessa persona, stessa azione, valore diverso
+    assert client.post("/api/admin/entra/applica", headers=auth(admin), params={"impronta": impronta}).status_code == 412
+
+
 def test_api_graph_irraggiungibile(client, admin, auth, entra):
     entra.errore = "autenticazione Graph rifiutata (401)"
     assert client.post("/api/admin/entra/anteprima", headers=auth(admin)).status_code == 502

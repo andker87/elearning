@@ -17,6 +17,16 @@ PACCHETTI = ["fastapi", "uvicorn", "sqlalchemy", "pydantic", "python-jose", "htt
              "reportlab", "openpyxl", "pywebpush", "psycopg2-binary"]
 
 CHANGELOG = [
+    {"version": "1.8.5", "date": "2026-10", "label": "Correttezza e prestazioni (rilievi della revisione pubblica)", "changes": [
+        "Rinnovo automatico: tiene conto della scadenza breve dopo un test non superato, e un'iscrizione a una sessione già iniziata o in bozza non blocca più il rinnovo",
+        "Dati in ingresso: richieste di corso, filtri per etichetta, template degli attestati e icona controllano forma e dimensione prima di salvare; un identificativo sbagliato dà un errore chiaro invece di un errore del server; un'immagine non valida non sostituisce più quella buona",
+        "Esportazioni: l'audit dichiara quando il file è troncato, l'apice anti-formula resta solo in CSV ed Excel (non nei PDF), l'ordinamento è stabile e il filtro «fine» con orario è preciso",
+        "Pacchetto ispezione: il limite conta i file realmente presenti e le ricerche dei documenti sono due in tutto, non due per riga",
+        "Notifiche: il sollecito manuale non blocca la richiesta e non si perde se l'invio fallisce; push senza duplicati sull'iscrizione ripetuta; nessun invito calendario per sessioni in bozza; nome dell'allegato email ripulito; errori inattesi dell'accesso aziendale riportano alla pagina di accesso",
+        "Dashboard formazione: i conteggi usano le stesse persone (attive) con e senza filtro per ufficio; le sessioni senza data non rompono il confronto. Pagina di salute: regge anche se manca la cartella dei video",
+        "Interno: Pillow aggiornato (12.3.0), registro dei log al posto di print, il calendario personale fa meno query, l'importazione CSV degli utenti non blocca più il server, migrazioni con rollback prima dello sblocco",
+        "Esportazione dati personali: tolto il contatore interno di sessione (token_version). Dalla review della 1.8.4: il pulsante «Apri l'informativa in PDF» non funzionava (import mancante); l'impronta del piano Entra comprende ora anche nomi e date; la migrazione dei doppioni tiene l'invito più avanzato",
+    ]},
     {"version": "1.8.4", "date": "2026-10", "label": "Sicurezza e integrità dei dati (rilievi della revisione pubblica)", "changes": [
         "File caricati: attestati, allegati, template e informativa non sono più raggiungibili senza accesso; restano pubblici solo logo e icona. L'informativa PDF e lo sfondo dei template si aprono dall'interno della piattaforma. Il nome dei file allegati agli attestati esterni non può più contenere percorsi",
         "Accesso aziendale: senza indirizzo email nel token si usa il nome utente solo se l'emittente è il tenant Entra dichiarato nel token",

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import api, { downloadFile } from "../api";
+import api, { downloadFile, apriFile } from "../api";
 import { REQUISITI_PASSWORD } from "../passwordPolicy";
 import { pushSupportato, statoSottoscrizione, attivaPush, disattivaPush } from "../push";
 
