@@ -55,8 +55,10 @@ def _ensure_vapid_keys():
         db.close()
 
 app = FastAPI(title="Piattaforma E-Learning", version="0.1.0")
-app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_credentials=True,
-                    allow_methods=["*"], allow_headers=["*"])
+# Sito e API passano dallo stesso indirizzo (nginx): CORS non serve e di default non ammette nessun altro sito.
+# Per ammettere altri indirizzi: CORS_ORIGINS="https://uno.example,https://due.example" (solo da ambiente).
+app.add_middleware(CORSMiddleware, allow_origins=settings.cors_origins_lista, allow_credentials=False,
+                    allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE"], allow_headers=["Authorization", "Content-Type"])
 
 scheduler = BackgroundScheduler()
 
@@ -117,7 +119,6 @@ class UploadsPubblici(StaticFiles):
 
 
 app.mount("/uploads", UploadsPubblici(directory="/app/uploads"), name="uploads")
-app.mount("/videos", StaticFiles(directory="/app/videos"), name="videos")
 
 app.include_router(setup.router)
 app.include_router(auth.router)

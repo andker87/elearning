@@ -79,7 +79,7 @@ export default function Video() {
               <div className="field" style={{ marginTop: 10 }}>
                 <label>Carica sottotitoli (.vtt)</label>
                 <input type="file" accept=".vtt" onChange={(e) => e.target.files[0] && uploadSottotitoli(v.id, e.target.files[0])} />
-                {v.sottotitoli_path && <span className="badge green" style={{ marginTop: 6 }}>caricati</span>}
+                {v.ha_sottotitoli && <span className="badge green" style={{ marginTop: 6 }}>caricati</span>}
               </div>
               <div style={{ marginTop: 10 }}>
                 <label>Capitoli</label>

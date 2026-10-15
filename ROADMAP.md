@@ -1,6 +1,6 @@
 # Roadmap — Piattaforma E-Learning
 
-Documento vivo, non un piano deciso: va aggiornato/riordinato insieme ad Andrea man
+Documento vivo, non un piano deciso: va aggiornato/riordinato insieme al committente man
 mano che si converge sulle priorità. Ultimo aggiornamento: 2026-10-13 (dopo sincronizzazione utenti e test automatici).
 
 ## Stato attuale (cosa esiste già)
@@ -108,13 +108,13 @@ gamification.
   completato) è derivata dai Percorsi formativi assegnati e non completati,
   guardando quali step sono sbloccati ma non fatti.
 - [x] **SPEDITO** — Dashboard/flusso **Admin tecnico**: due pagine in
-  "Amministrazione" (solo Admin tecnico), disegnate con Andrea ridimensionando
+  "Amministrazione" (solo Admin tecnico), disegnate con il committente ridimensionando
   la proposta iniziale (meno "KPI da vetrina", più salute vera):
   - **Stato piattaforma** (`GET /api/admin/salute`): utenti distinti con login
     nelle ultime 24h/7gg e login falliti 24h (derivati dall'audit log, nessun
     campo nuovo); scheduler (attivo, prossima esecuzione, ultimo giro + esito
     + storico, traceback se fallito); SMTP solo badge configurato/non
-    configurato (come GRC/carpooling, niente contatori invii); spazio disco
+    configurato (niente contatori invii); spazio disco
     del volume video, dimensione video/upload, video in errore di
     transcodifica, dimensione DB.
   - **Tracciamento scheduler**: tabella `job_runs` scritta da
@@ -159,7 +159,7 @@ Punto di partenza, non un elenco da spuntare tutto: alcune cose contano molto pe
 un contesto di compliance come il tuo, altre sono più "nice to have" da piattaforme
 generaliste e potrebbero non valere lo sforzo.
 
-### A. Irrobustire il lato compliance (il vostro vero differenziale)
+### A. Irrobustire il lato compliance (il vero differenziale)
 - [x] **Escalation al responsabile** — SPEDITA: `scadenza_corso` e `ripeti_corso`
   (le due notifiche di scadenza vera, non i promemoria generici di percorso/
   edizione imminente) ora notificano anche il/i responsabile(i) derivati dalla
@@ -176,7 +176,7 @@ generaliste e potrebbero non valere lo sforzo.
   `GET /api/registro/export.csv`. Nota: filtra sulla data di completamento,
   non sulla data di scadenza — "cosa scade in questo periodo" resta coperto
   dalle notifiche (sezione A/D), non da questo report.
-- [x] **Versionamento dei contenuti** — SPEDITO. Decisione di Andrea: mai un
+- [x] **Versionamento dei contenuti** — SPEDITO. Decisione del committente: mai un
   bump automatico su una modifica qualsiasi del corso (con 500+ utenti
   l'impatto sarebbe troppo pesante da scatenare per sbaglio) - è un'azione a
   parte, esplicita, corso per corso: "Nuova versione" nella pagina Corsi, con
@@ -200,14 +200,14 @@ generaliste e potrebbero non valere lo sforzo.
 
 ### A2. Template grafici per gli attestati
 - [x] **Editor drag-and-drop stile "stampa unione"** — SPEDITO. Richiesta di
-  Andrea dopo aver visto come carpooling genera i voucher premio (immagine
+  il committente dopo aver visto come un'altra piattaforma interna genera i voucher premio (immagine
   di sfondo + testo sovrapposto): qui serviva poter scegliere *quali* campi
   mostrare e *dove*, non solo un logo fisso. Modello `CertificatoTemplate`
   (`models/certificato_template.py`): nome, immagine di sfondo caricata
   (PNG/JPG/WEBP, dimensioni lette con Pillow), `campi` (JSON: lista di
   `{chiave, x, y, font_size, bold, align, colore}` in pixel dell'immagine
   originale), `is_default`. **Più template possono coesistere** (richiesta
-  esplicita di Andrea, es. un layout per corsi interni e uno per corsi
+  esplicita del committente, es. un layout per corsi interni e uno per corsi
   erogati da enti esterni): ogni `Corso` può assegnarne uno
   (`certificato_template_id`, selettore nella pagina Corsi); se non
   assegnato si usa quello con `is_default`; se nessuno esiste si ricade sul
@@ -244,7 +244,7 @@ generaliste e potrebbero non valere lo sforzo.
 
 ### D. Notifiche multicanale
 - [x] **Email (SMTP)** — SPEDITO, poi **migrato a configurazione solo da
-  ambiente** (decisione di Andrea sul principio sys admin/platform admin,
+  ambiente** (decisione del committente sul principio sys admin/platform admin,
   vedi sezione "Profili" più sotto): `SMTP_HOST/PORT/USER/PASSWORD/MITTENTE/TLS`
   si impostano solo come variabili d'ambiente (`.env`/docker-compose, vedi
   `config.py` — stesso schema già usato per Microsoft Graph), mai da UI. La
@@ -260,8 +260,8 @@ generaliste e potrebbero non valere lo sforzo.
 - [ ] Eventuale integrazione Teams/Slack per promemoria.
 
 ### D2. Profili: sys admin vs platform admin (principio architetturale)
-- [x] **SMTP come caso pilota** — SPEDITO (vedi sopra). Deciso con Andrea dopo
-  aver guardato come fanno carpooling/compliance (GRC): in nessuno dei due
+- [x] **SMTP come caso pilota** — SPEDITO (vedi sopra). Deciso con il committente dopo
+  un confronto con altre piattaforme interne: in nessuna
   esiste un *ruolo* "sys admin" separato nel modello utenti/permessi — è un
   principio su **dove vivono i segreti**, non un livello di permesso in più.
   Regola adottata anche qui: configurazione di infrastruttura (credenziali
@@ -272,7 +272,7 @@ generaliste e potrebbero non valere lo sforzo.
 
 ### E. Mobile / offline
 - [x] **PWA installabile + notifiche push** — SPEDITO. Scope deciso con
-  Andrea: installabile su pc/cellulare/tablet con notifiche push, **non**
+  il committente: installabile su pc/cellulare/tablet con notifiche push, **non**
   funzionamento offline (quello resta fuori, vedi nota xAPI sotto se servirà
   in futuro). `public/manifest.json` (nome, icone, `display: standalone`,
   `theme_color` sul verde-smeraldo della piattaforma) + `public/
@@ -305,12 +305,10 @@ generaliste e potrebbero non valere lo sforzo.
   prima del mount di React per non perdere l'evento) e propone "Installa"
   quando il browser lo offre, con istruzioni manuali su iOS (che non
   supporta quell'evento); il secondo propone di attivare le notifiche se il
-  permesso del browser è ancora "default". Pattern ripreso da
-  `InstallPwaBanner.jsx`/`NotificationPermissionBanner.jsx` di carpooling e
-  `pwaInstall.js` di GRC. Sidebar diventata anche collassabile (icone sole,
+  permesso del browser è ancora "default". Pattern comune ad altre piattaforme interne. Sidebar diventata anche collassabile (icone sole,
   64px) e ridimensionabile a trascinamento (180–360px, doppio click per
   ripristinare), preferenze per device in `localStorage` — stesso pattern di
-  `Layout.jsx`/`Layout.js` di carpooling/GRC (`components/Shell.js`).
+  `Layout.jsx`/`Layout.js` di altre piattaforme interne (`components/Shell.js`).
   **Verificato**: generazione chiavi VAPID, round-trip da PEM salvato,
   invio reale a un endpoint FCM (fallisce correttamente con 410 su un
   endpoint finto, pulizia automatica confermata), manifest/service-worker/
@@ -318,14 +316,13 @@ generaliste e potrebbero non valere lo sforzo.
   **Non verificabile da qui**: l'installazione vera su un dispositivo e la
   ricezione reale di una notifica richiedono un browser vero.
   **Nota operativa — risolta**: i service worker richiedono un contesto
-  sicuro (HTTPS), eccetto su `localhost`. Andrea ha messo elearning dietro
-  un tunnel Cloudflare (stessa logica già in uso per il portale GRC, lì con
-  DuckDNS+Caddy): nginx continua a esporre tutto in chiaro, il tunnel
+  sicuro (HTTPS), eccetto su `localhost`. la piattaforma può stare dietro
+  un tunnel o proxy HTTPS (la configurazione resta a carico di chi installa): nginx continua a esporre tutto in chiaro, il proxy
   termina l'HTTPS davanti — nessuna modifica necessaria in questo repo.
   Resta da fare solo il test reale su dispositivo (banner di installazione,
-  notifica push) da parte di Andrea.
+  notifica push).
 - [ ] Tracciamento offline vero (xAPI) per chi non ha una postazione fissa
-  (operai, venditori in giro) — fuori scope per ora, Andrea ha chiesto solo
+  (operai, venditori in giro) — fuori scope per ora, il committente ha chiesto solo
   installabilità + push.
 
 ### F. Reportistica/KPI (già segnata come "in sospeso" sopra)
@@ -366,12 +363,12 @@ generaliste e potrebbero non valere lo sforzo.
   Ufficio Formazione e tutte e 5 le viste della Dashboard KPI (prima
   "Confronto versioni" non aveva export, ora ce l'ha anche lei). Nessuna
   gestione permessi separata per l'export: chi vede il dato a schermo può
-  anche esportarlo (scelta di Andrea, niente permesso dedicato come nel GRC
+  anche esportarlo (scelta del committente, niente permesso dedicato
   per ora).
 
 ### G. Import/export massivo
 - [x] **Import CSV utenti per onboarding bulk** — SPEDITO, poi arricchito
-  guardando come fanno carpooling/compliance. `POST
+   `POST
   /api/auth/users/import-csv` (solo Admin tecnico, pagina Utenti), accetta
   `,` o `;` come separatore. Colonne: `email`, `full_name`/`nome` (obbligatorie),
   `password` (opzionale, altrimenti generata), `role`, `is_external`,
@@ -383,7 +380,7 @@ generaliste e potrebbero non valere lo sforzo.
   Se SMTP è configurato (sez. D) la password generata viene mandata via
   email all'utente, altrimenti torna nella risposta/tabella a video per
   comunicarla a mano. **Modalità "cessati"** (stesso schema di
-  carpooling/compliance): se il nome del file contiene "cessat" (es.
+  come in altre piattaforme interne): se il nome del file contiene "cessat" (es.
   `cessati_settembre.csv`), lo stesso endpoint disattiva in blocco per email
   invece di creare — basta la colonna `email`, lo storico formativo resta
   intatto (l'account smette solo di essere attivo).
@@ -399,7 +396,7 @@ generaliste e potrebbero non valere lo sforzo.
   in testa a ogni esportazione PDF (`services/export.py`, sezione F).
 
 ### H. Integrazione calendario — SPEDITO
-- [x] Scelto con Andrea l'approccio a basso sforzo (iCal, no OAuth/credenziali
+- [x] Scelto con il committente l'approccio a basso sforzo (iCal, no OAuth/credenziali
   da richiedere): niente libreria esterna, `services/calendario.py` costruisce
   a mano i VEVENT (UID stabile `edizione-{id}@piattaforma-formazione` — una
   data che cambia aggiorna lo stesso evento nel calendario invece di
@@ -414,7 +411,7 @@ generaliste e potrebbero non valere lo sforzo.
   un browser) — `User.calendar_token`, generato al primo `GET
   /api/calendario/url`, rigenerabile da Impostazioni utente ("Il mio
   calendario", con copia-link); (3) invito via email con `.ics` in allegato,
-  **agganciato alla configurazione SMTP come chiesto da Andrea**:
+  **agganciato alla configurazione SMTP come chiesto dal committente**:
   `services/notifiche.py` (`invia_invito_calendario`) controlla
   `settings.smtp_enabled` prima ancora di costruire l'allegato, e
   `invia_email_con_allegato` (nuova funzione in `services/email.py`, stesso
@@ -452,12 +449,12 @@ generaliste e potrebbero non valere lo sforzo.
   `is_ufficio` (per non confonderlo con gli altri gruppi liberi usati per il
   rolling massivo), gerarchia già data dal `parent_id` che hanno già.
 - [ ] **Un solo responsabile per ufficio** (campo singolo `responsabile_id` su
-  `Group`, niente co-gestione — confermato da Andrea).
+  `Group`, niente co-gestione — confermato dal committente).
 - [ ] **Il responsabile di una persona è derivato, non un campo suo**: è il
   responsabile del gruppo-ufficio di cui è *membro*. Se quella persona è a sua
   volta responsabile di un (sotto-)ufficio, il suo responsabile è il
   responsabile del gruppo **padre** di quello che dirige — non deve essere
-  iscritta come membro lì. Esempio verificato con Andrea: Back Office (resp.
+  iscritta come membro lì. Esempio verificato con il committente: Back Office (resp.
   Alberto) ha due assistenti come membri diretti (resp. = Alberto) e due
   sotto-uffici, Bancario (resp. Daniele) e Assicurativo (resp. Sara), entrambi
   con padre Back Office → il responsabile di Daniele e Sara è Alberto, senza
@@ -585,7 +582,7 @@ generaliste e potrebbero non valere lo sforzo.
     sotto-uffici, periodo, stato, testo), ordinamento dalle intestazioni e paginazione
     sul server, export. Campagne con avanzamento (uffici che hanno risposto, richieste).
     Stato finale lato responsabile: "Inviata (in carico alla Formazione)", lato
-    Formazione "Ricevuta". Deciso con Andrea di NON aggiungere un esito (accolta/non
+    Formazione "Ricevuta". Deciso con il committente di NON aggiungere un esito (accolta/non
     accolta) della Formazione: la campagna e' una raccolta, non un'approvazione.
   - **Fusione di richieste simili (v1.6.0)**: chi valuta le richieste dei sotto-uffici
     seleziona quelle sullo stesso tema e le unisce in una sola (argomento e nota
@@ -656,7 +653,7 @@ generaliste e potrebbero non valere lo sforzo.
   collegata, provisioning on/off, password rifiutata per "dominio" e ammessa
   per Admin tecnico. **Non testato contro un IdP reale** (servono le
   credenziali dell'app registrata): primo collaudo vero da fare quando
-  Andrea compila le variabili.
+  il committente compila le variabili.
 
 ### S. Audit delle azioni dei discenti — SPEDITO
 - [x] Eventi nuovi: `CHECKIN_INIZIO`/`CHECKIN_FINE` (check-in del discente),
@@ -676,14 +673,13 @@ generaliste e potrebbero non valere lo sforzo.
   registrato due volte su otto heartbeat, nessun evento di gradimento, log
   backend senza errori, dati di test rimossi.
 
-### T. Uniformità con carpooling e GRC — SPEDITO
-Confronto fatto leggendo i due progetti gemelli (menu, impostazioni, About,
-privacy, permessi), poi allineato a **GRC come riferimento** per struttura e
-impostazioni, a **carpooling** per la privacy utente.
-- [x] **Decisione: ruoli fissi, niente permessi per gruppo.** GRC ha permessi
-  granulari per sezione/gruppo, carpooling ruoli fissi. Qui la piattaforma e'
+### T. Uniformità con altre piattaforme interne — SPEDITO
+Confronto fatto con altre piattaforme interne (menu, impostazioni, About,
+privacy, permessi), poi allineato per struttura, impostazioni e privacy utente.
+- [x] **Decisione: ruoli fissi, niente permessi per gruppo.** Altre piattaforme usano permessi
+  granulari per sezione/gruppo. Qui la piattaforma e'
   piatta (formazione/HR, docente, discente, responsabile): i permessi
-  configurabili sarebbero complessita' senza valore. Scelta di Andrea.
+  configurabili sarebbero complessita' senza valore. Scelta del committente.
 - [x] **Informazioni** (`api/about.py`, `version.py`, pagina `/informazioni`,
   icona ⓘ nel footer della sidebar, per tutti): nome, azienda, versione
   (`APP_VERSION`, oggi 1.2.0) e novita'. L'Admin tecnico vede in piu' ambiente
@@ -742,12 +738,12 @@ impostazioni, a **carpooling** per la privacy utente.
   degli screenshot, da cui sono usciti e sono stati corretti troncamento del
   nome nel brand, sigla dell'icona e stile al passaggio del mouse. Dati di
   test rimossi.
-- Rimasto fuori dal confronto: carpooling ha anche reset password, cambio
+- Rimasto fuori dal confronto: altre piattaforme hanno anche reset password, cambio
   password forzato e documenti legali con accettazione; non richiesti qui.
 
 ### U. Sicurezza degli accessi — SPEDITO (13/10/2026, v1.3.0)
 
-Allineato a carpooling (blocco, reset, cambio obbligatorio) e GRC (policy password).
+Blocco, reset, cambio obbligatorio e policy password.
 - [x] **Policy password unica** (`services/password_policy.py`): almeno 14 caratteri,
   una maiuscola, un numero, un carattere speciale; vale per setup, creazione utente,
   cambio, reset, modifica da admin e import CSV (le password generate sono conformi).
@@ -866,9 +862,17 @@ Otto correzioni su dieci segnalazioni verificate: ruolo dell'ultimo Admin tecnic
 ### Z5. Rilievi di CodeRabbit sulla cronologia pubblica (v1.8.4 e seguenti)
 La cronologia è stata pubblicata a fasi (PR #1-#8) e ogni fase recensita da CodeRabbit. I rilievi, verificati sul codice attuale, sono in `docs/rilievi-coderabbit.md` e si correggono in quattro blocchi: 1.8.4 sicurezza e integrità dei dati (fatto: file caricati non più pubblici, SSO, reset password, vincoli contro le corse, piano Entra legato all'anteprima), 1.8.5 correttezza e prestazioni del backend (fatto: rinnovo, validazione degli ingressi, esportazioni, pacchetto ispezione, invii, calendario, push), 1.8.6 interfaccia (fatto: errori mostrati, tastiera, risposte vecchie scartate, banner), 1.8.7 documenti (fatti tutti e quattro: serie chiusa). Aperto, da decidere: i video in `/videos` sono ancora serviti senza accesso (servirebbero indirizzi firmati a tempo).
 
+### Z6. Sicurezza per l'uso aziendale (verso la 2.0.0)
+Obiettivo: superare controlli di sicurezza (SAST, analisi delle dipendenze) e proteggere i dati degli utenti. Quattro passi, ciascuno una release:
+- [x] **1.9.0 Video e CORS** — i video non sono più una cartella pubblica: ogni riproduzione passa da un indirizzo a tempo (2 ore, legato al video) richiesto da chi ha diritto (iscritto alla sessione, Ufficio Formazione, Admin). CORS chiuso di default (`CORS_ORIGINS` solo da ambiente, mai `*`): funziona su qualsiasi indirizzo. Upload video e sottotitoli scritti a pezzi con limite. Tolti dalla documentazione i riferimenti a strumenti e progetti specifici del committente: la piattaforma è generica.
+- [ ] **1.9.1 Registro attività** — due livelli (importanti / tutti), conservazione `AUDIT_RETENZIONE_MESI` (24 predefiniti, da ambiente), riepiloghi, indici; esportazione periodica dei log verso un sistema di gestione (da discutere).
+- [ ] **1.9.2 Pagina Info** — agli utenti solo nome e versione; changelog e dettagli tecnici solo all'Admin tecnico.
+- [ ] **1.9.3 Cifratura dei dati** — file e campi sensibili cifrati con chiave da ambiente; documento di sicurezza (disco, backup, trasporto).
+- [ ] Controlli automatici di sicurezza del codice (Bandit, pip-audit/npm audit, Semgrep, Trivy) e poi **2.0.0**.
+
 ### Y. Etichette dei corsi — SPEDITO (14/10/2026, v1.7.0)
 
-Ragionata con Andrea: una sola categoria per corso non basta (un corso di sicurezza
+Ragionata con il committente: una sola categoria per corso non basta (un corso di sicurezza
 informatica e' insieme "Cybersecurity" e "Trasversale"), ma tag liberi diventano caos e
 mescolano dimensioni diverse. Soluzione: etichette in **famiglie**.
 - [x] Famiglie definite dall'Ufficio Formazione (pagina "Etichette dei corsi"): nome,
@@ -880,7 +884,7 @@ mescolano dimensioni diverse. Soluzione: etichette in **famiglie**.
 - [x] Famiglie iniziali: Tematica, Riferimento normativo (il filtro degli audit), Ambito
   (Trasversale / clienti), Obbligo (legge, cliente, policy interna, facoltativo; scelta
   singola). Il vecchio campo Categoria e' migrato in Tematica.
-- [x] **Decisione di Andrea**: l'obbligo e' una proprieta' del corso, il percorso e'
+- [x] **Decisione del committente**: l'obbligo e' una proprieta' del corso, il percorso e'
   un'iniziativa organizzativa. Tolto "motivo dell'obbligo" dai percorsi (il dato resta nel
   database con il valore predefinito, nessuna nota da perdere). L'ambito cliente sta sul
   corso, non sulla sessione.
@@ -911,7 +915,7 @@ sviluppo a produzione, a ricostruirla dopo un errore o ad avviare un'altra istan
   corsi esistenti. Riferimenti mancanti (responsabile, gruppo, corso) diventano avvisi.
   Rifiuta file di altri formati o di una versione piu' recente. Audit `CONFIG_EXPORT` e
   `CONFIG_IMPORT`.
-- [x] **Fuori dal file, da valutare dopo** (decisione di Andrea): video, immagini e loghi,
+- [x] **Fuori dal file, da valutare dopo** (decisione del committente): video, immagini e loghi,
   template degli attestati, test e domande, ruoli di sistema; mai inclusi: persone,
   iscrizioni, credenziali e chiavi (SMTP, SSO, Graph, push).
 - [x] Esportazione in CSV/Excel/PDF di utenti, gruppi, societa' di formazione, catalogo corsi
@@ -982,24 +986,19 @@ con la produzione: i volumi Docker con nome non sono visti dal backup dei file).
   attestati". Serve prima decidere che certificato usare (sigillo aziendale, firma di
   una persona, provider).
 - [x] **Accordo Stato-Regioni 2025 (n. 59/CSR)** — CHIUSO, non applicabile. Decisione
-  di Andrea: la piattaforma non eroga la formazione D.Lgs 81/08 (la erogano societa'
+  del committente: la piattaforma non eroga la formazione D.Lgs 81/08 (la erogano societa'
   accreditate, che decidono modalita' e strumenti): qui si rendiconta soltanto. Nessuna
   funzione da costruire; restano utili registro, attestati esterni e matrice.
-- **Decisioni del 13/10/2026 (Andrea)**: promemoria Teams/Slack a priorita' bassa;
+- **Decisioni del 13/10/2026 (committente)**: promemoria Teams/Slack a priorita' bassa;
   multi-tenant parcheggiato; matrice delle competenze da ragionare bene prima di
   impostarla (rischio di costruire qualcosa senza senso: partire da un caso d'uso
   concreto, non da un modello); tracciamento offline scartato.
-- **Video prodotti con l'AI**: idea di Andrea di creare i videocorsi con strumenti AI.
-  Non serve SCORM: i video si caricano come MP4 nel player esistente (capitoli,
-  sottotitoli, anti-skip). Claude non genera video o audio: scrive copioni,
-  scalette, quiz e sottotitoli. Per il video vero: Copilot/Clipchamp (da copione,
-  con filmati d'archivio e voce) o strumenti con avatar (Synthesia, Colossyan,
-  HeyGen). Da verificare: qualita' della voce italiana, costi e privacy.
+- **Videocorsi**: non serve SCORM; i video si caricano come MP4 nel player esistente (capitoli, sottotitoli, anti-skip). Come produrli è a discrezione di chi gestisce i corsi.
 - Assistenza AI (quiz generati, sottotitoli automatici): resta parcheggiata.
 
 ## Idee scartate
 
-- **Tracciamento offline / lavoro senza rete** (E): scartato da Andrea il 13/10/2026,
+- **Tracciamento offline / lavoro senza rete** (E): scartato dal committente il 13/10/2026,
   non ne vede l'utilita'.
 
 - **Gamification** (punti/badge/leaderboard): valutata e scartata — non adatta

@@ -30,7 +30,7 @@ Per chi configura e fa funzionare la piattaforma (ruolo **Admin tecnico**) e per
 - **Nuova versione** di un corso: scegli se chi lo ha già fatto deve ripeterlo (aggiornamenti normativi) o solo vedere «aggiornamento disponibile».
 - **Percorsi formativi**: sequenze di corsi con propedeuticità, assegnabili a mano, all'ingresso in azienda o a un gruppo.
 - **Sessioni**: modalità presenza, ibrida, remoto, video, esterna. Una sessione video senza data resta sempre aperta (adatta al rinnovo automatico). Pianificare una bozza manda l'invito calendario agli iscritti.
-- **Video**: carica il file, la piattaforma lo converte; puoi aggiungere capitoli e sottotitoli (`.vtt`). `docs/brief-video-formativi.md` descrive come preparare un videocorso con un assistente AI.
+- **Video**: carica il file, la piattaforma lo converte; puoi aggiungere capitoli e sottotitoli (`.vtt`).
 
 ## 5. Controllo e audit
 - **Registro formazione**, **Matrice formativa** (persone × corsi richiesti dai percorsi, con stato di ogni cella) e **Dashboard** si filtrano per ufficio, persona, periodo ed **etichetta**.

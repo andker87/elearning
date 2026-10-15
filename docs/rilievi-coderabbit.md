@@ -88,7 +88,6 @@ Stato: `DA FARE` fondato · `VERIFICARE` probabile, da guardare nel codice prima
 | CHIUSO | services/configurazione.py | un gruppo senza `percorso` nel file importato manda in errore l'ordinamento: segnalarlo o saltarlo con avviso (verificato; già rifiutato con errore 400 che nomina il campo, c'è il test) |
 | FATTO 1.8.6 | frontend AlberoOrigine.js | l'albero mostrato non è legato all'`id`: si aggiorna male cambiando richiesta |
 | FATTO 1.8.6 | frontend Configurazione.js | `r.sezioni[k]` senza controllo se manca la chiave |
-| FATTO 1.8.7 | docs/brief-video-formativi.md | chiarire quale voce va verificata (riga 53) e aggiornare il percorso di avvio di Copilot in Clipchamp (riga 30) — voce e percorso di Copilot in Clipchamp aggiornati dalla documentazione Microsoft (il menu cambia con account e versione) |
 
 ## PR #6 — fasi 1.7.0, 1.7.1 e 1.7.2 (4 commenti in linea + 1 di rifinitura)
 
@@ -161,4 +160,12 @@ Aggiungere qui sotto una sezione per ogni PR, appena arriva la review della fase
 
 | Stato | File | Rilievo |
 |---|---|---|
-| FATTO 1.8.7 | docs/brief-video-formativi.md (riga 30) | percorsi di avvio di Copilot in Clipchamp: indicati come documentati l'area Create e il comando «Genera un video»; la pagina iniziale resta solo condizionale; aggiunti piano Microsoft 365, Copilot Chat e Clipchamp abilitato dall'amministratore |
+
+## PR #13 (1.9.0, video protetti e CORS)
+
+| Stato | File | Rilievo |
+|---|---|---|
+| FATTO 1.9.0 | api/video.py | due caricamenti dello stesso file usavano lo stesso nome provvisorio e si mescolavano: nome unico per ogni caricamento |
+| FATTO 1.9.0 | api/video.py | indirizzo valido di un video cancellato dava errore 500: ora 404 (aggiunto test) |
+| FATTO 1.9.0 | VideoPlayer.js | risposte di un video precedente potevano sostituire quello corrente: scartate le richieste superate e azzerato l'accesso al cambio video |
+| FATTO 1.9.0 | VideoPlayer.js | il contatore dei tentativi non si azzerava dopo una riproduzione riuscita o con «Riprova»: ora sì |
