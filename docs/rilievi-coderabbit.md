@@ -156,3 +156,9 @@ Aggiungere qui sotto una sezione per ogni PR, appena arriva la review della fase
 | FATTO 1.8.6 | frontend Fabbisogno.js | errore generale mai azzerato dopo un ricaricamento riuscito: azzerato all'inizio di `load` |
 | FATTO 1.8.6 | frontend FabbisognoAdmin.js | errore di pagina persistente tra le schede: azzerato a ogni caricamento e al cambio scheda |
 | FATTO 1.8.6 | frontend Azienda.js | «Riprova» mancante se il caricamento fallisce: aggiunto |
+
+## PR #12 (1.8.7, documenti e rifiniture)
+
+| Stato | File | Rilievo |
+|---|---|---|
+| FATTO 1.8.7 | docs/brief-video-formativi.md (riga 30) | percorsi di avvio di Copilot in Clipchamp: indicati come documentati l'area Create e il comando «Genera un video»; la pagina iniziale resta solo condizionale; aggiunti piano Microsoft 365, Copilot Chat e Clipchamp abilitato dall'amministratore |

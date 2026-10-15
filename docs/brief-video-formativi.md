@@ -27,7 +27,7 @@ Non puoi generare video né audio: scrivi i testi e le indicazioni, io faccio il
 4. **Sottotitoli** in formato WebVTT (`WEBVTT`, poi blocchi con tempi `00:00:00.000 --> 00:00:04.000`), costruiti dal copione con i tempi calcolati sulla durata di lettura. Dopo il montaggio ti darò la durata reale per riallinearli.
 5. **Quiz finale**: 6-8 domande a risposta multipla (4 opzioni, una sola corretta), che verificano i comportamenti dell'obiettivo e non la memoria di dettagli. Per ogni domanda indica la risposta corretta e perché le altre sono sbagliate. Formato:
    `Domanda | A) ... | B) ... | C) ... | D) ... | Corretta: B`
-6. **Istruzioni per Clipchamp**: il prompt da dare a Copilot e dove inserirlo (la pagina iniziale di Clipchamp, il comando «Genera un video» nell'editor o l'area *Create* di Copilot: dipende dall'account e dalla versione, e la funzione richiede un account di lavoro con Copilot e Clipchamp abilitato dall'amministratore, quindi controlla quale voce vedi), e come sostituire la bozza con il tuo copione se la voce o le immagini non vanno bene.
+6. **Istruzioni per Clipchamp**: il prompt da dare a Copilot e dove inserirlo (l'area *Create* di Copilot o il comando «Genera un video» nell'editor di Clipchamp, che sono i percorsi indicati da Microsoft; la pagina iniziale di Clipchamp solo se nella tua versione compare la stessa voce. La funzione richiede un account di lavoro con un piano Microsoft 365, accesso a Copilot Chat e Clipchamp abilitato dall'amministratore: controlla quale voce vedi), e come sostituire la bozza con il tuo copione se la voce o le immagini non vanno bene.
 
 ## Regole
 
