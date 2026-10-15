@@ -41,12 +41,10 @@ def feed(token: str, db: Session = Depends(get_db)):
     ).all()}
     edizioni_ids |= {d.edizione_id for d in db.query(EdizioneDocente).filter(EdizioneDocente.user_id == user.id).all()}
     eventi = []
-    for eid in edizioni_ids:
-        e = db.query(Edizione).filter(Edizione.id == eid).first()
-        if not e:
-            continue
-        corso = db.query(Corso).filter(Corso.id == e.corso_id).first()
-        ev = evento_edizione(e, corso.titolo if corso else "Sessione formativa")
+    edizioni = db.query(Edizione).filter(Edizione.id.in_(edizioni_ids)).all() if edizioni_ids else []
+    titoli = {c.id: c.titolo for c in db.query(Corso).filter(Corso.id.in_({e.corso_id for e in edizioni})).all()} if edizioni else {}
+    for e in edizioni:
+        ev = evento_edizione(e, titoli.get(e.corso_id, "Sessione formativa"))
         if ev:
             eventi.append(ev)
     ics = costruisci_ics(eventi)

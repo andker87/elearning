@@ -35,7 +35,7 @@ INFORMATIVA_DIR = "/app/uploads/azienda"
 INFORMATIVA_PDF = os.path.join(INFORMATIVA_DIR, "informativa-privacy.pdf")
 INFORMATIVA_MAX_BYTES = 15 * 1024 * 1024
 
-ESCLUSE = {"hashed_password", "calendar_token", "sso_subject", "p256dh", "auth", "endpoint"}
+ESCLUSE = {"hashed_password", "calendar_token", "sso_subject", "p256dh", "auth", "endpoint", "token_version"}
 
 
 def _valore(v):

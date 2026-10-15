@@ -28,8 +28,8 @@ def crea_iscrizione_con_capacita(db: Session, edizione: Edizione, user_id: str) 
         with db.begin_nested():  # il vincolo del database ferma anche la doppia iscrizione in parallelo
             db.add(i)
             db.flush()
-    except IntegrityError:
-        raise HTTPException(400, "La persona è già iscritta a questa sessione")
+    except IntegrityError as err:
+        raise HTTPException(400, "La persona è già iscritta a questa sessione") from err
     return i
 
 def promuovi_da_lista_attesa(db: Session, edizione_id: str):

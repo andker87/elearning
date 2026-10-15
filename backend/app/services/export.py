@@ -18,14 +18,14 @@ MEDIA_TYPE = {
     "pdf": "application/pdf",
 }
 
-def _cella(v):
+def _cella(v, neutra=True):
     if v is None:
         return ""
     if isinstance(v, bool):
         return "Sì" if v else ""
     if isinstance(v, (datetime, date)):
         return v.strftime("%d/%m/%Y")
-    return neutralizza(v)
+    return neutralizza(v) if neutra else v  # nel PDF non c'e' nessuna formula da evitare: l'apice si vedrebbe
 
 def neutralizza(v):
     """Un testo che inizia con = + - @ verrebbe eseguito come formula da Excel/LibreOffice: lo si rende testo."""
@@ -71,7 +71,7 @@ def _a_pdf(titolo, colonne, righe, pagina="A4", logo_path=None) -> bytes:
             pass
     elementi.append(Paragraph(titolo, stili["Title"]))
     elementi.append(Spacer(1, 0.4 * cm))
-    dati = [colonne] + [[_cella(v) for v in r] for r in righe]
+    dati = [colonne] + [[_cella(v, neutra=False) for v in r] for r in righe]
     tabella = Table(dati, repeatRows=1)
     tabella.setStyle(TableStyle([
         ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#1f2d3d")),

@@ -1,4 +1,5 @@
-import os, glob
+import os, glob, io, tempfile
+from uuid import UUID
 from datetime import datetime
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Request
 from ..services import audit as audit_svc
@@ -10,13 +11,24 @@ from PIL import Image as PILImage
 from ..database import get_db
 from ..models.certificato_template import CertificatoTemplate
 from ..models.corso import Corso
-from ..services.certificati import CAMPI_DISPONIBILI, genera_pdf_da_template
+from ..services.certificati import CAMPI_DISPONIBILI, genera_pdf_da_template, valida_campo
 from .deps import require_training_admin
 
 router = APIRouter(prefix="/api/certificato-templates", tags=["certificato-templates"])
 
 TEMPLATE_DIR = "/app/uploads/template_attestati"
 ESTENSIONI = {"image/png": ".png", "image/jpeg": ".jpg", "image/webp": ".webp"}
+
+IMMAGINE_MAX_BYTE = 10 * 1024 * 1024
+IMMAGINE_MAX_PIXEL = 40_000_000
+
+
+def _id_template(template_id: str) -> str:
+    try:
+        return str(UUID(template_id))
+    except ValueError:
+        raise HTTPException(404)  # un identificativo che non e' un UUID non puo' esistere (e non deve arrivare al database ne' al nome del file)
+
 
 class TemplateIn(BaseModel):
     nome: str
@@ -52,20 +64,29 @@ def create_template(data: TemplateIn, request: Request, db: Session = Depends(ge
 
 @router.post("/{template_id}/immagine")
 def upload_immagine(template_id: str, file: UploadFile = File(...), db: Session = Depends(get_db), user=Depends(require_training_admin)):
+    template_id = _id_template(template_id)
     t = db.query(CertificatoTemplate).filter(CertificatoTemplate.id == template_id).first()
     if not t: raise HTTPException(404)
     estensione = ESTENSIONI.get(file.content_type)
     if not estensione:
         raise HTTPException(400, "Formato non supportato: usa PNG, JPG o WEBP")
+    contenuto = file.file.read(IMMAGINE_MAX_BYTE + 1)
+    if len(contenuto) > IMMAGINE_MAX_BYTE:
+        raise HTTPException(400, "Il file è troppo grande (massimo 10 MB)")
+    try:  # l'immagine si controlla PRIMA di toccare lo sfondo che c'e' gia'
+        with PILImage.open(io.BytesIO(contenuto)) as img:
+            larghezza, altezza = img.size
+            if larghezza * altezza > IMMAGINE_MAX_PIXEL:
+                raise ValueError("troppi pixel")
+            img.load()
+    except Exception:
+        raise HTTPException(400, "Immagine non valida o troppo grande (massimo 10 MB e 40 megapixel)")
     os.makedirs(TEMPLATE_DIR, exist_ok=True)
     for vecchio in glob.glob(os.path.join(TEMPLATE_DIR, f"{template_id}.*")):
         os.remove(vecchio)
     path = os.path.join(TEMPLATE_DIR, f"{template_id}{estensione}")
-    contenuto = file.file.read()
     with open(path, "wb") as f:
         f.write(contenuto)
-    with PILImage.open(path) as img:
-        larghezza, altezza = img.size
     t.immagine_path = path
     t.larghezza_px = larghezza
     t.altezza_px = altezza
@@ -74,6 +95,7 @@ def upload_immagine(template_id: str, file: UploadFile = File(...), db: Session 
 
 @router.put("/{template_id}")
 def update_template(template_id: str, data: TemplateUpdate, request: Request, db: Session = Depends(get_db), user=Depends(require_training_admin)):
+    template_id = _id_template(template_id)
     t = db.query(CertificatoTemplate).filter(CertificatoTemplate.id == template_id).first()
     if not t: raise HTTPException(404)
     if data.nome is not None:
@@ -83,6 +105,10 @@ def update_template(template_id: str, data: TemplateUpdate, request: Request, db
         for campo in data.campi:
             if campo.get("chiave") not in chiavi_valide:
                 raise HTTPException(400, f"Campo non valido: {campo.get('chiave')}")
+            try:
+                valida_campo(campo)
+            except ValueError as err:
+                raise HTTPException(400, str(err))
         t.campi = data.campi
     if data.is_default is not None:
         if data.is_default:
@@ -96,6 +122,7 @@ def update_template(template_id: str, data: TemplateUpdate, request: Request, db
 
 @router.get("/{template_id}/anteprima.pdf")
 def anteprima(template_id: str, db: Session = Depends(get_db), user=Depends(require_training_admin)):
+    template_id = _id_template(template_id)
     t = db.query(CertificatoTemplate).filter(CertificatoTemplate.id == template_id).first()
     if not t: raise HTTPException(404)
     if not t.immagine_path:
@@ -106,15 +133,16 @@ def anteprima(template_id: str, db: Session = Depends(get_db), user=Depends(requ
         "azienda_nome": "Azienda S.r.l.", "ente_erogatore": "Ente formativo di esempio",
         "docente_nome": "Nome Docente", "codice_verifica": "ABCD1234EFGH5678",
     }
-    path = f"/tmp/anteprima_{template_id}.pdf"
-    genera_pdf_da_template(path, template=t, valori=valori)
-    with open(path, "rb") as f:
-        contenuto = f.read()
-    os.remove(path)
+    with tempfile.TemporaryDirectory() as cartella:  # file temporaneo proprio di questa richiesta
+        path = os.path.join(cartella, "anteprima.pdf")
+        genera_pdf_da_template(path, template=t, valori=valori)
+        with open(path, "rb") as f:
+            contenuto = f.read()
     return Response(content=contenuto, media_type="application/pdf")
 
 @router.get("/{template_id}/immagine")
 def immagine_template(template_id: str, db: Session = Depends(get_db), user=Depends(require_training_admin)):
+    template_id = _id_template(template_id)
     t = db.query(CertificatoTemplate).filter(CertificatoTemplate.id == template_id).first()
     if not t or not t.immagine_path or not os.path.exists(t.immagine_path):
         raise HTTPException(404)
@@ -123,6 +151,7 @@ def immagine_template(template_id: str, db: Session = Depends(get_db), user=Depe
 
 @router.delete("/{template_id}")
 def delete_template(template_id: str, request: Request, db: Session = Depends(get_db), user=Depends(require_training_admin)):
+    template_id = _id_template(template_id)
     t = db.query(CertificatoTemplate).filter(CertificatoTemplate.id == template_id).first()
     if not t: raise HTTPException(404)
     in_uso = db.query(Corso).filter(Corso.certificato_template_id == t.id).count()

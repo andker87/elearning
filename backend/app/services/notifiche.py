@@ -2,7 +2,7 @@ from datetime import datetime, timedelta, timezone
 from dateutil.relativedelta import relativedelta
 from sqlalchemy.orm import Session
 from ..models.iscrizione import Iscrizione, StatoIscrizione
-from ..models.edizione import Edizione
+from ..models.edizione import Edizione, StatoEdizione
 from ..models.corso import Corso
 from ..models.percorso import PercorsoAssegnazione, PercorsoFormativo
 from ..models.notification import Notification
@@ -10,7 +10,7 @@ from ..models.user import User
 from ..config import settings
 from .gerarchia import responsabili_di
 from .email import invia_email, invia_email_con_allegato, dopo_il_commit, in_sottofondo
-from .push import invia_push, accoda_push
+from .push import accoda_push
 from .calendario import evento_edizione, costruisci_ics
 
 FINESTRA_PREAVVISO_GIORNI = 30
@@ -60,8 +60,8 @@ def invia_invito_calendario(db: Session, edizione: Edizione, user_id) -> bool:
     data: niente da fare se la sessione non ha ancora data_inizio, o se
     l'SMTP non è configurato (invia_email_con_allegato fa già quel
     controllo, qui evitiamo solo di costruire l'ics a vuoto)."""
-    if not edizione.data_inizio or not settings.smtp_enabled:
-        return False
+    if not edizione.data_inizio or not settings.smtp_enabled or edizione.stato == StatoEdizione.bozza:
+        return False  # una sessione in bozza non e' ancora confermata: l'invito parte quando viene pianificata
     corso = db.query(Corso).filter(Corso.id == edizione.corso_id).first()
     titolo = corso.titolo if corso else "Sessione formativa"
     evento = evento_edizione(edizione, titolo)

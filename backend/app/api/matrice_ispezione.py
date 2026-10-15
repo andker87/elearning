@@ -182,23 +182,29 @@ def pacchetto_ispezione(request: Request, ufficio_id: Optional[str] = Query(None
     righe = [r for r in _righe(db, ufficio_id, da, a, corso_id, ammessi) if r["user_id"] in ids]
 
     docs = []  # (cartella, nome_file, percorso_su_disco, riga indice)
+    id_completati = [r["iscrizione_id"] for r in righe if r["data_completamento"]]
+    certificati, evidenze = {}, {}  # due query in tutto, non due per riga
+    if id_completati:
+        for c in db.query(Certificato).filter(Certificato.iscrizione_id.in_(id_completati)).all():
+            certificati.setdefault(str(c.iscrizione_id), []).append(c)
+        for ev in db.query(Evidenza).filter(Evidenza.iscrizione_id.in_(id_completati), Evidenza.file_allegato_path.isnot(None)).order_by(Evidenza.id).all():
+            evidenze.setdefault(str(ev.iscrizione_id), []).append(ev)
     for r in righe:
         if not r["data_completamento"]:
             continue
         persona = _nome_file(r["persona"])
-        for c in db.query(Certificato).filter(Certificato.iscrizione_id == r["iscrizione_id"]).all():
+        for c in certificati.get(str(r["iscrizione_id"]), []):
             if c.pdf_path:
                 docs.append((f"attestati/{persona}", f"{_nome_file(r['corso'])}_{c.codice_verifica}.pdf", c.pdf_path,
                              [r["persona"], r["email"], r["corso"], "attestato emesso dalla piattaforma", c.codice_verifica, r["data_completamento"]]))
-        for n, ev in enumerate(db.query(Evidenza).filter(Evidenza.iscrizione_id == r["iscrizione_id"],
-                                                          Evidenza.file_allegato_path.isnot(None)).all(), start=1):
+        for n, ev in enumerate(evidenze.get(str(r["iscrizione_id"]), []), start=1):
             ext = (ev.file_allegato_path.rsplit(".", 1)[-1] if "." in ev.file_allegato_path else "bin")[:5]
             docs.append((f"attestati_esterni/{persona}", f"{_nome_file(r['corso'])}_{n}.{ext}", ev.file_allegato_path,
                          [r["persona"], r["email"], r["corso"], "attestato esterno caricato dall'Ufficio Formazione", "", r["data_completamento"]]))
+    docs = [d for d in docs if os.path.exists(d[2])]  # il limite conta i file che finiranno davvero nello ZIP
     if len(docs) > MAX_FILE_PACCHETTO:
         raise HTTPException(400, f"Il perimetro contiene {len(docs)} documenti (massimo {MAX_FILE_PACCHETTO}): restringilo per ufficio, persona, corso o periodo.")
 
-    docs = [d for d in docs if os.path.exists(d[2])]
     azienda = db.query(Azienda).first()
     logo = azienda.logo_path if azienda else None
     colonne_reg = ["Persona", "Email", "Uffici", "Corso", "Etichette", "Data edizione", "Stato iscrizione", "Data completamento", "Scade il", "Stato compliance", "Aggiornamento disponibile"]

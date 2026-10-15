@@ -64,7 +64,7 @@ def test_chi_era_in_lista_d_attesa_non_libera_un_posto(client, db, admin, auth, 
     crea_iscrizione(ed, titolare)
     ib = crea_iscrizione(ed, b, S.in_lista_attesa)
     ic = crea_iscrizione(ed, c, S.in_lista_attesa)
-    client.post(f"/api/edizioni/{ed.id}/iscrizioni/{ib.id}/annulla", headers=auth(admin))
+    assert client.post(f"/api/edizioni/{ed.id}/iscrizioni/{ib.id}/annulla", headers=auth(admin)).status_code == 200
     db.refresh(ic)
     assert ic.stato == S.in_lista_attesa            # nessun posto si e' liberato: niente promozioni
     assert db.query(Iscrizione).filter(Iscrizione.edizione_id == ed.id, Iscrizione.stato == S.iscritto).count() == 1

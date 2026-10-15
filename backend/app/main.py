@@ -1,4 +1,7 @@
-from fastapi import HTTPException, FastAPI
+import posixpath
+from fastapi import HTTPException, FastAPI, Request
+from fastapi.responses import JSONResponse
+from sqlalchemy.exc import DataError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from apscheduler.schedulers.background import BackgroundScheduler
@@ -107,7 +110,8 @@ class UploadsPubblici(StaticFiles):
     PUBBLICI = ("azienda/logo.", "azienda/icona.")
 
     async def get_response(self, path, scope):
-        if not path.replace("\\", "/").startswith(self.PUBBLICI):
+        norm = posixpath.normpath(path.replace("\\", "/")).lstrip("/")
+        if ".." in norm.split("/") or not norm.startswith(self.PUBBLICI):
             raise HTTPException(404)
         return await super().get_response(path, scope)
 
@@ -147,6 +151,15 @@ app.include_router(entra_sync_api.router)
 app.include_router(matrice_api.router)
 app.include_router(configurazione_api.router)
 app.include_router(etichette_api.router)
+
+@app.exception_handler(DataError)
+async def dato_rifiutato_dal_database(request: Request, exc: DataError):
+    """Un identificativo che non e' un UUID (o un valore fuori misura) arriva al database e darebbe errore 500:
+    e' un errore di chi chiama, non del server."""
+    if "uuid" in str(exc.orig).lower():
+        return JSONResponse({"detail": "Identificativo non valido"}, status_code=404)
+    return JSONResponse({"detail": "Dati non validi"}, status_code=400)
+
 
 @app.get("/api/health")
 def health():

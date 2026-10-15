@@ -54,5 +54,6 @@ def esegui_migrazioni():
             conn.commit()
             print("[migrazioni] schema aggiornato")
         finally:
+            conn.rollback()  # dopo un errore la transazione e' interrotta: senza questo lo sblocco fallirebbe e nasconderebbe l'errore vero
             conn.execute(text("SELECT pg_advisory_unlock(:k)"), {"k": CHIAVE_BLOCCO})
             conn.commit()

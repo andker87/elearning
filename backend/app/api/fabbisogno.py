@@ -188,7 +188,8 @@ def rispondi_invito(invito_id: str, data: RisposteIn, db: Session = Depends(get_
     create = _crea_richieste(db, righe, ufficio, user, invito.campagna_id)
     invito.stato = StatoInvito.risposto
     db.commit()
-    return [_serialize_richiesta(r, db) for r in create]
+    ctx = _Contesto(db)  # una sola volta, non una per riga
+    return [_serialize_richiesta(r, db, ctx) for r in create]
 
 # --- Richieste spontanee (flusso B) ---
 
@@ -204,7 +205,8 @@ def crea_richiesta_spontanea(data: RichiestaSpontaneaIn, db: Session = Depends(g
         raise HTTPException(403, "Non sei il responsabile dell'ufficio indicato")
     create = _crea_richieste(db, _righe_valide(data.righe), ufficio, user)
     db.commit()
-    return [_serialize_richiesta(r, db) for r in create]
+    ctx = _Contesto(db)  # una sola volta, non una per riga
+    return [_serialize_richiesta(r, db, ctx) for r in create]
 
 # --- Revisione a cascata (responsabili) e coda finale (HR) ---
 

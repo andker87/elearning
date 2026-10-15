@@ -12,6 +12,8 @@ from ..models.evidenza import Evidenza, FonteEvidenza
 from ..services import audit as audit_svc
 from .deps import get_current_user, require_training_admin
 
+from .evidenze import SOGLIA_COMPLETAMENTO_VIDEO_PCT  # una sola soglia, condivisa con il completamento delle evidenze
+
 router = APIRouter(tags=["video"])
 
 ORIGINALI_DIR = "/app/videos/originali"
@@ -131,7 +133,6 @@ async def upload_sottotitoli(video_id: str, file: UploadFile = File(...), db: Se
 class ProgressoIn(BaseModel):
     secondo_corrente: int
 
-SOGLIA_COMPLETAMENTO_VIDEO_PCT = 80  # stessa soglia di _evidenza_indica_completamento (evidenze.py)
 TOLLERANZA_SKIP_SECONDI = 15  # margine per buffering/heartbeat, non un vero "salta avanti"
 
 @router.post("/api/iscrizioni/{iscrizione_id}/progresso")

@@ -70,6 +70,7 @@ def test_logo_non_valido_rifiutato_e_icona_sempre_disponibile(client, db, admin,
     risposta = client.get("/api/azienda/icona", params={"size": 192})
     os.unlink(rotto.name)
     assert risposta.status_code == 200 and risposta.headers["content-type"] == "image/png"
+    assert risposta.content[:8] == b"\x89PNG\r\n\x1a\n"  # ripiega sul marchio: un PNG vero, non un file vuoto
 
 
 def test_iscrivere_piu_persone_dei_posti(client, db, formazione, auth, crea_utente, crea_corso, crea_edizione):

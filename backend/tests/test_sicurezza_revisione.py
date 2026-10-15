@@ -195,6 +195,8 @@ def test_solo_logo_e_icona_sono_pubblici(client):
         with open(f"/app/uploads/azienda/{nome}", "wb") as f:
             f.write(b"%PDF-1.4 x")
         assert (client.get(f"/uploads/azienda/{nome}").status_code == 200) is pubblico
+    for percorso in ("azienda/logo./../informativa-privacy.pdf", "azienda/logo.png/../informativa-privacy.pdf", "azienda/logo.%2e%2e/informativa-privacy.pdf"):
+        assert client.get(f"/uploads/{percorso}").status_code == 404
     for percorso in ("certificati/x.pdf", "attestati_esterni/x.pdf", "template_attestati/x.png"):
         assert client.get(f"/uploads/{percorso}").status_code == 404
 

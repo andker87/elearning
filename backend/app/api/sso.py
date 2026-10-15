@@ -1,3 +1,4 @@
+import logging
 import secrets
 from urllib.parse import quote
 
@@ -108,6 +109,10 @@ def callback(request: Request, code: str = None, state: str = None, error: str =
     except httpx.HTTPError as e:
         db.rollback()
         return _errore(db, request, "idp_non_raggiungibile", str(e)[:200])
+    except Exception as e:  # qualunque imprevisto: l'utente torna alla pagina di accesso con un errore, non su una pagina bianca
+        db.rollback()
+        logging.getLogger(__name__).exception("SSO: errore inatteso nella callback")
+        return _errore(db, request, "errore_interno", type(e).__name__)
 
     token = token_per_utente(u)
     audit_svc.log_from_request(db, request, u, "LOGIN", entity_type="user", entity_id=str(u.id),

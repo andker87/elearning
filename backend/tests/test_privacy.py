@@ -68,6 +68,6 @@ def test_export_dati_personali_senza_segreti(client, utente, crea_utente, crea_c
     assert dati["profilo"]["email"] == utente.email and len(dati["iscrizioni"]) == 1
     testo = r.text
     for segreto in ("hashed_password", "calendar_token", "sso_subject", "token_version"):
-        assert segreto not in testo or segreto == "token_version", segreto
+        assert segreto not in testo, segreto
     assert "hashed_password" not in dati["profilo"] and "calendar_token" not in dati["profilo"]
     assert altro.email not in testo  # nessun dato di altre persone

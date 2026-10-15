@@ -1,7 +1,9 @@
 """Etichette dei corsi: famiglie predefinite, regole di scelta e filtri riusati da
 registro, matrice e pacchetto ispezione."""
 from typing import Iterable, Optional
+from uuid import UUID
 
+from fastapi import HTTPException
 from sqlalchemy.orm import Session
 
 from ..models.corso import Corso
@@ -17,6 +19,19 @@ FAMIGLIE_INIZIALI = [
     ("Obbligo", "Perché il corso va fatto.", False, [
         ("Obbligo di legge", False), ("Richiesto da un cliente", False), ("Policy interna", False), ("Facoltativo", False)]),
 ]
+
+
+def _uuid_validi(ids) -> list:
+    """Identificativi non UUID non devono arrivare al database (darebbero errore 500)."""
+    risultato = []
+    for i in ids or []:
+        if not i:
+            continue
+        try:
+            risultato.append(str(UUID(str(i))))
+        except ValueError:
+            raise HTTPException(400, "Identificativo di etichetta non valido")
+    return risultato
 
 
 def crea_famiglie_iniziali(db: Session):
@@ -36,12 +51,12 @@ def crea_famiglie_iniziali(db: Session):
     db.flush()
     esistenti = {e.nome.lower(): e for e in db.query(Etichetta).filter(Etichetta.famiglia_id == tematica.id).all()}
     for c in db.query(Corso).filter(Corso.categoria.isnot(None)).all():
-        testo = " ".join((c.categoria or "").split())
+        testo = " ".join((c.categoria or "").split())[:80]  # il nome dell'etichetta e' di 80 caratteri: si confronta il nome troncato
         if not testo:
             continue
         e = esistenti.get(testo.lower())
         if not e:
-            e = Etichetta(famiglia_id=tematica.id, nome=testo[:80], ordine=len(esistenti))
+            e = Etichetta(famiglia_id=tematica.id, nome=testo, ordine=len(esistenti))
             db.add(e)
             db.flush()
             esistenti[testo.lower()] = e
@@ -79,7 +94,7 @@ def descrivi(db: Session, corso: Corso, famiglie: Optional[list] = None) -> dict
 def imposta_etichette(db: Session, corso: Corso, ids: Iterable[str]):
     """Sostituisce le etichette del corso, rispettando le regole delle famiglie.
     Un'etichetta archiviata si puo' tenere se il corso l'aveva gia', non aggiungere."""
-    ids = list(dict.fromkeys(str(i) for i in ids))
+    ids = list(dict.fromkeys(_uuid_validi(ids)))
     scelte = db.query(Etichetta).filter(Etichetta.id.in_(ids)).all() if ids else []
     if len(scelte) != len(ids):
         raise ValueError("Una o più etichette non esistono")
@@ -103,7 +118,7 @@ def imposta_etichette(db: Session, corso: Corso, ids: Iterable[str]):
 def corsi_con_etichette(db: Session, etichette_ids: Optional[list]) -> Optional[set]:
     """Corsi che hanno TUTTE le etichette indicate (None = nessun filtro).
     Tra etichette della stessa famiglia vale l'OR: 'Cliente1 o Cliente2'."""
-    ids = [i for i in (etichette_ids or []) if i]
+    ids = _uuid_validi(etichette_ids)
     if not ids:
         return None
     scelte = db.query(Etichetta).filter(Etichetta.id.in_(ids)).all()
@@ -118,7 +133,7 @@ def corsi_con_etichette(db: Session, etichette_ids: Optional[list]) -> Optional[
 
 
 def descrivi_filtro(db: Session, etichette_ids: Optional[list]) -> Optional[str]:
-    ids = [i for i in (etichette_ids or []) if i]
+    ids = _uuid_validi(etichette_ids)
     if not ids:
         return None
     nomi = [f"{e.famiglia.nome}: {e.nome}" for e in db.query(Etichetta).filter(Etichetta.id.in_(ids)).all()]

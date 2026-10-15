@@ -13,7 +13,7 @@ from ..services.etichette import corsi_con_etichette
 from ..services.gerarchia import persone_ufficio_e_sottouffici
 from ..services.iscrizioni import posti_occupati
 from ..services.email import invia_email
-from ..services.push import invia_push
+from ..services.push import accoda_push
 from .registro import _righe
 from .percorsi import _calcola_stato_steps
 from .deps import require_training_admin
@@ -66,7 +66,7 @@ def kpi(ufficio_id: Optional[str] = Query(None), corso_id: Optional[str] = Query
     persone_ids = {str(p.id) for p in persone}
 
     ammessi = corsi_con_etichette(db, etichette)
-    righe = _righe(db, ufficio_id, None, None, corso_id, ammessi)
+    righe = [r for r in _righe(db, ufficio_id, None, None, corso_id, ammessi) if r["user_id"] in persone_ids]  # stessa popolazione del conteggio persone
     n_scaduti = sum(1 for r in righe if r["stato_compliance"] == "scaduto")
     n_da_aggiornare = sum(1 for r in righe if r["stato_compliance"] == "da_aggiornare")
     n_non_completato = sum(1 for r in righe if r["stato_compliance"] == "non_completato")
@@ -210,6 +210,6 @@ def sollecito(data: SollecitoIn, db: Session = Depends(get_db), user=Depends(req
     )
     db.add(Notification(user_id=destinatario.id, tipo="sollecito_manuale", testo=testo))
     invia_email(destinatario.email, "Sollecito dalla piattaforma formazione", testo)
-    invia_push(db, destinatario.id, "Sollecito", testo)
-    db.commit()
+    accoda_push(db, destinatario.id, "Sollecito", testo)
+    db.commit()  # email e push partono dopo il commit: la notifica e' salva anche se l'invio fallisce
     return {"ok": True}

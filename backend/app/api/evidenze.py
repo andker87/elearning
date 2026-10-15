@@ -202,9 +202,11 @@ async def upload_evidenza_esterna(edizione_id: str, iscrizione_id: str, request:
 
 # --- Chiusura edizione: attesta le evidenze, calcola completamento, genera certificati ---
 
+SOGLIA_COMPLETAMENTO_VIDEO_PCT = 80  # un video visto per questa percentuale vale come completato (usata anche per l'audit in api/video.py)
+
 def _evidenza_indica_completamento(ev: Evidenza) -> bool:
     if ev is None: return False
-    if ev.percentuale_completamento is not None and ev.percentuale_completamento >= 80:
+    if ev.percentuale_completamento is not None and ev.percentuale_completamento >= SOGLIA_COMPLETAMENTO_VIDEO_PCT:
         return True
     return ev.inizio_at is not None and ev.fine_at is not None
 

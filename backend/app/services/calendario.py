@@ -6,7 +6,7 @@ def _fmt(dt: datetime) -> str:
     return dt.astimezone(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
 
 def _escape(testo: str) -> str:
-    return (testo or "").replace("\\", "\\\\").replace(";", "\\;").replace(",", "\\,").replace("\n", "\\n")
+    return (testo or "").replace("\\", "\\\\").replace(";", "\\;").replace(",", "\\,").replace("\r\n", "\\n").replace("\r", "\\n").replace("\n", "\\n")
 
 def evento_edizione(edizione, corso_titolo: str):
     """Un VEVENT per una sessione con data fissata, o None se non ancora
