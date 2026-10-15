@@ -1,4 +1,4 @@
-from sqlalchemy import Column, String, Text, Integer, DateTime, ForeignKey, Enum as SAEnum
+from sqlalchemy import Column, String, Text, Integer, DateTime, ForeignKey, UniqueConstraint, Enum as SAEnum
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.sql import func
 import uuid, enum
@@ -42,6 +42,7 @@ class FabbisognoCampagnaInvito(Base):
     """Un ufficio è stato raggiunto dalla campagna: il suo responsabile deve
     decidere se rispondere direttamente o delegare ai sotto-uffici (sezione L)."""
     __tablename__ = "fabbisogno_campagna_inviti"
+    __table_args__ = (UniqueConstraint("campagna_id", "ufficio_id", name="uq_invito_campagna_ufficio"),)
     id          = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     campagna_id = Column(UUID(as_uuid=True), ForeignKey("fabbisogno_campagne.id"), nullable=False)
     ufficio_id  = Column(UUID(as_uuid=True), ForeignKey("groups.id"), nullable=False)

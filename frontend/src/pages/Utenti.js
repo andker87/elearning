@@ -158,7 +158,7 @@ export default function Utenti() {
                       <td>{r.riga}</td><td>{r.email}</td>
                       <td><span className={`badge ${r.esito === "creato" || r.esito === "disattivato" ? "green" : r.esito === "ignorato" ? "gray" : "red"}`}>{r.esito}</span></td>
                       <td>{r.messaggio}</td>
-                      <td>{r.password ? <code>{r.password}</code> : (r.email_inviata ? "inviata via email" : "-")}</td>
+                      <td>{r.password ? <code>{r.password}</code> : (r.email_inviata ? "invito in invio per email" : "-")}</td>
                     </tr>
                   ))}
                 </tbody>

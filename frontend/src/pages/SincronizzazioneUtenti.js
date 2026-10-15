@@ -40,10 +40,11 @@ export default function SincronizzazioneUtenti() {
     if (!window.confirm("Applicare le modifiche mostrate? Chi viene disattivato perde l'accesso e le sue iscrizioni aperte vengono annullate (lo storico resta).")) return;
     setLavoro(true); setErrore(null);
     try {
-      const r = await api.post("/admin/entra/applica", null, { params: { riattiva, forza } });
+      const r = await api.post("/admin/entra/applica", null, { params: { riattiva, forza, impronta: piano?.impronta } });
       setEsito(r.data); setPiano(null); carica();
     } catch (err) {
       setErrore(err.response?.data?.detail || "Errore");
+      if (err.response?.status === 412) setPiano(null);
       if (err.response?.status === 409) setPiano((p) => ({ ...p, richiediForza: true }));
     } finally { setLavoro(false); }
   }

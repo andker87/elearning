@@ -2,7 +2,7 @@ import os, glob
 from datetime import datetime
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Request
 from ..services import audit as audit_svc
-from fastapi.responses import Response
+from fastapi.responses import FileResponse, Response
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
 from typing import Optional, List, Dict, Any
@@ -29,7 +29,7 @@ class TemplateUpdate(BaseModel):
 def _serialize(t: CertificatoTemplate):
     return {
         "id": str(t.id), "nome": t.nome,
-        "immagine_url": t.immagine_path.replace("/app/uploads", "/uploads") if t.immagine_path else None,
+        "immagine_url": f"/certificato-templates/{t.id}/immagine?v={int(os.path.getmtime(t.immagine_path))}" if t.immagine_path and os.path.exists(t.immagine_path) else None,
         "larghezza_px": t.larghezza_px, "altezza_px": t.altezza_px,
         "campi": t.campi or [], "is_default": t.is_default,
     }
@@ -112,6 +112,14 @@ def anteprima(template_id: str, db: Session = Depends(get_db), user=Depends(requ
         contenuto = f.read()
     os.remove(path)
     return Response(content=contenuto, media_type="application/pdf")
+
+@router.get("/{template_id}/immagine")
+def immagine_template(template_id: str, db: Session = Depends(get_db), user=Depends(require_training_admin)):
+    t = db.query(CertificatoTemplate).filter(CertificatoTemplate.id == template_id).first()
+    if not t or not t.immagine_path or not os.path.exists(t.immagine_path):
+        raise HTTPException(404)
+    return FileResponse(t.immagine_path)
+
 
 @router.delete("/{template_id}")
 def delete_template(template_id: str, request: Request, db: Session = Depends(get_db), user=Depends(require_training_admin)):

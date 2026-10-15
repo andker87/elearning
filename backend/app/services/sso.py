@@ -123,8 +123,14 @@ def verifica_id_token(id_token: str, nonce_atteso: str) -> dict:
 
 
 def email_da_claims(claims: dict) -> str:
-    email = claims.get("email") or claims.get("preferred_username") or claims.get("upn") or ""
-    email = str(email).strip().lower()
+    email = claims.get("email")
+    if not email:
+        # Senza claim `email` ci si fida di preferred_username/upn solo se l'emittente e' il tenant Entra
+        # dichiarato nel token (indirizzi gestiti dall'azienda), mai di un IdP qualsiasi.
+        tid = str(claims.get("tid") or "")
+        if tid and f"/{tid}/" in str(claims.get("iss") or ""):
+            email = claims.get("preferred_username") or claims.get("upn")
+    email = str(email or "").strip().lower()
     if "@" not in email:
         raise SsoErrore("email_assente", "l'IdP non ha fornito un indirizzo email")
     if claims.get("email_verified") is False:

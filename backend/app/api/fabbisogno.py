@@ -140,8 +140,11 @@ def miei_inviti(db: Session = Depends(get_db), user: User = Depends(get_current_
     return list(campagne.values())
 
 def _verifica_invito_di(db: Session, invito_id: str, user_id: str) -> FabbisognoCampagnaInvito:
-    invito = db.query(FabbisognoCampagnaInvito).filter(FabbisognoCampagnaInvito.id == invito_id).first()
+    invito = db.query(FabbisognoCampagnaInvito).filter(FabbisognoCampagnaInvito.id == invito_id).with_for_update().first()
     if not invito: raise HTTPException(404)
+    campagna = db.query(FabbisognoCampagna).filter(FabbisognoCampagna.id == invito.campagna_id).first()
+    if campagna and campagna.stato == StatoCampagna.chiusa:
+        raise HTTPException(400, "La campagna è chiusa")
     ufficio = db.query(Group).filter(Group.id == invito.ufficio_id).first()
     if not ufficio or str(ufficio.responsabile_id) != str(user_id):
         raise HTTPException(403, "Non sei il responsabile di questo ufficio")

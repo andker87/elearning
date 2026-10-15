@@ -37,13 +37,16 @@ def stato(db: Session = Depends(get_db), user=Depends(require_admin_tecnico)):
 @router.post("/anteprima")
 def anteprima(db: Session = Depends(get_db), user=Depends(require_admin_tecnico)):
     _richiedi_configurato()
-    return _piano(db)
+    piano = _piano(db)
+    return {**piano, "impronta": svc.impronta_piano(piano)}
 
 
 @router.post("/applica")
-def applica(request: Request, riattiva: bool = False, forza: bool = False, db: Session = Depends(get_db), user=Depends(require_admin_tecnico)):
+def applica(request: Request, impronta: str = "", riattiva: bool = False, forza: bool = False, db: Session = Depends(get_db), user=Depends(require_admin_tecnico)):
     _richiedi_configurato()
     piano = _piano(db)
+    if impronta != svc.impronta_piano(piano):
+        raise HTTPException(412, "Il piano è cambiato dopo l'anteprima: rifai l'anteprima e controlla le modifiche prima di applicarle.")
     if piano["freno"] and not forza:
         raise HTTPException(409, f"Piano sospetto, non applicato: {piano['freno']}. Se è corretto, conferma di forzare.")
     esito = svc.applica_piano(db, piano, request=request, admin=user, riattiva=riattiva)

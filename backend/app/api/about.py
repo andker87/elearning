@@ -17,6 +17,14 @@ PACCHETTI = ["fastapi", "uvicorn", "sqlalchemy", "pydantic", "python-jose", "htt
              "reportlab", "openpyxl", "pywebpush", "psycopg2-binary"]
 
 CHANGELOG = [
+    {"version": "1.8.4", "date": "2026-10", "label": "Sicurezza e integrità dei dati (rilievi della revisione pubblica)", "changes": [
+        "File caricati: attestati, allegati, template e informativa non sono più raggiungibili senza accesso; restano pubblici solo logo e icona. L'informativa PDF e lo sfondo dei template si aprono dall'interno della piattaforma. Il nome dei file allegati agli attestati esterni non può più contenere percorsi",
+        "Accesso aziendale: senza indirizzo email nel token si usa il nome utente solo se l'emittente è il tenant Entra dichiarato nel token",
+        "Reset password: la richiesta manuale si rifiuta per account disattivati o con credenziali aziendali; il link non si può riscattare due volte in parallelo",
+        "Doppioni impossibili anche con richieste in parallelo: una persona per sessione, un gradimento per iscrizione, un invito per ufficio e campagna, una persona per richiesta di corso; l'ultimo posto di una sessione non si assegna due volte. Le campagne chiuse non accettano più deleghe né risposte",
+        "Sincronizzazione Entra: si applica solo il piano visto in anteprima (se cambia nel frattempo bisogna rifare l'anteprima) e non si possono disattivare tutti gli utenti in ambito in un colpo solo",
+        "Test: il formatore gestisce il test solo con una sessione pianificata o in corso. Importazione configurazione: un ufficio nullo nel file non cancella quello esistente. Offboarding: i posti liberati non contano chi era in lista d'attesa",
+    ]},
     {"version": "1.8.3", "date": "2026-10", "label": "Correzioni dalla quarta revisione del codice", "changes": [
         "Utenti: non si può più cambiare il ruolo di sé stessi né dell'ultimo Admin tecnico attivo (la piattaforma non resta senza amministratori)",
         "Auto-iscrizione: possibile solo in sessioni pianificate o in corso, anche all'approvazione del responsabile",

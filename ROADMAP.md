@@ -862,6 +862,10 @@ non si salva piu' per scelta (l'obbligo e' del corso), il frontend non lo manda 
 ### Z4. Quarta revisione del codice (14/10/2026, v1.8.3)
 Otto correzioni su dieci segnalazioni verificate: ruolo dell'ultimo Admin tecnico, auto-iscrizione in sessioni non aperte, invii email in sottofondo (reset password, inviti CSV), formule CSV/Excel, test del formatore, freno Entra su installazioni piccole, importazione configurazione (gruppi di sistema, campi assenti), messaggio di login errato. Il blocco account dopo 5 tentativi resta (temporaneo, risposta uniforme, avviso agli Admin tecnici): è il compromesso accettato.
 
+
+### Z5. Rilievi di CodeRabbit sulla cronologia pubblica (v1.8.4 e seguenti)
+La cronologia è stata pubblicata a fasi (PR #1-#8) e ogni fase recensita da CodeRabbit. I rilievi, verificati sul codice attuale, sono in `docs/rilievi-coderabbit.md` e si correggono in quattro blocchi: 1.8.4 sicurezza e integrità dei dati (fatto: file caricati non più pubblici, SSO, reset password, vincoli contro le corse, piano Entra legato all'anteprima), 1.8.5 correttezza e prestazioni del backend, 1.8.6 interfaccia, 1.8.7 documenti. Aperto, da decidere: i video in `/videos` sono ancora serviti senza accesso (servirebbero indirizzi firmati a tempo).
+
 ### Y. Etichette dei corsi — SPEDITO (14/10/2026, v1.7.0)
 
 Ragionata con Andrea: una sola categoria per corso non basta (un corso di sicurezza

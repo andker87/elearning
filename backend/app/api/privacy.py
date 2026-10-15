@@ -6,7 +6,7 @@ from enum import Enum
 from typing import Optional
 
 from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile
-from fastapi.responses import Response
+from fastapi.responses import FileResponse, Response
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
@@ -109,7 +109,7 @@ def _informativa(a: Optional[Azienda]) -> dict:
     return {
         "presente": bool(testo or pdf),
         "testo": testo or None,
-        "pdf_url": "/uploads/azienda/informativa-privacy.pdf" if pdf else None,
+        "pdf_url": "/privacy/informativa.pdf" if pdf else None,
         "aggiornata_at": a.privacy_aggiornata_at if a else None,
         "titolare": (a.ragione_sociale if a else None),
         "contatto": (a.pec or a.email) if a else None,
@@ -119,6 +119,15 @@ def _informativa(a: Optional[Azienda]) -> dict:
 @router.get("/informativa")
 def leggi_informativa(db: Session = Depends(get_db), user: User = Depends(get_current_user)):
     return _informativa(db.query(Azienda).first())
+
+
+@router.get("/informativa.pdf")
+def scarica_pdf_informativa(db: Session = Depends(get_db), user: User = Depends(get_current_user)):
+    a = db.query(Azienda).first()
+    if not a or not a.privacy_pdf_path or not os.path.exists(a.privacy_pdf_path):
+        raise HTTPException(404, "Nessun PDF dell'informativa")
+    return FileResponse(a.privacy_pdf_path, media_type="application/pdf", filename="informativa-privacy.pdf",
+                        content_disposition_type="inline")
 
 
 @router.put("/informativa")

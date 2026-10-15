@@ -39,7 +39,8 @@ def disattiva_utente(db: Session, u) -> dict:
         occupava_posto = iscr.stato == StatoIscrizione.iscritto
         iscr.stato = StatoIscrizione.annullato
         db.flush()  # il posto deve risultare libero prima di promuovere chi aspetta
-        liberati += 1
+        if occupava_posto:
+            liberati += 1
         if occupava_posto and ed.lista_attesa_abilitata:
             p = promuovi_da_lista_attesa(db, ed.id)
             if p:

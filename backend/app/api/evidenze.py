@@ -1,4 +1,4 @@
-import os
+import os, re, uuid
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form, Request
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
@@ -186,7 +186,8 @@ async def upload_evidenza_esterna(edizione_id: str, iscrizione_id: str, request:
     if not i: raise HTTPException(404)
     upload_dir = "/app/uploads/attestati_esterni"
     os.makedirs(upload_dir, exist_ok=True)
-    path = os.path.join(upload_dir, f"{iscrizione_id}_{file.filename}")
+    nome_sicuro = re.sub(r"[^A-Za-z0-9._-]", "_", os.path.basename((file.filename or "allegato").replace("\\", "/")))[-80:] or "allegato"
+    path = os.path.join(upload_dir, f"{iscrizione_id}_{uuid.uuid4().hex[:8]}_{nome_sicuro}")
     with open(path, "wb") as f:
         f.write(await file.read())
     ev = Evidenza(iscrizione_id=i.id, fonte=FonteEvidenza.upload_manuale,

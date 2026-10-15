@@ -170,8 +170,8 @@ def test_giro_automatico_si_ferma_davanti_a_un_piano_sospetto(db, entra, crea_ut
 
 
 def test_il_giro_automatico_e_tracciato_come_job(db, entra, crea_utente):
-    crea_utente("esce@az.it")
-    entra.membri = [membro("qualcuno@az.it")]
+    crea_utente("esce@az.it"); crea_utente("resta@az.it")
+    entra.membri = [membro("resta@az.it")]
     esegui_tracciato("sync_entra", svc.sincronizza_automatico)
     run = db.query(JobRun).filter(JobRun.job_id == "sync_entra").one()
     assert run.esito == "ok" and "disattivati" in run.dettaglio
@@ -204,7 +204,7 @@ def test_api_anteprima_non_modifica_e_applica_si(client, db, admin, auth, entra,
     assert [d["email"] for d in anteprima["disattiva"]] == ["esce@az.it"]
     db.refresh(esce)
     assert esce.is_active is True and db.query(User).filter(User.email == "nuovo@az.it").count() == 0
-    r = client.post("/api/admin/entra/applica", headers=auth(admin))
+    r = client.post("/api/admin/entra/applica", headers=auth(admin), params={"impronta": anteprima["impronta"]})
     assert r.status_code == 200 and r.json()["disattivati"] == 1
     db.expire_all()
     assert esce.is_active is False
@@ -214,10 +214,21 @@ def test_api_anteprima_non_modifica_e_applica_si(client, db, admin, auth, entra,
 def test_api_applica_rifiuta_un_piano_sospetto_senza_conferma(client, db, admin, auth, entra, crea_utente):
     utenti = [crea_utente(f"p{n}@az.it") for n in range(10)]
     entra.membri = [membro("p0@az.it", "Utente Test")]
-    assert client.post("/api/admin/entra/applica", headers=auth(admin)).status_code == 409
+    impronta = client.post("/api/admin/entra/anteprima", headers=auth(admin)).json()["impronta"]
+    assert client.post("/api/admin/entra/applica", headers=auth(admin), params={"impronta": impronta}).status_code == 409
     db.expire_all()
     assert all(u.is_active for u in utenti)
-    assert client.post("/api/admin/entra/applica", headers=auth(admin), params={"forza": "true"}).status_code == 200
+    assert client.post("/api/admin/entra/applica", headers=auth(admin), params={"forza": "true", "impronta": impronta}).status_code == 200
+
+
+def test_applica_rifiuta_un_piano_diverso_da_quello_visto(client, admin, auth, entra, crea_utente):
+    crea_utente("esce@az.it"); crea_utente("resta@az.it")
+    entra.membri = [membro("admin@test.it", "Admin Test"), membro("resta@az.it", "Resta")]
+    impronta = client.post("/api/admin/entra/anteprima", headers=auth(admin)).json()["impronta"]
+    entra.membri = [membro("admin@test.it", "Admin Test")]  # nel frattempo esce anche un'altra persona
+    r = client.post("/api/admin/entra/applica", headers=auth(admin), params={"impronta": impronta})
+    assert r.status_code == 412
+    assert client.post("/api/admin/entra/applica", headers=auth(admin)).status_code == 412  # senza impronta nemmeno
 
 
 def test_api_graph_irraggiungibile(client, admin, auth, entra):

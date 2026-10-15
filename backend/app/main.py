@@ -1,4 +1,4 @@
-from fastapi import FastAPI
+from fastapi import HTTPException, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from apscheduler.schedulers.background import BackgroundScheduler
@@ -99,7 +99,20 @@ os.makedirs("/app/uploads/template_attestati", exist_ok=True)
 os.makedirs("/app/videos/originali", exist_ok=True)
 os.makedirs("/app/videos/pronti", exist_ok=True)
 os.makedirs("/app/videos/sottotitoli", exist_ok=True)
-app.mount("/uploads", StaticFiles(directory="/app/uploads"), name="uploads")
+
+
+class UploadsPubblici(StaticFiles):
+    """Dei file caricati sono pubblici solo logo e icona (servono alla pagina di login e all'app installata).
+    Attestati, allegati, template e informativa si scaricano solo dalle rotte con autenticazione."""
+    PUBBLICI = ("azienda/logo.", "azienda/icona.")
+
+    async def get_response(self, path, scope):
+        if not path.replace("\\", "/").startswith(self.PUBBLICI):
+            raise HTTPException(404)
+        return await super().get_response(path, scope)
+
+
+app.mount("/uploads", UploadsPubblici(directory="/app/uploads"), name="uploads")
 app.mount("/videos", StaticFiles(directory="/app/videos"), name="videos")
 
 app.include_router(setup.router)

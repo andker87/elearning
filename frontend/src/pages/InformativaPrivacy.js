@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
-import api from "../api";
+import api, { apriFile } from "../api";
 
 export default function InformativaPrivacy() {
   const [info, setInfo] = useState(null);
@@ -51,7 +51,7 @@ export default function InformativaPrivacy() {
           <h3>Documento PDF</h3>
           <p className="text-muted" style={{ fontSize: 13 }}>In alternativa o in aggiunta al testo. Gli utenti lo aprono da un link.</p>
           {info.pdf_url
-            ? <p><a href={info.pdf_url} target="_blank" rel="noreferrer">Apri il PDF attuale</a></p>
+            ? <p><button type="button" className="secondary btn-sm" onClick={() => apriFile(info.pdf_url).catch(() => setErrore("Impossibile aprire il PDF"))}>Apri il PDF attuale</button></p>
             : <p className="text-muted">Nessun PDF caricato.</p>}
           <input ref={fileRef} type="file" accept="application/pdf" onChange={caricaPdf} style={{ display: "none" }} />
           <button type="button" className="secondary" onClick={() => fileRef.current.click()}>{info.pdf_url ? "Sostituisci PDF" : "Carica PDF"}</button>{" "}

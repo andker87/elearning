@@ -1,4 +1,4 @@
-from sqlalchemy import Column, String, Text, Integer, Boolean, Float, DateTime, ForeignKey, Enum as SAEnum, JSON
+from sqlalchemy import Column, String, Text, Integer, Boolean, Float, DateTime, ForeignKey, UniqueConstraint, Enum as SAEnum, JSON
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
@@ -55,6 +55,7 @@ class Gradimento(Base):
     Anonimo lato UI/report: iscrizione_id resta solo per evitare doppi invii
     e sapere chi ha compilato, mai esposto nelle viste di amministrazione."""
     __tablename__ = "gradimenti"
+    __table_args__ = (UniqueConstraint("iscrizione_id", name="uq_gradimento_iscrizione"),)
     id            = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     iscrizione_id = Column(UUID(as_uuid=True), ForeignKey("iscrizioni.id"), nullable=False)
     voto_corso    = Column(Integer, nullable=False)  # 1-5
