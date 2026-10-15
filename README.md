@@ -16,7 +16,7 @@ cp .env.example .env
 #   python3 -c "import secrets; print(secrets.token_urlsafe(48))")
 docker compose up -d --build
 ```
-La piattaforma risponde sulla porta **2018** del server (`http://<server>:2018`). Al primo accesso compare la pagina *Primo avvio*: crea l'utente **Admin tecnico**. La password deve avere almeno 14 caratteri, con una maiuscola, un numero e un carattere speciale.
+La piattaforma risponde sulla porta **2018** del server (`http://<server>:2018`). Gli utenti devono raggiungerla dall'indirizzo **HTTPS pubblico** messo dal proxy (per esempio `https://formazione.tuaazienda.it`), che è anche l'indirizzo da indicare in *Impostazioni → Piattaforma* (serve ai link nelle email e all'accesso aziendale). La porta 2018 non va esposta direttamente: tienila raggiungibile solo dal proxy o dalla rete interna (configurazione di rete e firewall, non della piattaforma). Al primo accesso compare la pagina *Primo avvio*: crea l'utente **Admin tecnico**. La password deve avere almeno 14 caratteri, con una maiuscola, un numero e un carattere speciale.
 
 Poi segui la [guida dell'amministratore](docs/guida-amministratore.md) per la configurazione iniziale.
 

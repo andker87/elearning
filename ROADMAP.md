@@ -6,7 +6,7 @@ mano che si converge sulle priorità. Ultimo aggiornamento: 2026-10-13 (dopo sin
 ## Stato attuale (cosa esiste già)
 
 - **Identità**: Utenti (interni/esterni + organizzazione), Ruoli di sistema (Admin,
-  Ufficio Formazione, Formatori, Utenti — rinominabili non eliminabili), Gruppi
+  Ufficio Formazione, Utenti — ruoli fissi; responsabile e docente derivano dall'incarico), Gruppi
   liberi con sottogruppi (per rolling massivo), Azienda, Impostazioni utente
   (profilo + cambio password, pronta per futura integrazione SSO/dominio).
 - **Catalogo**: Corsi (con validità/rinnovo, policy test non superato opzionale),
@@ -864,7 +864,7 @@ Otto correzioni su dieci segnalazioni verificate: ruolo dell'ultimo Admin tecnic
 
 
 ### Z5. Rilievi di CodeRabbit sulla cronologia pubblica (v1.8.4 e seguenti)
-La cronologia è stata pubblicata a fasi (PR #1-#8) e ogni fase recensita da CodeRabbit. I rilievi, verificati sul codice attuale, sono in `docs/rilievi-coderabbit.md` e si correggono in quattro blocchi: 1.8.4 sicurezza e integrità dei dati (fatto: file caricati non più pubblici, SSO, reset password, vincoli contro le corse, piano Entra legato all'anteprima), 1.8.5 correttezza e prestazioni del backend (fatto: rinnovo, validazione degli ingressi, esportazioni, pacchetto ispezione, invii, calendario, push), 1.8.6 interfaccia (fatto: errori mostrati, tastiera, risposte vecchie scartate, banner), 1.8.7 documenti. Aperto, da decidere: i video in `/videos` sono ancora serviti senza accesso (servirebbero indirizzi firmati a tempo).
+La cronologia è stata pubblicata a fasi (PR #1-#8) e ogni fase recensita da CodeRabbit. I rilievi, verificati sul codice attuale, sono in `docs/rilievi-coderabbit.md` e si correggono in quattro blocchi: 1.8.4 sicurezza e integrità dei dati (fatto: file caricati non più pubblici, SSO, reset password, vincoli contro le corse, piano Entra legato all'anteprima), 1.8.5 correttezza e prestazioni del backend (fatto: rinnovo, validazione degli ingressi, esportazioni, pacchetto ispezione, invii, calendario, push), 1.8.6 interfaccia (fatto: errori mostrati, tastiera, risposte vecchie scartate, banner), 1.8.7 documenti (fatti tutti e quattro: serie chiusa). Aperto, da decidere: i video in `/videos` sono ancora serviti senza accesso (servirebbero indirizzi firmati a tempo).
 
 ### Y. Etichette dei corsi — SPEDITO (14/10/2026, v1.7.0)
 

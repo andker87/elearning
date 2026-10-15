@@ -17,6 +17,10 @@ PACCHETTI = ["fastapi", "uvicorn", "sqlalchemy", "pydantic", "python-jose", "htt
              "reportlab", "openpyxl", "pywebpush", "psycopg2-binary"]
 
 CHANGELOG = [
+    {"version": "1.8.7", "date": "2026-10", "label": "Documenti e rifiniture (rilievi della revisione pubblica)", "changes": [
+        "Documentazione: il README indica l'indirizzo HTTPS pubblico e di non esporre direttamente la porta 2018; la guida dell'amministratore riporta le regole complete della password; la roadmap elenca i ruoli fissi corretti; il brief per i video indica dove avviare Copilot in Clipchamp e di che account serve",
+        "Chiusa la serie di revisioni della cronologia pubblicata: tutti i rilievi di CodeRabbit sono stati verificati e corretti oppure chiusi con motivazione (registro in docs/rilievi-coderabbit.md)",
+    ]},
     {"version": "1.8.6", "date": "2026-10", "label": "Interfaccia (rilievi della revisione pubblica)", "changes": [
         "Errori sempre visibili: sessioni del responsabile, richieste di corso, dashboard formazione (sollecito), azienda, piattaforma, template attestati, fabbisogno, dettaglio sessione, corsi, informativa e impostazioni utente mostrano il motivo quando un'operazione o un caricamento falliscono (anche a server irraggiungibile), con «Riprova» dove serve; gli errori di validazione non appaiono più come testo grezzo",
         "Tastiera e accessibilità: stelle del gradimento, intestazioni ordinabili, schede (impostazioni, KPI, fabbisogno) e dettaglio dell'audit si usano anche senza mouse",
