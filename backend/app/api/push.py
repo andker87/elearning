@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
@@ -45,7 +45,7 @@ def subscribe(data: SubscriptionIn, db: Session = Depends(get_db), user=Depends(
             return {"ok": True}
         except IntegrityError:
             db.rollback()
-    return {"ok": True}
+    raise HTTPException(409, "Sottoscrizione non salvata: riprova")  # due tentativi falliti: non si dice "ok" se non e' stato salvato
 
 @router.post("/unsubscribe")
 def unsubscribe(data: UnsubscribeIn, db: Session = Depends(get_db), user=Depends(get_current_user)):

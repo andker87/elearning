@@ -24,12 +24,12 @@ Stato: `DA FARE` fondato · `VERIFICARE` probabile, da guardare nel codice prima
 | FATTO 1.8.5 | requirements.txt | Pillow 11.0.0 → versione più recente (verificare che esista la 12.3.0 indicata) |
 | FATTO 1.8.5 | services/calendario.py | `_escape` non gestisce il ritorno a capo `\r` |
 | FATTO 1.8.5 | services/email.py | ripulire `allegato_nome` nell'header Content-Disposition; gestire `submit` fallito nel hook after_commit |
-| FATTO 1.8.5 | api/calendario.py | token calendario salvato in chiaro (consigliato: hash + confronto a tempo costante); query per sessione in un'unica query | — token in chiaro: lasciato così (l’indirizzo del calendario va rimostrato all’utente, come ogni calendario in abbonamento; si rigenera da Impostazioni); le query sono ora due
+| FATTO 1.8.5 | api/calendario.py | token calendario salvato in chiaro (consigliato: hash + confronto a tempo costante); query per sessione in un'unica query — token in chiaro: lasciato così (l’indirizzo del calendario va rimostrato all’utente, come ogni calendario in abbonamento; si rigenera da Impostazioni); le query sono ora due |
 | FATTO 1.8.5 | api/richieste_corso.py | bloccare nuova valutazione di richieste già decise; validare `persone_ids` e `corso_id` (UUID), rifiutare `argomento` vuoto; N+1 in `_serialize` |
 | FATTO 1.8.5 | api/fabbisogno.py | rifiutare deleghe e risposte a campagna chiusa; `_Contesto` carica tutto a ogni chiamata |
 | FATTO 1.8.5 | api/dashboard_formazione.py | ambiti ufficio e senza filtro contano popolazioni diverse; commit della notifica prima di email e push |
 | FATTO 1.8.4 | api/autoiscrizione.py | gestire sessione mancante in `approva` (già coperto in 1.8.3 per lo stato; verificare il caso 404) |
-| CHIUSO | api/gradimenti.py | validare `docente_id` e intervallo dei voti; query per docente/riga | — validazione di docente e voti già presente; query dei nomi accorpate (1.8.5)
+| CHIUSO | api/gradimenti.py | validare `docente_id` e intervallo dei voti; query per docente/riga — validazione di docente e voti già presente; query dei nomi accorpate (1.8.5) |
 | FATTO 1.8.5 | services/certificati.py | valori di campo non validi in `genera_pdf_da_template` |
 | FATTO 1.8.5 | services/push.py, api/push.py | `print` per i fallimenti; `invia_push` blocca la richiesta e fa commit a metà; corsa su `endpoint` nella sottoscrizione; `py-vapid` mancante dai requirements |
 | DA FARE | frontend (varie) | gestione errori: SessioniResponsabile, RichiesteCorsoAdmin, RichiestaCorso, DashboardFormazione (sollecito), Azienda (rimuoviLogo), TemplateAttestati; banner PWA e notifiche che si nascondono dopo un fallimento; `push.js` annullamento a metà; stale closure in TemplateAttestati |
@@ -42,10 +42,10 @@ Stato: `DA FARE` fondato · `VERIFICARE` probabile, da guardare nel codice prima
 | FATTO 1.8.5 | api/admin_tecnico.py | esportazione audit troncata in silenzio (50.000 righe CSV/Excel, 2.000 PDF): renderlo esplicito; ordinamento con spareggio unico; filtro "fine" che aggiunge un giorno a un datetime; salute senza storage che fallisce |
 | FATTO 1.8.5 | api/auth.py | import CSV in `async def` che blocca il server: usare un handler sincrono |
 | FATTO 1.8.5 | api/azienda.py | icona pubblica senza limiti di elaborazione; decodificare l'icona prima di sostituire il file esistente |
-| CHIUSO | api/azienda.py | nuovi campi della società nel mapping `Azienda` | — il modello di ingresso comprende già tutti i campi della società (verificato)
-| CHIUSO | api/evidenze.py | presenza Teams e relativo audit nello stesso commit | — link e audit sono nello stesso commit (verificato)
-| CHIUSO | api/test.py | domande conservate per tentativi già in corso | — i tentativi salvano le risposte solo alla consegna: nessun tentativo in corso da proteggere (verificato)
-| FATTO 1.8.5 | api/video.py | soglia di completamento (80%) uguale a quella dell'evento di audit | — soglia unica, definita in api/evidenze.py e usata anche da api/video.py
+| CHIUSO | api/azienda.py | nuovi campi della società nel mapping `Azienda` — il modello di ingresso comprende già tutti i campi della società (verificato) |
+| CHIUSO | api/evidenze.py | presenza Teams e relativo audit nello stesso commit — link e audit sono nello stesso commit (verificato) |
+| CHIUSO | api/test.py | domande conservate per tentativi già in corso — i tentativi salvano le risposte solo alla consegna: nessun tentativo in corso da proteggere (verificato) |
+| FATTO 1.8.5 | api/video.py | soglia di completamento (80%) uguale a quella dell'evento di audit — soglia unica, definita in api/evidenze.py e usata anche da api/video.py |
 | DA FARE | frontend AuditLog.js | richieste vecchie che sostituiscono i risultati attuali; dettagli non accessibili da tastiera |
 | DA FARE | frontend Login.js | token SSO in `localStorage` (valutare alternativa) |
 | DA FARE | frontend Utenti.js | testo d'aiuto CSV (ora si manda un link, non la password); endpoint di esportazione utenti |
@@ -61,7 +61,7 @@ Stato: `DA FARE` fondato · `VERIFICARE` probabile, da guardare nel codice prima
 | CHIUSO | api/password_reset.py | email di reset durante la richiesta: già in sottofondo dalla 1.8.3 |
 | FATTO 1.8.4 | api/password_reset.py | `genera` non rifiuta richieste di account disattivati o non locali (verificato nel codice: manca il controllo) |
 | FATTO 1.8.4 | api/privacy.py | il PDF dell'informativa è servito da `/uploads/...` senza autenticazione: servirlo da un endpoint con login (verificato) |
-| FATTO 1.8.5 | api/matrice_ispezione.py | il conteggio documenti (limite pacchetto) avviene prima di verificare che i file esistano (verificato); righe storiche del pacchetto senza perimetro; ZIP costruito in modo sincrono senza limite su PDF/Excel; N+1 sulle righe del registro; verificare il BOM nell'`indice_documenti.csv` | — fatti: conteggio dopo il controllo dei file, ricerche accorpate, BOM verificato presente; rinviati: righe storiche e ZIP sincrono (gira già fuori dal ciclo principale, con file temporaneo su disco e limite di documenti)
+| FATTO 1.8.5 | api/matrice_ispezione.py | il conteggio documenti (limite pacchetto) avviene prima di verificare che i file esistano (verificato); righe storiche del pacchetto senza perimetro; ZIP costruito in modo sincrono senza limite su PDF/Excel; N+1 sulle righe del registro; verificare il BOM nell'`indice_documenti.csv` — fatti: conteggio dopo il controllo dei file, ricerche accorpate, BOM verificato presente; rinviati: righe storiche e ZIP sincrono (gira già fuori dal ciclo principale, con file temporaneo su disco e limite di documenti) |
 | DA FARE | frontend ImpostazioniUtente.js | errori non gestiti (informativa, esportazione dati, URL calendario); schede non usabili da tastiera |
 | DA FARE | frontend InformativaPrivacy.js | errore di caricamento iniziale non gestito |
 | DA FARE | frontend MatriceFormativa.js | richiesta fallita e risposte vecchie che sovrascrivono le nuove |
@@ -103,7 +103,7 @@ Stato: `DA FARE` fondato · `VERIFICARE` probabile, da guardare nel codice prima
 
 | Stato | File | Rilievo |
 |---|---|---|
-| FATTO 1.8.5 | app/schema_legacy.py | `porta_a_baseline` usa `Base.metadata.create_all` con i modelli di OGGI: per un database precedente alle migrazioni, quando arriveranno migrazioni 0002+ lo schema "0001" non sarebbe più quello di partenza (verificato nel codice). Congelare lo schema 0001 (rilievo più importante di questa PR) | — non congelato (nessun database vecchio da portare avanti): regola scritta in schema_legacy.py, ogni migrazione dalla 0002 è idempotente
+| FATTO 1.8.5 | app/schema_legacy.py | `porta_a_baseline` usa `Base.metadata.create_all` con i modelli di OGGI: per un database precedente alle migrazioni, quando arriveranno migrazioni 0002+ lo schema "0001" non sarebbe più quello di partenza (verificato nel codice). Congelare lo schema 0001 (rilievo più importante di questa PR) — non congelato (nessun database vecchio da portare avanti): regola scritta in schema_legacy.py, ogni migrazione dalla 0002 è idempotente |
 | FATTO 1.8.5 | app/migrazioni.py | dopo un errore la transazione è interrotta e lo sblocco `pg_advisory_unlock` fallisce: fare rollback prima di rilasciare il blocco (verificato) |
 | FATTO 1.8.5 | services/inviti.py | normalizzare `SSO_PUBLIC_URL` (spazi, barre finali) prima di usarlo come alternativa (verificato: solo `rstrip("/")`) |
 | DA FARE | README.md | indicare l'URL HTTPS pubblico e limitare l'accesso diretto alla porta 2018 (documentazione; la parte di rete è infrastruttura dell'utente: solo testo) |
@@ -138,3 +138,11 @@ Aggiungere qui sotto una sezione per ogni PR, appena arriva la review della fase
 | FATTO 1.8.5 | docs/rilievi-coderabbit.md | testo sul calendario delle correzioni e tabella con quattro celle: sistemati |
 | CHIUSO | api/fabbisogno.py | bloccare anche la riga della campagna contro la chiusura in parallelo: rischio minimo (chiusura e risposta nello stesso istante), rinviato |
 | CHIUSO | test password_reset | test di riscatto concorrente: richiede due connessioni sincronizzate, il blocco di riga è provato dal codice; non aggiunto |
+
+## PR #10 (1.8.5, correttezza e prestazioni)
+
+| Stato | File | Rilievo |
+|---|---|---|
+| FATTO 1.8.5 | api/push.py | la sottoscrizione dopo due tentativi falliti rispondeva "ok": ora risponde 409 |
+| FATTO 1.8.5 | services/certificati.py | coordinate non convertibili (intero di 400 cifre): rifiutate al salvataggio (limite -10000..100000) e gestite anche in generazione |
+| FATTO 1.8.5 | docs/rilievi-coderabbit.md | note con una quarta cella nelle righe 27, 32, 64, 106: sistemate |

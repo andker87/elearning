@@ -64,7 +64,7 @@ def genera_pdf(path: str, *, nome_discente: str, titolo_corso: str,
 def _numero(valore, predefinito, minimo, massimo):
     try:
         n = float(valore)
-    except (TypeError, ValueError):
+    except (TypeError, ValueError, OverflowError):
         return predefinito
     if n != n or n in (float("inf"), float("-inf")):  # NaN o infinito
         return predefinito
@@ -76,8 +76,9 @@ def valida_campo(campo) -> dict:
     if not isinstance(campo, dict):
         raise ValueError("Ogni campo deve essere un oggetto")
     for k in ("x", "y"):
-        if not isinstance(campo.get(k, 0), (int, float)) or isinstance(campo.get(k, 0), bool):
-            raise ValueError(f"Il valore di «{k}» deve essere un numero")
+        v = campo.get(k, 0)
+        if not isinstance(v, (int, float)) or isinstance(v, bool) or not -10000 <= v <= 100000:  # un intero di 400 cifre non si converte in float
+            raise ValueError(f"Il valore di «{k}» deve essere un numero tra -10000 e 100000")
     if "font_size" in campo and campo["font_size"] is not None and (
             not isinstance(campo["font_size"], (int, float)) or isinstance(campo["font_size"], bool) or not 4 <= campo["font_size"] <= 120):
         raise ValueError("La dimensione del testo deve essere un numero tra 4 e 120")

@@ -186,3 +186,14 @@ def test_l_url_base_degli_inviti_ripulisce_spazi_e_barre(db, monkeypatch):
     from app.services.inviti import url_base
     monkeypatch.setattr(settings, "SSO_PUBLIC_URL", "  https://formazione.example.it//  ")
     assert url_base(db) == "https://formazione.example.it"
+
+
+def test_coordinate_impossibili_del_template_si_rifiutano(client, formazione, auth):
+    h = auth(formazione)
+    tid = client.post("/api/certificato-templates", headers=h, json={"nome": "Coord"}).json()["id"]
+    chiave = client.get("/api/certificato-templates/campi-disponibili", headers=h).json()[0]["chiave"]
+    enorme = json.loads("1" + "0" * 400)
+    assert client.put(f"/api/certificato-templates/{tid}", headers=h, content=json.dumps({"campi": [{"chiave": chiave, "x": enorme, "y": 1}]}),
+                      ).status_code in (400, 422)
+    from app.services.certificati import _numero
+    assert _numero(enorme, 7, 0, 10) == 7
