@@ -1,6 +1,7 @@
 """Esportazione e importazione della configurazione."""
 import json
 
+from app.services.impronte import impronta
 from app.models.azienda import Azienda
 from app.models.audit import AuditLog
 from app.models.corso import Corso
@@ -117,7 +118,7 @@ def test_riferimenti_mancanti_diventano_avvisi(client, db, admin, auth, crea_ute
     configura(db, crea_utente, crea_corso, crea_ufficio, crea_percorso)
     file = client.get("/api/admin/configurazione/export", headers=auth(admin)).json()
     cancella_configurazione(db)
-    db.query(User).filter(User.email == "resp@acme.it").delete()
+    db.query(User).filter(User.email_idx == impronta("resp@acme.it")).delete()
     db.commit()
     file["percorsi"][0]["passi"].append({"corso": "Corso che non esiste", "ordine": 9, "richiede": []})
     r = client.post("/api/admin/configurazione/import", headers=auth(admin), json={"contenuto": file, "applica": True}).json()

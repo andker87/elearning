@@ -47,7 +47,7 @@ def _righe(db: Session, ufficio_id: Optional[str], da: Optional[datetime], a: Op
     uffici_per_utente: dict = {}
     etichette_per_corso: dict = {}
     righe = []
-    for iscr, ediz, corso, utente in q.order_by(User.full_name, Corso.titolo).all():
+    for iscr, ediz, corso, utente in sorted(q.all(), key=lambda r: ((r[3].full_name or "").casefold(), r[2].titolo or "")):   # il nome e' cifrato: si ordina qui
         uid = str(utente.id)
         if uid not in uffici_per_utente:
             uffici = (

@@ -49,6 +49,7 @@ def test_un_database_precedente_alle_migrazioni_si_marca_e_si_aggiorna():
         importa_modelli()
         Base.metadata.create_all(engine)
         with engine.begin() as c:
+            c.execute(sa.text("ALTER TABLE users DROP COLUMN email_idx"))   # un database di allora non aveva ancora le impronte
             c.execute(sa.text("INSERT INTO users (id, email, full_name, hashed_password, role, is_external, origine_credenziali) VALUES (gen_random_uuid(), 'vecchio@test.it', 'Vecchio', 'x', 'admin_tecnico', false, 'locale')"))
         esegui_migrazioni()
         assert versione_corrente() == ultima_migrazione()

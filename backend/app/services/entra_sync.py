@@ -20,6 +20,7 @@ from .auth import hash_password
 from .offboarding import avvisi_disattivazione, disattiva_utente, invita_promossi
 from .password_policy import genera_password_temporanea
 from .percorsi_sync import sincronizza_assegnazioni
+from .impronte import impronta
 
 GRAPH = "https://graph.microsoft.com/v1.0"
 GIORNI_ASSUNZIONE_RECENTE = 60  # solo i nuovi assunti fanno scattare i percorsi "ingresso in azienda"
@@ -138,7 +139,7 @@ def applica_piano(db: Session, piano: dict, request=None, admin=None, riattiva: 
         audit_svc.log_from_request(db, request, admin, azione, entity_type="user", entity_name=email, detail=f"sincronizzazione Entra - {dettaglio}")
 
     for c in piano["crea"]:
-        if db.query(User).filter(func.lower(User.email) == c["email"]).first():
+        if db.query(User).filter(User.email_idx == impronta(c["email"])).first():
             continue
         db.add(User(email=c["email"], full_name=c["nome"][:200], role=UserRole.user, is_external=False,
                     hashed_password=hash_password(genera_password_temporanea() + secrets.token_urlsafe(8)),
@@ -147,13 +148,13 @@ def applica_piano(db: Session, piano: dict, request=None, admin=None, riattiva: 
         esito["creati"] += 1
     db.flush()
     for a in piano["aggiorna"]:
-        u = db.query(User).filter(func.lower(User.email) == a["email"].lower()).first()
+        u = db.query(User).filter(User.email_idx == impronta(a["email"])).first()
         if u and u.full_name != a["a"]:
             u.full_name = a["a"][:200]
             traccia("UPDATE", u.email, f"nome: {a['da']} → {a['a']}")
             esito["aggiornati"] += 1
     for d in piano["disattiva"]:
-        u = db.query(User).filter(func.lower(User.email) == d["email"].lower()).first()
+        u = db.query(User).filter(User.email_idx == impronta(d["email"])).first()
         if not u or not u.is_active or u.role == UserRole.admin_tecnico:
             continue
         r = disattiva_utente(db, u)
@@ -164,7 +165,7 @@ def applica_piano(db: Session, piano: dict, request=None, admin=None, riattiva: 
         esito["avvisi"] += [f"{u.full_name}: {a}" for a in r["avvisi"]]
     if riattiva:
         for r_ in piano["riattiva"]:
-            u = db.query(User).filter(func.lower(User.email) == r_["email"].lower()).first()
+            u = db.query(User).filter(User.email_idx == impronta(r_["email"])).first()
             if u and not u.is_active:
                 u.is_active = True
                 traccia("UPDATE", u.email, "riattivato: di nuovo nel gruppo")

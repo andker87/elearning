@@ -3,6 +3,7 @@ from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.sql import func
 import uuid
 from ..database import Base
+from .tipi import TestoCifrato
 
 class Organizzazione(Base):
     """Registro di enti/aziende esterne a cui appartengono utenti esterni
@@ -14,8 +15,8 @@ class Organizzazione(Base):
     tipo             = Column(String, nullable=True)  # es. "ente accreditato", "azienda cliente", "libero professionista"
     partita_iva      = Column(String, nullable=True)
     accreditamento   = Column(String, nullable=True)  # numero/riferimento accreditamento se applicabile
-    referente        = Column(String, nullable=True)
-    email            = Column(String, nullable=True)
-    telefono         = Column(String, nullable=True)
+    referente        = Column(TestoCifrato, nullable=True)   # dati personali: cifrati nel database
+    email            = Column(TestoCifrato, nullable=True)
+    telefono         = Column(TestoCifrato, nullable=True)
     note             = Column(Text, nullable=True)
     created_at       = Column(DateTime(timezone=True), server_default=func.now())

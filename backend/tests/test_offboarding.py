@@ -1,6 +1,7 @@
 """Offboarding e sincronizzazione utenti da Entra (Graph simulato)."""
 import pytest
 
+from app.services.impronte import impronta
 from app.config import settings
 from app.models.audit import AuditLog
 from app.models.edizione import EdizioneDocente, RuoloDocente, StatoEdizione
@@ -131,8 +132,8 @@ def test_applica_il_piano_e_traccia_ogni_modifica(db, entra, crea_utente):
     esito = svc.applica_piano(db, svc.calcola_piano(db, svc.leggi_membri()))
     assert (esito["creati"], esito["aggiornati"], esito["disattivati"]) == (1, 1, 1)
     db.expire_all()
-    assert db.query(User).filter(User.email == "esce@az.it").one().is_active is False
-    nuovo = db.query(User).filter(User.email == "nuovo@az.it").one()
+    assert db.query(User).filter(User.email_idx == impronta("esce@az.it")).one().is_active is False
+    nuovo = db.query(User).filter(User.email_idx == impronta("nuovo@az.it")).one()
     assert nuovo.origine_credenziali == "dominio" and nuovo.role == UserRole.user and nuovo.is_active
     azioni = {a.action for a in db.query(AuditLog).all()}
     assert {"CREATE", "UPDATE", "DISATTIVA_UTENTE"} <= azioni
@@ -155,7 +156,7 @@ def test_giro_automatico_applica_e_avvisa(db, entra, crea_utente, admin):
     assert "disattivati 1" in risultato
     db.expire_all()
     assert esce.is_active is False
-    assert db.query(User).filter(User.email == "tornato@az.it").one().is_active is False  # l'automatico non riattiva
+    assert db.query(User).filter(User.email_idx == impronta("tornato@az.it")).one().is_active is False  # l'automatico non riattiva
     assert db.query(Notification).filter(Notification.tipo == "sync_entra", Notification.user_id == admin.id).count() == 1  # c'e' una riattivazione da valutare
 
 
@@ -203,7 +204,7 @@ def test_api_anteprima_non_modifica_e_applica_si(client, db, admin, auth, entra,
     anteprima = client.post("/api/admin/entra/anteprima", headers=auth(admin)).json()
     assert [d["email"] for d in anteprima["disattiva"]] == ["esce@az.it"]
     db.refresh(esce)
-    assert esce.is_active is True and db.query(User).filter(User.email == "nuovo@az.it").count() == 0
+    assert esce.is_active is True and db.query(User).filter(User.email_idx == impronta("nuovo@az.it")).count() == 0
     r = client.post("/api/admin/entra/applica", headers=auth(admin), params={"impronta": anteprima["impronta"]})
     assert r.status_code == 200 and r.json()["disattivati"] == 1
     db.expire_all()

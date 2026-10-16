@@ -16,6 +16,7 @@ from ..services import graph as graph_svc
 from ..services import cifratura
 from .deps import get_current_user, require_training_admin
 from .edizioni import _is_docente
+from ..services.impronte import impronta
 
 MAX_ALLEGATO_BYTES = 25 * 1024 * 1024   # attestati esterni: PDF o immagini
 
@@ -162,7 +163,7 @@ def _applica_records_teams(db: Session, e: Edizione, records: list, fonte: Fonte
     applicati = []
     for rec in records:
         email = (rec.get("emailAddress") or rec.get("identity", {}).get("user", {}).get("id") or "").lower()
-        u = db.query(User).filter(User.email == email).first()
+        u = db.query(User).filter(User.email_idx == impronta(email)).first()
         if not u: continue
         i = db.query(Iscrizione).filter(Iscrizione.edizione_id == e.id, Iscrizione.user_id == u.id).first()
         if not i: continue

@@ -4,6 +4,7 @@ from sqlalchemy.orm import Session
 from ..database import get_db
 from ..models.user import User, UserRole
 from ..services.auth import decode_token
+from ..services.impronte import impronta
 
 bearer = HTTPBearer()
 
@@ -17,7 +18,7 @@ def get_current_user(
 ):
     payload = decode_token(credentials.credentials)
     if not payload: raise HTTPException(status_code=401, detail="Token non valido")
-    user = db.query(User).filter(User.email == payload.get("sub")).first()
+    user = db.query(User).filter(User.email_idx == impronta(payload.get("sub"))).first()
     if not user or not user.is_active: raise HTTPException(status_code=401, detail="Utente non trovato")
     if payload.get("tv", 0) != (user.token_version or 0):
         raise HTTPException(status_code=401, detail="Sessione scaduta: accedi di nuovo")

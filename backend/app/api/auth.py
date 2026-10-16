@@ -21,6 +21,7 @@ from ..services.email import invia_email, dopo_il_commit
 from ..services.inviti import crea_link_invito, invia_invito
 from ..services.offboarding import disattiva_utente, invita_promossi
 from .deps import get_current_user, require_training_admin, require_admin_tecnico
+from ..services.impronte import impronta
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
 
@@ -101,14 +102,15 @@ def login(data: LoginRequest, request: Request, db: Session = Depends(get_db)):
     # tutti condividono lo stesso indirizzo, e i login riusciti non devono consumarlo.
     if rate_limit.superato(chiave_ip, LOGIN_PER_IP, 15 * 60):
         raise HTTPException(429, "Troppi tentativi di accesso da questo indirizzo. Riprova tra qualche minuto.")
-    user = db.query(User).filter(func.lower(User.email) == data.email.lower()).first()
+    user = db.query(User).filter(User.email_idx == impronta(data.email)).first()
     now = datetime.now(timezone.utc)
     sospeso = bool(user and user.bloccato_fino and user.bloccato_fino > now)
     # il controllo della password si fa sempre (anche per email inesistenti o account sospesi): tempi uguali
     password_ok = verify_password(data.password, user.hashed_password if user else _HASH_FITTIZIO)
     if sospeso or not user or not password_ok:
         rate_limit.registra(chiave_ip, 15 * 60)
-        audit_svc.log_from_request(db, request, None, "LOGIN_FAILED", detail=f"{'Account sospeso' if sospeso else 'Tentativo fallito'}: {data.email}")
+        audit_svc.log_from_request(db, request, None, "LOGIN_FAILED", email=data.email,
+                                    detail=f"{'Account sospeso' if sospeso else 'Tentativo fallito'}: {data.email}")
         if user and not sospeso:
             user.tentativi_falliti = (user.tentativi_falliti or 0) + 1
             if user.tentativi_falliti >= MAX_TENTATIVI:
@@ -163,18 +165,18 @@ def cambia_password(data: PasswordChange, request: Request, db: Session = Depend
 
 @router.get("/users")
 def list_users(db: Session = Depends(get_db), user=Depends(require_admin_tecnico)):
-    users = db.query(User).order_by(User.full_name).all()
+    users = sorted(db.query(User).all(), key=lambda u: (u.full_name or "").casefold())   # il nome e' cifrato: si ordina qui
     return [_serialize_user(u, db) for u in users]
 
 @router.get("/users/simple")
 def list_users_simple(db: Session = Depends(get_db), user=Depends(get_current_user)):
     """Lista semplificata utenti attivi - usata per i picker (es. scelta docenti)."""
-    users = db.query(User).filter(User.is_active == True).order_by(User.full_name).all()
+    users = sorted(db.query(User).filter(User.is_active == True).all(), key=lambda u: (u.full_name or "").casefold())
     return [{"id": str(u.id), "full_name": u.full_name, "email": u.email, "is_external": u.is_external} for u in users]
 
 @router.post("/users")
 def create_user(data: UserCreate, request: Request, db: Session = Depends(get_db), user=Depends(require_admin_tecnico)):
-    if db.query(User).filter(func.lower(User.email) == data.email.lower()).first():
+    if db.query(User).filter(User.email_idx == impronta(data.email)).first():
         raise HTTPException(400, "Email già esistente")
     if data.is_external and not data.organizzazione_id:
         raise HTTPException(400, "Un utente esterno deve avere un'organizzazione di riferimento")
@@ -252,7 +254,7 @@ def import_users_csv(file: UploadFile = File(...), modo: str = Query("nuovi"), r
         if not email or not full_name:
             righe.append({"riga": n, "email": email, "esito": "errore", "messaggio": "email o nome mancante"})
             continue
-        if db.query(User).filter(func.lower(User.email) == email.lower()).first():
+        if db.query(User).filter(User.email_idx == impronta(email)).first():
             righe.append({"riga": n, "email": email, "esito": "errore", "messaggio": "email già esistente"})
             continue
         is_external = row.get("is_external", "").lower() in ("true", "si", "sì", "1", "yes", "x")
@@ -348,7 +350,7 @@ def _disattiva_utenti_csv(file: UploadFile, request: Request, db: Session, user)
         if not email:
             righe.append({"riga": n, "email": email, "esito": "errore", "messaggio": "email mancante"})
             continue
-        u = db.query(User).filter(func.lower(User.email) == email.lower()).first()
+        u = db.query(User).filter(User.email_idx == impronta(email)).first()
         if not u:
             righe.append({"riga": n, "email": email, "esito": "ignorato", "messaggio": "email non trovata"})
             continue

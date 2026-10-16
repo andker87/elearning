@@ -15,6 +15,7 @@ from ..services import audit as audit_svc
 from ..services import sso as sso_svc
 from ..services.auth import token_per_utente, hash_password
 from ..services.percorsi_sync import sincronizza_assegnazioni
+from ..services.impronte import impronta
 
 router = APIRouter(prefix="/api/auth/sso", tags=["sso"])
 
@@ -54,7 +55,7 @@ def _risolvi_utente(db: Session, request: Request, sub: str, email: str, claims:
     u = db.query(User).filter(User.sso_subject == sub).first()
     primo_collegamento = False
     if not u:
-        u = db.query(User).filter(func.lower(User.email) == email).first()
+        u = db.query(User).filter(User.email_idx == impronta(email)).first()
         if u:
             if u.sso_subject and u.sso_subject != sub:
                 raise sso_svc.SsoErrore("identita_diversa", email)
