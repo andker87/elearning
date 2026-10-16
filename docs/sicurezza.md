@@ -51,7 +51,7 @@ L'accesso ai file avviene solo da rotte autenticate; sono pubblici soltanto logo
 - enti esterni: referente, email, telefono;
 - registro attività: email, indirizzo IP, dettaglio.
 
-**Impronte per la ricerca esatta.** Un testo cifrato cambia a ogni cifratura, quindi nel database non si può cercare. Accanto all'email (utenti e registro) e all'IP (registro) si conserva un'impronta: HMAC-SHA256 del valore, senza badare a maiuscole e spazi, con una chiave propria casuale conservata nel database (cifrata con `CHIAVE_CIFRATURA`). Serve per l'accesso, i controlli di unicità e i filtri del registro; chi ha solo una copia del database non può calcolarle né confrontarle (la chiave delle impronte è cifrata con `CHIAVE_CIFRATURA`). Cambiare `CHIAVE_CIFRATURA` non cambia le impronte.
+**Impronte per la ricerca esatta.** Un testo cifrato cambia a ogni cifratura, quindi nel database non si può cercare. Accanto all'email (utenti e registro) e all'IP (registro) si conserva un'impronta: HMAC-SHA256 del valore, senza badare a maiuscole e spazi, con una chiave propria casuale conservata nel database (cifrata con `CHIAVE_CIFRATURA`). Serve per l'accesso, i controlli di unicità e i filtri del registro; chi ha solo una copia del database non può calcolare l'impronta di un valore candidato (la chiave delle impronte è cifrata con `CHIAVE_CIFRATURA`), ma può confrontare tra loro le impronte memorizzate: due utenti o due eventi con lo stesso valore hanno la stessa impronta. Cambiare `CHIAVE_CIFRATURA` non cambia le impronte.
 
 **Cosa cambia per chi usa la piattaforma:**
 - nel registro attività i filtri «Utente» e «Indirizzo IP» cercano l'indirizzo **intero**; la ricerca libera guarda nome, id e tipo dell'entità e l'email intera, non il dettaglio. Per gli eventi sugli utenti il nome dell'entità (l'email) sta nel dettaglio;
@@ -64,7 +64,7 @@ L'accesso ai file avviene solo da rotte autenticate; sono pubblici soltanto logo
 - i file di registro prodotti per un collettore (`AUDIT_EXPORT_DIR`, `AUDIT_LOG_STDOUT`): contengono email e IP in chiaro perché sono fatti per essere letti fuori dalla piattaforma; proteggili come il collettore stesso;
 - le password (non sono cifrate ma hash bcrypt, non recuperabili).
 
-**Conversione dei dati già presenti.** Dopo l'aggiornamento i dati esistenti restano in chiaro finché non si esegue `python -m app.cifratura_cli cifra` (con la chiave impostata); la pagina Stato mostra quanti valori sono ancora in chiaro. Il comando lavora a lotti, anche su registri molto grandi. Resta sempre valido anche un valore non ancora convertito.
+**Conversione dei dati già presenti.** Dopo l'aggiornamento i dati esistenti restano in chiaro finché non si esegue `python -m app.cifratura_cli cifra` (con la chiave impostata); la pagina Stato mostra quanti valori sono ancora in chiaro (per il registro attività conta solo le ultime 10000 righe; `python -m app.cifratura_cli stato` le conta tutte, e «cifra» converte comunque l'intero registro). Il comando lavora a lotti, anche su registri molto grandi. Resta sempre valido anche un valore non ancora convertito.
 
 Restano comunque necessarie le protezioni dell'infrastruttura (sezione 4): disco cifrato, backup cifrati con la chiave custodita a parte, database non esposto, accesso ristretto: la cifratura delle colonne non protegge da chi può leggere anche la memoria del programma o le variabili d'ambiente.
 

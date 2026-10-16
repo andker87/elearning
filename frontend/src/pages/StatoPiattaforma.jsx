@@ -108,7 +108,7 @@ export default function StatoPiattaforma() {
           <h3>Cifratura dei dati</h3>
           {d.cifratura.dati_personali && (d.cifratura.dati_personali.cifrato > 0 || d.cifratura.dati_personali.chiaro > 0) && (
             <p style={{ margin: "0 0 8px", fontSize: 13 }}>
-              Dati personali nel database (nomi, email, IP, telefoni): {d.cifratura.dati_personali.cifrato} valori cifrati
+              Dati personali nel database (nomi, email, IP, telefoni; del registro attività le ultime 10000 righe): {d.cifratura.dati_personali.cifrato} valori cifrati
               {d.cifratura.dati_personali.chiaro > 0 && <>, <strong>{d.cifratura.dati_personali.chiaro} ancora in chiaro</strong>{d.cifratura.chiave_presente ? " (esegui «cifra» dallo strumento da riga di comando)" : ""}</>}.
             </p>
           )}

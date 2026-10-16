@@ -210,3 +210,11 @@ Aggiungere qui sotto una sezione per ogni PR, appena arriva la review della fase
 | Stato | File | Rilievo |
 |---|---|---|
 | FATTO 1.9.5 | scripts/controlli-sicurezza.sh, docker-compose.yml | lo script scansionava `elearning-backend`/`elearning-frontend` dando per scontato che fossero i nomi delle immagini, ma Compose li ricava dal nome della cartella del progetto: con un'altra cartella avrebbe scansionato un'immagine vecchia o nessuna. Nomi esplicitamente fissati (`image:`) nel compose per backend e frontend |
+
+## PR #20 (1.9.7, dati personali cifrati nel database)
+
+| Stato | File | Rilievo |
+|---|---|---|
+| FATTO 1.9.7 | api/about.py, docs/sicurezza.md | il conteggio dei valori in chiaro nella pagina Stato guarda solo le ultime 10000 righe del registro: il limite è ora dichiarato nel changelog e nel documento di sicurezza |
+| FATTO 1.9.7 | docs/sicurezza.md | il testo diceva che chi ha il database non può confrontare le impronte: errato, due valori uguali hanno la stessa impronta (confrontabili tra loro; non si può calcolare l'impronta di un candidato senza la chiave). Testo corretto |
+| CHIUSO | api/admin_tecnico.py | nota senza modifiche richieste dalla review stessa (filtri email/IP: contratto verificato dai test) |

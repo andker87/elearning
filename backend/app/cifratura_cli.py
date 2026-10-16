@@ -30,7 +30,7 @@ def main(argv=None):
     db = SessionLocal()
     try:
         if comando == "stato":
-            risultato = ops.stato(db)
+            risultato = ops.stato(db, completo=True)
         elif comando == "disattiva":
             risultato = ops.disattiva(db)
         else:

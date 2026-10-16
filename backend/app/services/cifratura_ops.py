@@ -18,7 +18,9 @@ COLONNE_PERSONALI = {
     "organizzazioni": ("referente", "email", "telefono"),
     "audit_log": ("user_email", "ip_address", "detail"),
 }
+# I nomi di tabella e colonna nelle query SQL qui sotto vengono solo da COLONNE_PERSONALI (costante interna): nessun valore dell'utente (nosec B608).
 LOTTO = 1000
+RIGHE_REGISTRO_NELLO_STATO = 10000   # la pagina Stato conta solo le piu' recenti: il registro puo' avere milioni di righe
 
 
 class ErroreAvvio(Exception):
@@ -116,7 +118,7 @@ def converti_dati_personali(db: Session, modo: str) -> dict:
         modificati, ultimo = 0, None
         while True:
             filtro = "WHERE id > :u" if ultimo else ""
-            righe = db.execute(text(f"SELECT id, {', '.join(colonne)} FROM {tabella} {filtro} ORDER BY id LIMIT {LOTTO}"),  # nosec B608 - nomi di tabella e colonna da COLONNE_PERSONALI (costante interna), nessun valore dell'utente
+            righe = db.execute(text(f"SELECT id, {', '.join(colonne)} FROM {tabella} {filtro} ORDER BY id LIMIT {LOTTO}"),  # nosec B608
                                {"u": ultimo} if ultimo else {}).fetchall()
             if not righe:
                 break
@@ -124,7 +126,7 @@ def converti_dati_personali(db: Session, modo: str) -> dict:
                 nuovi = {col: _nuovo_valore(riga[i + 1], modo) for i, col in enumerate(colonne)}
                 cambiati = {col: v for i, (col, v) in enumerate(nuovi.items()) if v != riga[i + 1]}
                 if cambiati:
-                    db.execute(text(f"UPDATE {tabella} SET {', '.join(f'{col} = :{col}' for col in cambiati)} WHERE id = :id"),  # nosec B608 - nomi di tabella e colonna da COLONNE_PERSONALI (costante interna), nessun valore dell'utente
+                    db.execute(text(f"UPDATE {tabella} SET {', '.join(f'{col} = :{col}' for col in cambiati)} WHERE id = :id"),  # nosec B608
                                {**cambiati, "id": riga[0]})
                     modificati += 1
             db.commit()
@@ -138,10 +140,10 @@ def riepilogo_dati_personali(db: Session, veloce: bool = False) -> dict:
     attivita', che puo' avere milioni di righe, si guardano solo le ultime 10000."""
     chiaro = cifrato = 0
     for tabella, colonne in COLONNE_PERSONALI.items():
-        origine = f"(SELECT * FROM {tabella} ORDER BY created_at DESC LIMIT 10000) t" if veloce and tabella == "audit_log" else tabella  # nosec B608 - nomi di tabella e colonna da COLONNE_PERSONALI (costante interna), nessun valore dell'utente
+        origine = f"(SELECT * FROM {tabella} ORDER BY created_at DESC LIMIT {RIGHE_REGISTRO_NELLO_STATO}) t" if veloce and tabella == "audit_log" else tabella  # nosec B608
         for col in colonne:
             n_cifrati, n_totali = db.execute(text(
-                f"SELECT count(*) FILTER (WHERE {col} LIKE '{c.PREFISSO_TESTO}%'), count({col}) FROM {origine}")).one()  # nosec B608 - nomi di tabella e colonna da COLONNE_PERSONALI (costante interna), nessun valore dell'utente
+                f"SELECT count(*) FILTER (WHERE {col} LIKE '{c.PREFISSO_TESTO}%'), count({col}) FROM {origine}")).one()  # nosec B608
             cifrato += n_cifrati
             chiaro += n_totali - n_cifrati
     return {"chiaro": chiaro, "cifrato": cifrato}
@@ -178,7 +180,8 @@ def disattiva(db: Session) -> str:
     return "Cifratura disattivata: ora puoi togliere CHIAVE_CIFRATURA."
 
 
-def stato(db: Session) -> dict:
+def stato(db: Session, completo: bool = False) -> dict:
+    """`completo`: conta tutto il registro attivita' (lo strumento da riga di comando); la pagina Stato conta le ultime 10000 righe."""
     a = db.query(Azienda).first()
     return {
         "chiave_presente": c.attiva(),
@@ -187,5 +190,5 @@ def stato(db: Session) -> dict:
         "usata": bool(a and a.cifratura_verifica),
         "file": riepilogo(),
         "vapid_cifrata": bool(a and c.testo_e_cifrato(a.vapid_private_key)),
-        "dati_personali": riepilogo_dati_personali(db, veloce=True),
+        "dati_personali": riepilogo_dati_personali(db, veloce=not completo),
     }

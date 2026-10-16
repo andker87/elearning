@@ -155,3 +155,16 @@ def test_la_pagina_stato_conta_i_dati_personali(client, db, admin, auth, monkeyp
     ops.converti_db(db, "cifra")
     d = client.get("/api/admin/salute", headers=auth(admin)).json()["cifratura"]["dati_personali"]
     assert d["chiaro"] == 0 and d["cifrato"] >= 2
+
+
+def test_lo_strumento_conta_tutto_il_registro_la_pagina_solo_le_ultime_righe(db, monkeypatch):
+    monkeypatch.setattr(settings, "CHIAVE_CIFRATURA", None)
+    monkeypatch.setattr(ops, "COLONNE_PERSONALI", {"audit_log": ("user_email",)})
+    for n in range(3):
+        db.add(AuditLog(action="PROVA", user_email=f"{n}@azienda.it"))
+    db.commit()
+    assert ops.stato(db, completo=True)["dati_personali"]["chiaro"] == 3
+    assert ops.stato(db)["dati_personali"]["chiaro"] == 3          # sotto il limite coincidono
+    monkeypatch.setattr(ops, "RIGHE_REGISTRO_NELLO_STATO", 2)
+    assert ops.stato(db)["dati_personali"]["chiaro"] == 2          # la pagina guarda solo le ultime righe
+    assert ops.stato(db, completo=True)["dati_personali"]["chiaro"] == 3
