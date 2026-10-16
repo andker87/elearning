@@ -4,7 +4,6 @@ WORKDIR /app
 COPY package.json package-lock.json ./
 RUN npm ci
 COPY . .
-ENV GENERATE_SOURCEMAP=false
 RUN npm run build
 
 # Le pagine sono file statici: le serve nginx (senza privilegi), niente Node in produzione.

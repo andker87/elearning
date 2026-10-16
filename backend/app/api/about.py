@@ -18,6 +18,11 @@ PACCHETTI = ["fastapi", "uvicorn", "sqlalchemy", "pydantic", "python-jose", "htt
              "reportlab", "openpyxl", "pywebpush", "psycopg2-binary"]
 
 CHANGELOG = [
+    {"version": "1.9.6", "date": "2026-10", "label": "Strumenti di compilazione del sito: da Create React App a Vite", "changes": [
+        "Il sito si compila con Vite al posto di Create React App (progetto abbandonato, con decine di vulnerabilità negli strumenti di compilazione): ora `npm audit` non segnala nulla, nemmeno sugli strumenti di compilazione, e il controllo è diventato bloccante nella CI e nello script",
+        "Nessuna modifica per chi usa la piattaforma: provate in un browser vero tutte le 32 pagine, il service worker e il manifest; i file del sito hanno ora il nome che cambia a ogni versione nella cartella /assets",
+        "File con interfaccia rinominati da .js a .jsx (richiesto da Vite)",
+    ]},
     {"version": "1.9.5", "date": "2026-10", "label": "Dipendenze, immagini e controlli di sicurezza", "changes": [
         "Token di accesso e di riproduzione con PyJWT al posto di python-jose (libreria non più mantenuta e con vulnerabilità senza correzione); accesso aziendale (SSO) portato sulla nuova libreria con gli stessi controlli (firma, emittente, destinatario, scadenza, nonce)",
         "Il sito è servito da nginx senza privilegi invece che da Node; le immagini hanno gli aggiornamenti di sicurezza di sistema e non contengono più pip, setuptools e wheel: l'analisi delle immagini (Trivy) non trova vulnerabilità alte o critiche",

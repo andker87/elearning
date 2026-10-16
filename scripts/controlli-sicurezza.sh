@@ -20,10 +20,8 @@ fi
 if [[ "$cosa" == tutto || "$cosa" == librerie ]]; then
   passo "Librerie Python (pip-audit)"
   docker run --rm -v "$PWD/backend:/src:ro" python:3.11-slim sh -c "pip install -q pip-audit 2>&1 | tail -0; pip-audit -r /src/requirements.txt --no-deps" || fallito "pip-audit ha trovato librerie vulnerabili"
-  passo "Librerie del sito (npm audit, senza gli strumenti di compilazione)"
-  docker run --rm -v "$PWD/frontend:/src:ro" node:20-alpine sh -c "cp -r /src /w && cd /w && npm ci --ignore-scripts >/dev/null 2>&1 && npm audit --omit=dev" || fallito "npm audit ha trovato librerie vulnerabili"
-  passo "Strumenti di compilazione del sito (solo informativo)"
-  docker run --rm -v "$PWD/frontend:/src:ro" node:20-alpine sh -c "cp -r /src /w && cd /w && npm ci --ignore-scripts >/dev/null 2>&1 && npm audit | tail -3" || true
+  passo "Librerie del sito (npm audit, comprese quelle di compilazione)"
+  docker run --rm -v "$PWD/frontend:/src:ro" node:20-alpine sh -c "cp -r /src /w && cd /w && npm ci --ignore-scripts >/dev/null 2>&1 && npm audit" || fallito "npm audit ha trovato librerie vulnerabili"
 fi
 
 if [[ "$cosa" == tutto || "$cosa" == immagini ]]; then

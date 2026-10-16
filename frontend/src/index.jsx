@@ -10,6 +10,6 @@ applicaTema(temaIniziale());
 
 createRoot(document.getElementById("root")).render(<App />);
 
-if (process.env.NODE_ENV === "production") {
+if (import.meta.env.PROD) {
   registraServiceWorker().catch(() => {});
 }
