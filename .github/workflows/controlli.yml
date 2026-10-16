@@ -34,13 +34,9 @@ jobs:
         run: pip install bandit && bandit -r backend/app -q
       - name: Librerie Python (pip-audit)
         run: pip install pip-audit && pip-audit -r backend/requirements.txt --no-deps
-      - name: Librerie del sito (npm audit, senza gli strumenti di compilazione)
+      - name: Librerie del sito (npm audit, comprese quelle di compilazione)
         working-directory: frontend
-        run: npm ci --ignore-scripts && npm audit --omit=dev
-      - name: Strumenti di compilazione del sito (solo informativo)
-        working-directory: frontend
-        continue-on-error: true
-        run: npm audit
+        run: npm ci --ignore-scripts && npm audit
 
   immagini:
     name: Immagini Docker

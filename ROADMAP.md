@@ -871,7 +871,7 @@ Obiettivo: superare controlli di sicurezza (SAST, analisi delle dipendenze) e pr
 - [x] **1.9.4 Video cifrati e più qualità** — 480p/720p/1080p/4K fino alla qualità dell'originale (`VIDEO_ALTEZZE`), scelta automatica o manuale nel player, file cifrati a blocchi con lettura a intervalli, originale eliminato dopo la conversione. Non fatto: streaming adattivo (HLS) che cambia qualità da solo durante la visione; i tempi di conversione del 4K sono da misurare sull'hardware di produzione.
 - [ ] **Cifratura dei dati personali nel database** (nome, email, IP...) con indici ciechi per le ricerche, prima della 2.0.0.
 - [x] **1.9.5 Dipendenze, immagini e controlli** — PyJWT al posto di python-jose, sito servito da nginx senza privilegi, `package-lock.json`, immagini senza vulnerabilità alte/critiche, `scripts/controlli-sicurezza.sh` e CI su GitHub (test, Bandit, pip-audit, npm audit, Trivy). Da provare la prima esecuzione su GitHub.
-- [ ] **1.9.6 Da Create React App a Vite** — elimina le vulnerabilità degli strumenti di compilazione (react-scripts è abbandonato).
+- [x] **1.9.6 Da Create React App a Vite** — compilazione con Vite 8, `npm audit` completo a zero vulnerabilità e reso bloccante in CI e script; file con interfaccia in `.jsx`; provate tutte le pagine in un browser vero.
 - [ ] **1.9.7 Cifratura dei dati personali nel database** (nome, email, IP, telefono) con campi cifrati in modo trasparente e impronte per le ricerche esatte.
 - [ ] **2.0.0**
 

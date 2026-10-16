@@ -68,8 +68,6 @@ Ogni modifica passa da:
 - una **revisione automatica** (CodeRabbit) e dalla suite di **test** (`docker compose --profile test run --rm tests`);
 - **controlli di sicurezza automatici** (flusso GitHub Actions in `.github/workflows/controlli.yml`, eseguibili anche a mano con `scripts/controlli-sicurezza.sh`):
   - analisi del codice Python (**Bandit**);
-  - librerie Python (**pip-audit**) e librerie del sito (**npm audit**, escluse le dipendenze di sola compilazione, che non finiscono nel sito pubblicato);
+  - librerie Python (**pip-audit**) e librerie del sito (**npm audit**, comprese quelle di compilazione: oggi zero vulnerabilità note);
   - immagini Docker (**Trivy**, gravità alta e critica con correzione disponibile).
 - Le versioni delle librerie sono fissate (`requirements.txt`, `package-lock.json`) e le immagini non contengono strumenti di installazione (pip, setuptools) né Node in produzione.
-
-Limite noto: gli strumenti di compilazione del sito (Create React App) hanno vulnerabilità segnalate da `npm audit`; non sono incluse nel sito pubblicato e verranno eliminate passando a Vite (ROADMAP Z6).
