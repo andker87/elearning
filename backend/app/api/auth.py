@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, UploadFile, File
 from sqlalchemy import func
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, joinedload
 from pydantic import BaseModel, EmailStr
 from typing import Optional, List
@@ -193,7 +194,14 @@ def create_user(data: UserCreate, request: Request, db: Session = Depends(get_db
         origine_credenziali=data.origine_credenziali,
         password_da_cambiare=True,  # password scelta da altri: la persona ne sceglie una sua
     )
-    db.add(u); db.flush()
+    try:
+        with db.begin_nested():   # punto di salvataggio: un conflitto non rovina il resto della transazione
+            db.add(u); db.flush()
+    except IntegrityError:
+        # due richieste insieme con la stessa email (anche scritta con maiuscole diverse)
+        if db.query(User).filter(User.email_idx == impronta(data.email)).first():
+            raise HTTPException(400, "Email già esistente")
+        raise
     if data.group_ids:
         _assign_groups(str(u.id), data.group_ids, db)
     audit_svc.log_from_request(db, request, user, "CREATE", entity_type="user", entity_id=str(u.id), entity_name=u.email)
@@ -294,7 +302,14 @@ def import_users_csv(file: UploadFile = File(...), modo: str = Query("nuovi"), r
             origine_credenziali="locale",
             password_da_cambiare=True,
         )
-        db.add(u); db.flush()
+        try:
+            with db.begin_nested():
+                db.add(u); db.flush()
+        except IntegrityError:
+            if not db.query(User).filter(User.email_idx == impronta(email)).first():
+                raise
+            righe.append({"riga": n, "email": email, "esito": "errore", "messaggio": "email già esistente"})
+            continue
 
         gruppi_non_trovati = []
         if row.get("gruppi"):

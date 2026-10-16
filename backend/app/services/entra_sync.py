@@ -10,6 +10,7 @@ from datetime import datetime, timedelta, timezone
 
 import httpx
 from sqlalchemy import func
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from ..config import settings
@@ -141,9 +142,16 @@ def applica_piano(db: Session, piano: dict, request=None, admin=None, riattiva: 
     for c in piano["crea"]:
         if db.query(User).filter(User.email_idx == impronta(c["email"])).first():
             continue
-        db.add(User(email=c["email"], full_name=c["nome"][:200], role=UserRole.user, is_external=False,
-                    hashed_password=hash_password(genera_password_temporanea() + secrets.token_urlsafe(8)),
-                    origine_credenziali="dominio", data_ingresso=c["data_ingresso"]))
+        try:
+            with db.begin_nested():
+                db.add(User(email=c["email"], full_name=c["nome"][:200], role=UserRole.user, is_external=False,
+                            hashed_password=hash_password(genera_password_temporanea() + secrets.token_urlsafe(8)),
+                            origine_credenziali="dominio", data_ingresso=c["data_ingresso"]))
+                db.flush()
+        except IntegrityError:
+            if not db.query(User).filter(User.email_idx == impronta(c["email"])).first():
+                raise
+            continue   # creato nel frattempo da un altro percorso: non si conta ne' si registra
         traccia("CREATE", c["email"], "nuovo nel gruppo")
         esito["creati"] += 1
     db.flush()

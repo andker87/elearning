@@ -168,3 +168,37 @@ def test_lo_strumento_conta_tutto_il_registro_la_pagina_solo_le_ultime_righe(db,
     monkeypatch.setattr(ops, "RIGHE_REGISTRO_NELLO_STATO", 2)
     assert ops.stato(db)["dati_personali"]["chiaro"] == 2          # la pagina guarda solo le ultime righe
     assert ops.stato(db, completo=True)["dati_personali"]["chiaro"] == 3
+
+
+def _finta_corsa(monkeypatch, modulo):
+    """Il controllo preventivo non trova nulla (come se l'altra richiesta fosse ancora in corso)."""
+    reale = modulo.impronta
+    chiamate = {"n": 0}
+
+    def impronta_corsa(v):
+        chiamate["n"] += 1
+        return "nessuna-corrispondenza" if chiamate["n"] == 1 else reale(v)
+    monkeypatch.setattr(modulo, "impronta", impronta_corsa)
+
+
+def test_corsa_sulla_stessa_email_scritta_diversamente_da_il_messaggio_e_non_un_errore(client, admin, auth, crea_utente, monkeypatch):
+    from app.api import auth as auth_api
+    crea_utente("mario@azienda.it")
+    _finta_corsa(monkeypatch, auth_api)
+    r = client.post("/api/auth/users", headers=auth(admin),
+                    json={"email": "MARIO@azienda.it", "full_name": "Doppione", "role": "user"})
+    assert r.status_code == 400 and "già esistente" in r.json()["detail"]
+    # la sessione resta utilizzabile
+    assert client.get("/api/auth/users", headers=auth(admin)).status_code == 200
+
+
+def test_corsa_nell_importazione_csv_e_un_errore_di_riga_e_le_altre_righe_proseguono(client, admin, auth, crea_utente, monkeypatch):
+    from app.api import auth as auth_api
+    crea_utente("mario@azienda.it")
+    _finta_corsa(monkeypatch, auth_api)
+    csv = "email,full_name\nMARIO@azienda.it,Doppione\nluigi@azienda.it,Luigi\n"
+    r = client.post("/api/auth/users/import-csv", headers=auth(admin), files={"file": ("u.csv", csv, "text/csv")})
+    assert r.status_code == 200, r.text
+    esiti = {x["email"]: x for x in r.json()["righe"]}
+    assert esiti["MARIO@azienda.it"]["esito"] == "errore" and "già esistente" in esiti["MARIO@azienda.it"]["messaggio"]
+    assert esiti["luigi@azienda.it"]["esito"] == "creato"
