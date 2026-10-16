@@ -1,10 +1,10 @@
-import os, uuid, subprocess, json
+import os, re, uuid
 from datetime import datetime, timezone
 from datetime import timedelta
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form, BackgroundTasks, Request
-from fastapi.responses import FileResponse
+from fastapi.responses import Response, StreamingResponse
 from jose import jwt, JWTError
-from sqlalchemy.orm import Session, joinedload
+from sqlalchemy.orm import Session, joinedload, selectinload
 from pydantic import BaseModel
 from typing import Optional
 from ..config import settings
@@ -15,6 +15,8 @@ from ..models.user import UserRole
 from ..models.edizione import Edizione
 from ..models.evidenza import Evidenza, FonteEvidenza
 from ..services import audit as audit_svc
+from ..services import cifratura
+from ..services import video_elaborazione
 from .deps import get_current_user, require_training_admin
 
 from .evidenze import SOGLIA_COMPLETAMENTO_VIDEO_PCT  # una sola soglia, condivisa con il completamento delle evidenze
@@ -22,7 +24,6 @@ from .evidenze import SOGLIA_COMPLETAMENTO_VIDEO_PCT  # una sola soglia, condivi
 router = APIRouter(tags=["video"])
 
 ORIGINALI_DIR = "/app/videos/originali"
-PRONTI_DIR = "/app/videos/pronti"
 SOTTOTITOLI_DIR = "/app/videos/sottotitoli"
 MAX_VIDEO_BYTES = 2 * 1024 ** 3        # in linea con client_max_body_size di nginx
 MAX_SOTTOTITOLI_BYTES = 2 * 1024 ** 2
@@ -51,39 +52,11 @@ def _serialize(v: VideoContenuto):
         "id": str(v.id), "titolo": v.titolo, "stato": v.stato,
         "durata_secondi": v.durata_secondi, "ha_file": bool(v.file_path),
         "ha_sottotitoli": bool(v.sottotitoli_path), "blocca_skip_avanti": v.blocca_skip_avanti,
+        "qualita": [x.altezza for x in sorted(v.versioni, key=lambda x: x.altezza)],
+        "altre_qualita_in_preparazione": bool(v.altre_versioni_in_corso),
         "capitoli": [{"id": str(c.id), "titolo": c.titolo, "inizio_secondi": c.inizio_secondi}
                      for c in sorted(v.capitoli, key=lambda x: x.inizio_secondi)],
     }
-
-def _transcodifica(video_id: str, path_originale: str):
-    """Gira in background dopo l'upload: normalizza in H.264/AAC con faststart
-    per lo streaming progressivo, poi rileva la durata con ffprobe."""
-    db = SessionLocal()
-    try:
-        v = db.query(VideoContenuto).filter(VideoContenuto.id == video_id).first()
-        if not v: return
-        v.stato = StatoVideo.in_elaborazione
-        db.commit()
-        out_path = os.path.join(PRONTI_DIR, f"{video_id}.mp4")
-        try:
-            subprocess.run([
-                "ffmpeg", "-y", "-i", path_originale,
-                "-c:v", "libx264", "-preset", "veloce" if False else "veryfast", "-crf", "23",
-                "-c:a", "aac", "-b:a", "128k", "-movflags", "+faststart", out_path,
-            ], check=True, capture_output=True, timeout=3600)
-            probe = subprocess.run([
-                "ffprobe", "-v", "error", "-show_entries", "format=duration",
-                "-of", "json", out_path,
-            ], check=True, capture_output=True, text=True)
-            durata = float(json.loads(probe.stdout)["format"]["duration"])
-            v.file_path = out_path
-            v.durata_secondi = int(durata)
-            v.stato = StatoVideo.pronto
-        except Exception as e:
-            v.stato = StatoVideo.errore
-        db.commit()
-    finally:
-        db.close()
 
 @router.post("/api/video")
 async def upload_video(background_tasks: BackgroundTasks, titolo: str = Form(...),
@@ -96,17 +69,17 @@ async def upload_video(background_tasks: BackgroundTasks, titolo: str = Form(...
     await _salva_a_pezzi(file, path_originale, MAX_VIDEO_BYTES)
     v = VideoContenuto(id=video_id, titolo=titolo, file_originale=path_originale, stato=StatoVideo.caricato)
     db.add(v); db.commit()
-    background_tasks.add_task(_transcodifica, str(video_id), path_originale)
+    background_tasks.add_task(video_elaborazione.transcodifica, str(video_id), path_originale)
     return _serialize(v)
 
 @router.get("/api/video")
 def list_video(db: Session = Depends(get_db), user=Depends(require_training_admin)):
-    rows = db.query(VideoContenuto).options(joinedload(VideoContenuto.capitoli)).order_by(VideoContenuto.created_at.desc()).all()
+    rows = db.query(VideoContenuto).options(joinedload(VideoContenuto.capitoli), selectinload(VideoContenuto.versioni)).order_by(VideoContenuto.created_at.desc()).all()
     return [_serialize(v) for v in rows]
 
 @router.get("/api/video/{video_id}")
 def get_video(video_id: str, db: Session = Depends(get_db), user=Depends(get_current_user)):
-    v = db.query(VideoContenuto).options(joinedload(VideoContenuto.capitoli)).filter(VideoContenuto.id == video_id).first()
+    v = db.query(VideoContenuto).options(joinedload(VideoContenuto.capitoli), selectinload(VideoContenuto.versioni)).filter(VideoContenuto.id == video_id).first()
     if not v or not _puo_vedere(db, user, v.id): raise HTTPException(404)
     return _serialize(v)
 
@@ -117,41 +90,78 @@ def _puo_vedere(db: Session, user, video_id) -> bool:
     return db.query(Iscrizione.id).join(Edizione, Edizione.id == Iscrizione.edizione_id).filter(
         Iscrizione.user_id == user.id, Iscrizione.stato.in_(STATI_CON_ACCESSO), Edizione.video_id == video_id).first() is not None
 
-def _link(video_id: str, tipo: str, user_id: str) -> str:
+def _link(video_id: str, tipo: str, user_id: str, altezza: int = 0) -> str:
     scade = datetime.now(timezone.utc) + DURATA_LINK_VIDEO
-    token = jwt.encode({"typ": "video", "vid": str(video_id), "k": tipo, "uid": str(user_id), "exp": scade},
+    token = jwt.encode({"typ": "video", "vid": str(video_id), "k": tipo, "h": altezza, "uid": str(user_id), "exp": scade},
                        settings.SECRET_KEY, algorithm="HS256")
+    if tipo == "file":
+        return f"/api/video/{video_id}/file/{altezza}?t={token}"
     return f"/api/video/{video_id}/{tipo}?t={token}"
 
 @router.get("/api/video/{video_id}/accesso")
 def accesso_video(video_id: str, db: Session = Depends(get_db), user=Depends(get_current_user)):
-    """Indirizzi a tempo per guardare il video: senza di essi il file non si apre."""
-    v = db.query(VideoContenuto).filter(VideoContenuto.id == video_id).first()
+    """Indirizzi a tempo per guardare il video, uno per ogni qualita': senza di essi il file non si apre."""
+    v = db.query(VideoContenuto).options(joinedload(VideoContenuto.versioni)).filter(VideoContenuto.id == video_id).first()
     if not v or not v.file_path or not _puo_vedere(db, user, v.id): raise HTTPException(404)
-    return {"video": _link(v.id, "file", user.id),
+    versioni = sorted(v.versioni, key=lambda x: x.altezza)
+    if versioni:
+        predefinita = next((x for x in versioni if x.file_path == v.file_path), versioni[0])
+        elenco = [{"altezza": x.altezza, "bitrate_kbps": x.bitrate_kbps, "url": _link(v.id, "file", user.id, x.altezza)} for x in versioni]
+    else:   # video caricato prima delle qualita' multiple: un solo file
+        predefinita = None
+        elenco = [{"altezza": 0, "bitrate_kbps": None, "url": _link(v.id, "file", user.id, 0)}]
+    return {"video": _link(v.id, "file", user.id, predefinita.altezza if predefinita else 0), "versioni": elenco,
             "sottotitoli": _link(v.id, "sottotitoli", user.id) if v.sottotitoli_path else None,
             "scade_tra_secondi": int(DURATA_LINK_VIDEO.total_seconds())}
 
-def _servi(db: Session, video_id: str, tipo: str, t: str, media_type: str):
+def _verifica_indirizzo(video_id: str, tipo: str, t: str) -> dict:
     try:
         dati = jwt.decode(t, settings.SECRET_KEY, algorithms=["HS256"])
     except JWTError:
         raise HTTPException(401, "Indirizzo scaduto o non valido")
     if dati.get("typ") != "video" or dati.get("vid") != video_id or dati.get("k") != tipo:
         raise HTTPException(401, "Indirizzo scaduto o non valido")
-    v = db.query(VideoContenuto).filter(VideoContenuto.id == video_id).first()
-    if not v: raise HTTPException(404)
-    percorso = v.file_path if tipo == "file" else v.sottotitoli_path
-    if not percorso or not os.path.isfile(percorso): raise HTTPException(404)
-    return FileResponse(percorso, media_type=media_type, headers={"Cache-Control": "private, no-store"})
+    return dati
+
+def _risposta_a_intervalli(request: Request, percorso: str, media_type: str):
+    """Invia il file (decifrato al volo) rispettando le richieste parziali del player: chi guarda da remoto
+    scarica solo cio' che serve e puo' saltare avanti e indietro."""
+    totale = cifratura.dimensione_in_chiaro(percorso)
+    intestazioni = {"Accept-Ranges": "bytes", "Cache-Control": "private, no-store"}
+    richiesta = (request.headers.get("range") or "").strip()
+    m = re.fullmatch(r"bytes=(\d*)-(\d*)", richiesta) if richiesta else None
+    if not m or (m.group(1) == "" and m.group(2) == "") or totale == 0:
+        intestazioni["Content-Length"] = str(totale)
+        return StreamingResponse(cifratura.scorri_intervallo(percorso, 0, totale - 1) if totale else iter(()), media_type=media_type, headers=intestazioni)
+    if m.group(1) == "":                       # ultimi N byte
+        inizio, fine = max(totale - int(m.group(2)), 0), totale - 1
+    else:
+        inizio = int(m.group(1))
+        fine = min(int(m.group(2)), totale - 1) if m.group(2) else totale - 1
+    if inizio >= totale or inizio > fine:
+        return Response(status_code=416, headers={**intestazioni, "Content-Range": f"bytes */{totale}"})
+    intestazioni.update({"Content-Range": f"bytes {inizio}-{fine}/{totale}", "Content-Length": str(fine - inizio + 1)})
+    return StreamingResponse(cifratura.scorri_intervallo(percorso, inizio, fine), status_code=206, media_type=media_type, headers=intestazioni)
 
 @router.get("/api/video/{video_id}/file")
-def file_video(video_id: str, t: str, db: Session = Depends(get_db)):
-    return _servi(db, video_id, "file", t, "video/mp4")
+@router.get("/api/video/{video_id}/file/{altezza}")
+def file_video(video_id: str, request: Request, t: str, altezza: Optional[int] = None, db: Session = Depends(get_db)):
+    dati = _verifica_indirizzo(video_id, "file", t)
+    if altezza is not None and altezza != dati.get("h"):
+        raise HTTPException(401, "Indirizzo scaduto o non valido")
+    h = dati.get("h", 0) if altezza is None else altezza
+    v = db.query(VideoContenuto).options(joinedload(VideoContenuto.versioni)).filter(VideoContenuto.id == video_id).first()
+    if not v: raise HTTPException(404)
+    percorso = next((x.file_path for x in v.versioni if x.altezza == h), None) if h else v.file_path
+    if not percorso or not os.path.isfile(percorso): raise HTTPException(404)
+    return _risposta_a_intervalli(request, percorso, "video/mp4")
 
 @router.get("/api/video/{video_id}/sottotitoli")
 def file_sottotitoli(video_id: str, t: str, db: Session = Depends(get_db)):
-    return _servi(db, video_id, "sottotitoli", t, "text/vtt")
+    _verifica_indirizzo(video_id, "sottotitoli", t)
+    v = db.query(VideoContenuto).filter(VideoContenuto.id == video_id).first()
+    if not v or not v.sottotitoli_path or not os.path.isfile(v.sottotitoli_path): raise HTTPException(404)
+    return Response(cifratura.leggi_file(v.sottotitoli_path), media_type="text/vtt", headers={"Cache-Control": "private, no-store"})
 
 class VideoUpdate(BaseModel):
     blocca_skip_avanti: Optional[bool] = None
@@ -190,7 +200,7 @@ async def upload_sottotitoli(video_id: str, file: UploadFile = File(...), db: Se
     if not v: raise HTTPException(404)
     os.makedirs(SOTTOTITOLI_DIR, exist_ok=True)
     path = os.path.join(SOTTOTITOLI_DIR, f"{video_id}.vtt")
-    await _salva_a_pezzi(file, path, MAX_SOTTOTITOLI_BYTES)
+    await cifratura.salva_upload(file, path, MAX_SOTTOTITOLI_BYTES, lambda lim: HTTPException(413, f"File troppo grande (massimo {lim // (1024 * 1024)} MB)"))
     v.sottotitoli_path = path
     db.commit()
     return {"ok": True}

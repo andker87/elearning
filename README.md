@@ -43,6 +43,7 @@ Tutto ciò che riguarda l'infrastruttura si imposta **solo qui**, mai dall'inter
 | `ENTRA_SYNC_GRUPPO_ID`, `ENTRA_SYNC_AUTO` | sincronizzazione utenti da Entra ID (permessi `User.Read.All`, `GroupMember.Read.All`) |
 | `PROXY_FIDUCIARI` | reti/indirizzi dei proxy davanti alla piattaforma, separati da virgola |
 | `PROXY_CLOUDFLARE` | `true` solo se davanti c'è Cloudflare |
+| `VIDEO_ALTEZZE` | qualità (altezza in pixel) in cui convertire i video, fino a quella dell'originale: `480,720,1080,2160` (4K). Meno qualità = conversione più rapida e meno spazio |
 | `CHIAVE_CIFRATURA` | chiave (32 byte in base64) per cifrare file e segreti; genera con `python -m app.cifratura_cli genera-chiave`. **Se si perde, i dati cifrati sono persi**: vedi `docs/sicurezza.md` |
 | `CHIAVI_CIFRATURA_PRECEDENTI` | solo durante un cambio di chiave: le chiavi vecchie, separate da virgola |
 | `CIFRATURA_OBBLIGATORIA` | `true` (consigliato in produzione): senza chiave la piattaforma non si avvia |

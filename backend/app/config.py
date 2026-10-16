@@ -19,6 +19,9 @@ class Settings(BaseSettings):
     CHIAVI_CIFRATURA_PRECEDENTI: Optional[str] = None
     CIFRATURA_OBBLIGATORIA: bool = False
 
+    # Qualita' (altezza in pixel) in cui convertire i video, fino a quella dell'originale: 480, 720, 1080, 2160 (4K).
+    VIDEO_ALTEZZE: Optional[str] = "480,720,1080,2160"
+
     # Registro attivita': conservazione in mesi (0 = per sempre), cartella dove scrivere ogni giorno i file
     # NDJSON da far prelevare a un sistema di gestione dei log, e copia in tempo reale sull'output del container.
     AUDIT_RETENZIONE_MESI: int = 24

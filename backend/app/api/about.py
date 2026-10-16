@@ -18,6 +18,14 @@ PACCHETTI = ["fastapi", "uvicorn", "sqlalchemy", "pydantic", "python-jose", "htt
              "reportlab", "openpyxl", "pywebpush", "psycopg2-binary"]
 
 CHANGELOG = [
+    {"version": "1.9.4", "date": "2026-10", "label": "Video in più qualità e cifrati", "changes": [
+        "Ogni video viene convertito in più qualità (480p, 720p, 1080p, 4K) fino a quella del file caricato, mai ingrandendo; configurabile con VIDEO_ALTEZZE. Il video è guardabile appena c'è la prima qualità, le più alte arrivano dopo",
+        "Il player sceglie da solo la qualità adatta allo schermo e alla rete (prudente se il browser non dà informazioni sulla rete) e lascia scegliere a mano; la scelta si ricorda. Una qualità più bassa pesa meno sulla rete, utile da remoto",
+        "Video e sottotitoli cifrati su disco; si decifrano al volo a blocchi, quindi si può saltare avanti e indietro scaricando solo ciò che serve",
+        "Il file originale caricato viene eliminato a fine conversione (resta in chiaro solo il tempo necessario); al riavvio i video rimasti a metà vengono recuperati e gli originali in chiaro ripuliti",
+        "Una conversione alla volta, per non appesantire il server; nginx non accumula i video su disco durante la riproduzione",
+        "Lo strumento da riga di comando cifra anche i video già presenti, escludendo i file temporanei della conversione",
+    ]},
     {"version": "1.9.3", "date": "2026-10", "label": "Cifratura dei file e dei segreti", "changes": [
         "File cifrati su disco (AES-256-GCM, a blocchi): attestati emessi e caricati, template, informativa, logo e icona; si decifrano solo al momento dell'uso, con i controlli di accesso di prima",
         "Chiave da ambiente (CHIAVE_CIFRATURA): senza, la piattaforma funziona ma l'Admin tecnico vede un avviso discreto; con CIFRATURA_OBBLIGATORIA non si avvia. Se la chiave è sbagliata o manca dopo l'attivazione, la piattaforma si ferma con un messaggio chiaro invece di scrivere dati illeggibili",

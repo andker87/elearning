@@ -337,8 +337,8 @@ def test_lettura_a_blocchi_uguale_alla_lettura_intera(chiave, tmp_path, n):
     assert max((len(x) for x in c.leggi_a_blocchi(cifrato)), default=0) <= c.BLOCCO
 
 
-def test_la_conversione_non_tocca_i_video_finche_non_sanno_leggerli():
-    assert not any("videos" in cartella for cartella in ops.CARTELLE)
+def test_la_conversione_include_i_video_ma_non_i_file_temporanei():
+    assert "/app/videos" in ops.CARTELLE and "/lavoro/" in ops.ESCLUSI and "/originali/" in ops.ESCLUSI
 
 
 def test_il_link_del_calendario_non_finisce_in_cache(client, auth, utente):

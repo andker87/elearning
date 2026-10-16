@@ -70,6 +70,12 @@ export default function Video() {
             <span className={`badge ${statoBadge[v.stato]}`}>{v.stato}</span>
           </div>
           {v.durata_secondi && <p className="text-muted">Durata: {Math.floor(v.durata_secondi / 60)}:{String(v.durata_secondi % 60).padStart(2, "0")}</p>}
+          {v.qualita?.length > 0 && (
+            <p className="text-muted" style={{ fontSize: 13 }}>
+              Qualità disponibili: {v.qualita.map((h) => (h >= 2160 ? "4K" : `${h}p`)).join(", ")}
+              {v.altre_qualita_in_preparazione && <> · <strong>altre qualità in preparazione</strong> (il video è già guardabile)</>}
+            </p>
+          )}
           {v.stato === "pronto" && (
             <>
               <label style={{ display: "flex", alignItems: "center", gap: 8, width: "auto" }}>

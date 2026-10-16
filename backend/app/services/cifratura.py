@@ -278,6 +278,34 @@ def leggi_intervallo(percorso: str, inizio: int, fine: int) -> bytes:
         return bytes(out)
 
 
+def scorri_intervallo(percorso: str, inizio: int, fine: int):
+    """Byte [inizio, fine] (inclusi) del contenuto in chiaro a pezzi, aprendo il file una volta sola
+    e decifrando solo i blocchi necessari: serve a far scorrere i video senza caricarli in memoria."""
+    with open(percorso, "rb") as f:
+        if not e_cifrato(f.read(4)):
+            f.seek(inizio)
+            restanti = fine - inizio + 1
+            while restanti > 0:
+                pezzo = f.read(min(BLOCCO, restanti))
+                if not pezzo:
+                    return
+                restanti -= len(pezzo)
+                yield pezzo
+            return
+        f.seek(0)
+        intest, kid, prefisso, blocco = _leggi_intestazione(f)
+        aes = AESGCM(_chiave_per(kid, b"file-v1"))
+        totale = os.fstat(f.fileno()).st_size
+        for n in range(inizio // blocco, fine // blocco + 1):
+            pos = INTESTAZIONE + n * (blocco + TAG)
+            if pos >= totale:
+                return
+            lung = min(blocco + TAG, totale - pos)
+            f.seek(pos)
+            chiaro = _decifra_blocco(aes, intest, prefisso, n, f.read(lung), pos + lung >= totale)
+            yield chiaro[max(inizio - n * blocco, 0):fine - n * blocco + 1]
+
+
 def dimensione_in_chiaro(percorso: str) -> int:
     with open(percorso, "rb") as f:
         if not e_cifrato(f.read(4)):

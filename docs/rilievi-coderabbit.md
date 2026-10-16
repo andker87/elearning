@@ -196,3 +196,11 @@ Aggiungere qui sotto una sezione per ogni PR, appena arriva la review della fase
 | FATTO 1.9.3 | migrations/0005 | `downgrade` nominava un vincolo che poteva non esistere e non ricreava quello su `calendar_token`: ora ricrea il vincolo e toglie la colonna dell'impronta con il suo vincolo |
 | CHIUSO | api/matrice_ispezione.py | ZIP: file decifrati uno alla volta, picco di memoria = un file (max 25 MB); da rivedere se i limiti o i video entrano in quel percorso |
 | FATTO 1.9.3 | tests/test_cifratura.py | test casuale: con un file di 1 byte quel byte poteva comparire per caso nel file cifrato; il controllo ora vale solo per contenuti di almeno 32 byte |
+
+## PR #17 (1.9.4, video in più qualità e cifrati)
+
+| Stato | File | Rilievo |
+|---|---|---|
+| FATTO 1.9.4 | nginx/nginx.conf | la regola nuova per i video intercettava anche il caricamento dei sottotitoli e abbassava il limite a 1 MB: riprodotto (2,5 MB respinti con 413), aggiunto `client_max_body_size 3M`; verificato dopo la correzione (2,5 MB arrivano al backend, 3,5 MB respinti) |
+| FATTO 1.9.4 | api/video.py | elenco e dettaglio video: una query per ogni video per leggere le qualità (la pagina Video si aggiorna ogni 4 secondi): caricamento delle qualità in blocco, con test che conta le query |
+| FATTO 1.9.4 | VideoPlayer.js | la qualità automatica veniva ricalcolata a ogni disegno con i valori di rete del browser: poteva cambiare a metà visione e far ricominciare il video. Ora si decide una volta quando le qualità sono note e resta ferma (anche se gli indirizzi si rinnovano) |
