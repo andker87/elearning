@@ -1,16 +1,17 @@
 FROM node:20-alpine AS build
 WORKDIR /app
-COPY package.json package-lock.json* ./
-RUN npm install
+# npm ci installa esattamente le versioni del package-lock.json: build riproducibili
+COPY package.json package-lock.json ./
+RUN npm ci
 COPY . .
 ENV GENERATE_SOURCEMAP=false
 RUN npm run build
 
-FROM node:20-alpine
-WORKDIR /app
-RUN npm install -g serve
-COPY --from=build /app/build ./build
-RUN chown -R node:node /app
-USER node
+# Le pagine sono file statici: le serve nginx (senza privilegi), niente Node in produzione.
+FROM nginxinc/nginx-unprivileged:alpine
+USER root
+RUN apk upgrade --no-cache
+COPY nginx.conf /etc/nginx/conf.d/default.conf
+COPY --from=build /app/build /usr/share/nginx/html
+USER nginx
 EXPOSE 3000
-CMD ["serve", "-s", "build", "-l", "3000"]

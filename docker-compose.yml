@@ -20,6 +20,7 @@ services:
   backend:
     hostname: elearning-backend
     container_name: elearning-backend
+    image: elearning-backend   # nome fisso: lo usano anche i controlli di sicurezza (scripts/controlli-sicurezza.sh)
     build: ./backend
     restart: unless-stopped
     depends_on:
@@ -85,6 +86,7 @@ services:
   frontend:
     hostname: elearning-frontend
     container_name: elearning-frontend
+    image: elearning-frontend
     build: ./frontend
     restart: unless-stopped
 

@@ -52,7 +52,7 @@ Tutto ciò che riguarda l'infrastruttura si imposta **solo qui**, mai dall'inter
 | `AUDIT_LOG_STDOUT` | `true` per scrivere ogni evento anche sull'output del container come riga `AUDIT {json}` |
 | `CORS_ORIGINS` | facoltativo: siti esterni ammessi a chiamare le API (separati da virgola, mai `*`). Vuoto = nessuno; di norma non serve |
 
-Per la cifratura, la gestione della chiave e le responsabilità di chi installa vedi **`docs/sicurezza.md`**.
+Per i controlli di sicurezza automatici: `scripts/controlli-sicurezza.sh` (Bandit, pip-audit, npm audit, Trivy). Per la cifratura, la gestione della chiave e le responsabilità di chi installa vedi **`docs/sicurezza.md`**.
 
 ### Proxy e indirizzo IP del client
 L'IP del client serve all'audit e ai limiti di tentativi. La piattaforma **non crede agli header** che lo dichiarano, a meno che la connessione arrivi da un indirizzo elencato in `PROXY_FIDUCIARI`. Dietro un proxy aziendale indica qui l'indirizzo con cui il proxy raggiunge la piattaforma (e il proxy deve valorizzare `X-Forwarded-For`). Se non lo fai, tutto funziona ma l'audit mostra l'IP del proxy.

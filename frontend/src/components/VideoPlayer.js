@@ -117,7 +117,7 @@ export default function VideoPlayer({ video, iscrizioneId }) {
     if (!versioni.length) { setAltezzaAuto(null); return; }
     setAltezzaAuto((precedente) => (precedente != null && versioni.some((v) => v.altezza === precedente)) ? precedente
       : qualitaAutomatica(versioni, (window.screen?.height || 720) * (window.devicePixelRatio || 1), navigator.connection?.downlink).altezza);
-  }, [accesso]);   // eslint-disable-line react-hooks/exhaustive-deps
+  }, [accesso]);
   const automatica = versioni.find((v) => v.altezza === altezzaAuto) || versioni[0] || null;
   const attuale = (scelta !== "auto" && versioni.find((v) => v.altezza === scelta)) || automatica;
   const videoUrl = attuale?.url || accesso?.video || null;

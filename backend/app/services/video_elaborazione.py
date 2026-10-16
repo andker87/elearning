@@ -9,7 +9,7 @@ import json
 import logging
 import os
 import shutil
-import subprocess
+import subprocess  # nosec B404
 import threading
 
 from sqlalchemy.orm import Session
@@ -20,6 +20,8 @@ from ..models.video import StatoVideo, VideoContenuto, VideoVersione
 from . import cifratura
 
 log = logging.getLogger(__name__)
+
+# Bandit (nosec B404/B603/B607): ffmpeg e ffprobe si lanciano senza shell, con argomenti fissi; i percorsi li genera il sistema.
 
 PRONTI_DIR = "/app/videos/pronti"
 LAVORO_DIR = "/app/videos/lavoro"
@@ -56,7 +58,7 @@ def profilo(altezza: int) -> tuple:
 def sonda(percorso: str) -> tuple:
     """(larghezza, altezza, durata in secondi) del file."""
     r = subprocess.run(["ffprobe", "-v", "error", "-select_streams", "v:0", "-show_entries", "stream=width,height:format=duration",
-                        "-of", "json", percorso], check=True, capture_output=True, text=True, timeout=120)
+                        "-of", "json", percorso], check=True, capture_output=True, text=True, timeout=120)  # nosec B603 B607
     dati = json.loads(r.stdout)
     s = (dati.get("streams") or [{}])[0]
     return int(s.get("width") or 0), int(s.get("height") or 0), float((dati.get("format") or {}).get("duration") or 0)
@@ -68,7 +70,7 @@ def _codifica(originale: str, uscita: str, altezza: int):
         "ffmpeg", "-y", "-i", originale, "-vf", f"scale=-2:{altezza}", "-pix_fmt", "yuv420p",
         "-c:v", "libx264", "-preset", "veryfast", "-crf", str(crf), "-maxrate", f"{tetto}k", "-bufsize", f"{tetto * 2}k",
         "-c:a", "aac", "-b:a", "128k", "-movflags", "+faststart", uscita,
-    ], check=True, capture_output=True, timeout=TIMEOUT_CODIFICA)
+    ], check=True, capture_output=True, timeout=TIMEOUT_CODIFICA)  # nosec B603 B607
 
 
 def _cifra_in(sorgente: str, destinazione: str):

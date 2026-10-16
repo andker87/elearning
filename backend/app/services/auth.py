@@ -1,5 +1,6 @@
 from datetime import datetime, timedelta
-from jose import JWTError, jwt
+import jwt
+from jwt import PyJWTError as JWTError
 from ..config import settings
 import bcrypt as _bcrypt
 

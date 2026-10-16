@@ -1,4 +1,4 @@
-import csv, io, os
+import csv, io, logging, os
 from datetime import datetime, date
 from fastapi import HTTPException
 from fastapi.responses import StreamingResponse
@@ -10,6 +10,8 @@ from reportlab.lib.units import cm
 from reportlab.lib.styles import getSampleStyleSheet
 from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, Image
 from . import cifratura
+
+log = logging.getLogger(__name__)
 
 FORMATI = {"csv", "xlsx", "pdf"}
 PAGINE = {"A4", "A3"}
@@ -68,8 +70,10 @@ def _a_pdf(titolo, colonne, righe, pagina="A4", logo_path=None) -> bytes:
         try:
             elementi.append(Image(io.BytesIO(cifratura.leggi_file(logo_path)), width=3 * cm, height=1.3 * cm, kind="proportional"))
             elementi.append(Spacer(1, 0.3 * cm))
+        except cifratura.ErroreCifratura:
+            raise
         except Exception:
-            pass
+            log.warning("logo non disegnabile nell'esportazione", exc_info=True)
     elementi.append(Paragraph(titolo, stili["Title"]))
     elementi.append(Spacer(1, 0.4 * cm))
     dati = [colonne] + [[_cella(v, neutra=False) for v in r] for r in righe]

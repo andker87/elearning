@@ -3,7 +3,7 @@ import io
 from datetime import datetime, timedelta, timezone
 
 import pytest
-from jose import jwt
+import jwt
 
 from app.api import video as api_video
 from app.config import settings

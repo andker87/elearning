@@ -18,6 +18,15 @@ PACCHETTI = ["fastapi", "uvicorn", "sqlalchemy", "pydantic", "python-jose", "htt
              "reportlab", "openpyxl", "pywebpush", "psycopg2-binary"]
 
 CHANGELOG = [
+    {"version": "1.9.5", "date": "2026-10", "label": "Dipendenze, immagini e controlli di sicurezza", "changes": [
+        "Token di accesso e di riproduzione con PyJWT al posto di python-jose (libreria non più mantenuta e con vulnerabilità senza correzione); accesso aziendale (SSO) portato sulla nuova libreria con gli stessi controlli (firma, emittente, destinatario, scadenza, nonce)",
+        "Il sito è servito da nginx senza privilegi invece che da Node; le immagini hanno gli aggiornamenti di sicurezza di sistema e non contengono più pip, setuptools e wheel: l'analisi delle immagini (Trivy) non trova vulnerabilità alte o critiche",
+        "Aggiunto package-lock.json del sito e installazione con npm ci: le versioni delle librerie sono fisse e le build riproducibili; le librerie incluse nel sito non hanno vulnerabilità note",
+        "Se la chiave di cifratura manca o il file è alterato, l'emissione di un attestato o di un'esportazione con il logo si ferma con un errore chiaro invece di produrre un documento senza logo",
+        "Estensione del file video ripulita; header di sicurezza del browser (nosniff, anti-incorniciamento, referrer, permessi)",
+        "Corretta una svista della 1.9.4: il sito non si ricompilava (un commento di configurazione ne bloccava la build)",
+        "Nuovo scripts/controlli-sicurezza.sh e flusso GitHub Actions (test, Bandit, pip-audit, npm audit, Trivy) a ogni modifica",
+    ]},
     {"version": "1.9.4", "date": "2026-10", "label": "Video in più qualità e cifrati", "changes": [
         "Ogni video viene convertito in più qualità (480p, 720p, 1080p, 4K) fino a quella del file caricato, mai ingrandendo; configurabile con VIDEO_ALTEZZE. Il video è guardabile appena c'è la prima qualità, le più alte arrivano dopo",
         "Il player sceglie da solo la qualità adatta allo schermo e alla rete (prudente se il browser non dà informazioni sulla rete) e lascia scegliere a mano; la scelta si ricorda. Una qualità più bassa pesa meno sulla rete, utile da remoto",

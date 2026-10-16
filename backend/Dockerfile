@@ -2,7 +2,7 @@ FROM python:3.11-slim
 
 WORKDIR /app
 
-RUN apt-get update && apt-get install -y --no-install-recommends \
+RUN apt-get update && apt-get -y upgrade && apt-get install -y --no-install-recommends \
     libmagic1 \
     ffmpeg \
     fonts-dejavu-core \
@@ -15,7 +15,11 @@ COPY requirements.txt requirements-dev.txt ./
 ARG DEV=0
 RUN pip install --upgrade pip --quiet && \
     pip install --no-cache-dir -r requirements.txt && \
-    if [ "$DEV" = "1" ]; then pip install --no-cache-dir -r requirements-dev.txt; fi
+    if [ "$DEV" = "1" ]; then pip install --no-cache-dir -r requirements-dev.txt; fi && \
+    pip uninstall -y setuptools wheel || true
+
+# Nell'immagine finale pip non serve piu': toglierlo elimina anche le librerie che porta con se' (e le loro segnalazioni).
+RUN python -m pip uninstall -y pip
 
 RUN groupadd -g 1000 app && useradd -u 1000 -g app -m -s /usr/sbin/nologin app
 

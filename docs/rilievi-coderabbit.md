@@ -204,3 +204,9 @@ Aggiungere qui sotto una sezione per ogni PR, appena arriva la review della fase
 | FATTO 1.9.4 | nginx/nginx.conf | la regola nuova per i video intercettava anche il caricamento dei sottotitoli e abbassava il limite a 1 MB: riprodotto (2,5 MB respinti con 413), aggiunto `client_max_body_size 3M`; verificato dopo la correzione (2,5 MB arrivano al backend, 3,5 MB respinti) |
 | FATTO 1.9.4 | api/video.py | elenco e dettaglio video: una query per ogni video per leggere le qualità (la pagina Video si aggiorna ogni 4 secondi): caricamento delle qualità in blocco, con test che conta le query |
 | FATTO 1.9.4 | VideoPlayer.js | la qualità automatica veniva ricalcolata a ogni disegno con i valori di rete del browser: poteva cambiare a metà visione e far ricominciare il video. Ora si decide una volta quando le qualità sono note e resta ferma (anche se gli indirizzi si rinnovano) |
+
+## PR #18 (1.9.5, dipendenze, immagini e controlli di sicurezza)
+
+| Stato | File | Rilievo |
+|---|---|---|
+| FATTO 1.9.5 | scripts/controlli-sicurezza.sh, docker-compose.yml | lo script scansionava `elearning-backend`/`elearning-frontend` dando per scontato che fossero i nomi delle immagini, ma Compose li ricava dal nome della cartella del progetto: con un'altra cartella avrebbe scansionato un'immagine vecchia o nessuna. Nomi esplicitamente fissati (`image:`) nel compose per backend e frontend |

@@ -11,8 +11,7 @@ from urllib.parse import parse_qs, urlparse
 import pytest
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import rsa
-from jose import jwt
-from jose.backends import RSAKey
+import jwt
 
 from app.config import settings
 from app.models.audit import AuditLog
@@ -25,7 +24,7 @@ from conftest import PASSWORD
 def nuova_chiave():
     k = rsa.generate_private_key(public_exponent=65537, key_size=2048)
     pem = k.private_bytes(serialization.Encoding.PEM, serialization.PrivateFormat.PKCS8, serialization.NoEncryption()).decode()
-    jwk = RSAKey(pem, "RS256").public_key().to_dict()
+    jwk = jwt.algorithms.RSAAlgorithm.to_jwk(k.public_key(), as_dict=True)
     jwk.update({"kid": "k1", "use": "sig", "alg": "RS256"})
     return pem, jwk
 

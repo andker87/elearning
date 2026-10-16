@@ -344,3 +344,14 @@ def test_la_conversione_include_i_video_ma_non_i_file_temporanei():
 def test_il_link_del_calendario_non_finisce_in_cache(client, auth, utente):
     r = client.post("/api/calendario/url/rigenera", headers=auth(utente))
     assert r.status_code == 200 and r.headers["cache-control"] == "no-store" and "token=" in r.json()["url"]
+
+
+def test_attestato_non_viene_emesso_incompleto_se_la_chiave_manca(chiave, tmp_path, monkeypatch):
+    """Con il logo cifrato e la chiave sbagliata l'emissione deve fallire, non produrre un attestato senza logo."""
+    from app.services import certificati
+    logo = tmp_path / "logo.png"
+    c.scrivi_file(str(logo), _png())
+    monkeypatch.setattr(settings, "CHIAVE_CIFRATURA", c.genera_chiave())
+    with pytest.raises(c.ChiaveMancante):
+        certificati.genera_pdf(str(tmp_path / "a.pdf"), nome_discente="Mario", titolo_corso="C", data_evento="01/01/2026",
+                               codice_verifica="X", logo_path=str(logo))
