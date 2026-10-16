@@ -42,7 +42,7 @@ def test_il_file_non_contiene_segreti_ne_cio_che_e_fuori_ambito(client, db, admi
     configura(db, crea_utente, crea_corso, crea_ufficio, crea_percorso)
     r = client.get("/api/admin/configurazione/export", headers=auth(admin))
     assert r.status_code == 200 and "attachment" in r.headers["content-disposition"] and r.headers["content-disposition"].endswith('.json"')
-    for vietato in ("SEGRETISSIMA", "vapid", "hashed_password", "calendar_token", "sso_subject"):
+    for vietato in ("SEGRETISSIMA", "vapid", "hashed_password", "calendar_token_hash", "sso_subject"):
         assert vietato not in r.text
     dati = r.json()
     assert dati["formato"] == "elearning-configurazione" and dati["schema"] == 1 and dati["non_incluso"]

@@ -84,7 +84,8 @@ def test_i_cessati_non_includono_gli_admin_tecnici(client, db, admin, auth, crea
 # --- calendario e struttura dei responsabili ---------------------------------------------------
 
 def test_feed_calendario_dopo_la_disattivazione(client, db, utente):
-    utente.calendar_token = "tok-calendario"
+    from app.api.calendario import impronta_token
+    utente.calendar_token_hash = impronta_token("tok-calendario")
     db.commit()
     assert client.get("/api/calendario/feed.ics", params={"token": "tok-calendario"}).status_code == 200
     utente.is_active = False

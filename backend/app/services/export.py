@@ -9,6 +9,7 @@ from reportlab.lib import colors
 from reportlab.lib.units import cm
 from reportlab.lib.styles import getSampleStyleSheet
 from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, Image
+from . import cifratura
 
 FORMATI = {"csv", "xlsx", "pdf"}
 PAGINE = {"A4", "A3"}
@@ -65,7 +66,7 @@ def _a_pdf(titolo, colonne, righe, pagina="A4", logo_path=None) -> bytes:
     elementi = []
     if logo_path and os.path.exists(logo_path):
         try:
-            elementi.append(Image(logo_path, width=3 * cm, height=1.3 * cm, kind="proportional"))
+            elementi.append(Image(io.BytesIO(cifratura.leggi_file(logo_path)), width=3 * cm, height=1.3 * cm, kind="proportional"))
             elementi.append(Spacer(1, 0.3 * cm))
         except Exception:
             pass

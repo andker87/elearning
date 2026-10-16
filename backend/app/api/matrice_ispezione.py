@@ -20,6 +20,7 @@ from ..models.group import Group, UserGroup
 from ..models.percorso import PercorsoAssegnazione, PercorsoFormativo, PercorsoStep
 from ..models.user import User
 from ..services import audit as audit_svc
+from ..services import cifratura
 from ..services.export import neutralizza
 from ..services.export import esporta, _a_excel, _a_pdf
 from ..services.gerarchia import persone_ufficio_e_sottouffici
@@ -262,7 +263,7 @@ def pacchetto_ispezione(request: Request, ufficio_id: Optional[str] = Query(None
             if destinazione in usati:
                 continue
             usati.add(destinazione)
-            z.write(percorso, destinazione)
+            z.writestr(destinazione, cifratura.leggi_file(percorso))
     tmp.seek(0)
     audit_svc.log_from_request(db, request, user, "PACCHETTO_ISPEZIONE", entity_type="registro", entity_name="Pacchetto per l'ispezione",
                                 detail=f"{'; '.join(perimetro) or 'tutta l’azienda'} - {len(dati_reg)} righe, {len(docs)} documenti")

@@ -11,6 +11,7 @@ from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from ..database import get_db
+from ..services import cifratura
 from ..models.audit import AuditLog
 from ..models.autoiscrizione import AutoIscrizioneRichiesta
 from ..models.certificato import Certificato
@@ -35,7 +36,7 @@ INFORMATIVA_DIR = "/app/uploads/azienda"
 INFORMATIVA_PDF = os.path.join(INFORMATIVA_DIR, "informativa-privacy.pdf")
 INFORMATIVA_MAX_BYTES = 15 * 1024 * 1024
 
-ESCLUSE = {"hashed_password", "calendar_token", "sso_subject", "p256dh", "auth", "endpoint", "token_version"}
+ESCLUSE = {"hashed_password", "calendar_token_hash", "sso_subject", "p256dh", "auth", "endpoint", "token_version"}
 
 
 def _valore(v):
@@ -126,8 +127,8 @@ def scarica_pdf_informativa(db: Session = Depends(get_db), user: User = Depends(
     a = db.query(Azienda).first()
     if not a or not a.privacy_pdf_path or not os.path.exists(a.privacy_pdf_path):
         raise HTTPException(404, "Nessun PDF dell'informativa")
-    return FileResponse(a.privacy_pdf_path, media_type="application/pdf", filename="informativa-privacy.pdf",
-                        content_disposition_type="inline")
+    return Response(cifratura.leggi_file(a.privacy_pdf_path), media_type="application/pdf",
+                    headers={"Content-Disposition": 'inline; filename="informativa-privacy.pdf"', "Cache-Control": "private, no-store"})
 
 
 @router.put("/informativa")
@@ -151,8 +152,7 @@ def carica_pdf_informativa(request: Request, file: UploadFile = File(...), db: S
         raise HTTPException(400, "Il file caricato non e' un PDF valido")
     a = _azienda(db)
     os.makedirs(INFORMATIVA_DIR, exist_ok=True)
-    with open(INFORMATIVA_PDF, "wb") as f:
-        f.write(contenuto)
+    cifratura.scrivi_file(INFORMATIVA_PDF, contenuto)
     a.privacy_pdf_path = INFORMATIVA_PDF
     a.privacy_aggiornata_at = datetime.now(timezone.utc)
     audit_svc.log_from_request(db, request, user, "UPDATE", entity_type="azienda", entity_name="Informativa privacy",

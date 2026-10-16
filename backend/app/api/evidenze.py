@@ -13,8 +13,11 @@ from ..models.corso import Corso
 from ..services import certificati as cert_svc
 from ..services import audit as audit_svc
 from ..services import graph as graph_svc
+from ..services import cifratura
 from .deps import get_current_user, require_training_admin
 from .edizioni import _is_docente
+
+MAX_ALLEGATO_BYTES = 25 * 1024 * 1024   # attestati esterni: PDF o immagini
 
 router = APIRouter(prefix="/api/edizioni/{edizione_id}", tags=["evidenze"])
 
@@ -188,8 +191,7 @@ async def upload_evidenza_esterna(edizione_id: str, iscrizione_id: str, request:
     os.makedirs(upload_dir, exist_ok=True)
     nome_sicuro = re.sub(r"[^A-Za-z0-9._-]", "_", os.path.basename((file.filename or "allegato").replace("\\", "/")))[-80:] or "allegato"
     path = os.path.join(upload_dir, f"{iscrizione_id}_{uuid.uuid4().hex[:8]}_{nome_sicuro}")
-    with open(path, "wb") as f:
-        f.write(await file.read())
+    await cifratura.salva_upload(file, path, MAX_ALLEGATO_BYTES, lambda lim: HTTPException(413, f"File troppo grande (massimo {lim // (1024 * 1024)} MB)"))
     ev = Evidenza(iscrizione_id=i.id, fonte=FonteEvidenza.upload_manuale,
                   file_allegato_path=path, dati_extra={"ore": ore, "data_evento": data_evento})
     db.add(ev)

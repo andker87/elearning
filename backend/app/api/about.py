@@ -4,6 +4,7 @@ from fastapi import APIRouter, Depends
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 from ..config import settings
+from ..services import cifratura as c
 from ..database import get_db
 from ..models.azienda import Azienda
 from ..version import APP_VERSION
@@ -17,6 +18,15 @@ PACCHETTI = ["fastapi", "uvicorn", "sqlalchemy", "pydantic", "python-jose", "htt
              "reportlab", "openpyxl", "pywebpush", "psycopg2-binary"]
 
 CHANGELOG = [
+    {"version": "1.9.3", "date": "2026-10", "label": "Cifratura dei file e dei segreti", "changes": [
+        "File cifrati su disco (AES-256-GCM, a blocchi): attestati emessi e caricati, template, informativa, logo e icona; si decifrano solo al momento dell'uso, con i controlli di accesso di prima",
+        "Chiave da ambiente (CHIAVE_CIFRATURA): senza, la piattaforma funziona ma l'Admin tecnico vede un avviso discreto; con CIFRATURA_OBBLIGATORIA non si avvia. Se la chiave è sbagliata o manca dopo l'attivazione, la piattaforma si ferma con un messaggio chiaro invece di scrivere dati illeggibili",
+        "Strumento da riga di comando (python -m app.cifratura_cli): genera-chiave, stato, cifra, decifra, ruota (cambio chiave), disattiva",
+        "Chiave privata delle notifiche push cifrata nel database",
+        "Link del calendario: nel database resta solo l'impronta, il link si vede una sola volta alla creazione (poi si può crearne uno nuovo)",
+        "Caricamento degli attestati esterni scritto a pezzi con limite di 25 MB",
+        "Nuovo documento docs/sicurezza.md: che cosa è protetto, gestione e perdita della chiave, rotazione, responsabilità di chi installa",
+    ]},
     {"version": "1.9.2", "date": "2026-10", "label": "Pagina Informazioni ridotta per gli utenti", "changes": [
         "Gli utenti comuni e l'Ufficio Formazione vedono solo nome della piattaforma, azienda e versione; novità tecniche, ambiente, librerie e integrazioni sono visibili solo all'Admin tecnico",
     ]},
@@ -197,6 +207,7 @@ def about(db: Session = Depends(get_db), user=Depends(get_current_user)):
         "fuso": os.environ.get("TZ") or time.tzname[0],
     }
     dati["dipendenze"] = versioni
+    dati["cifratura"] = {"chiave_presente": c.attiva(), "obbligatoria": bool(settings.CIFRATURA_OBBLIGATORIA)}
     dati["integrazioni"] = {
         "smtp": bool(settings.smtp_enabled),
         "sso": bool(settings.sso_enabled),

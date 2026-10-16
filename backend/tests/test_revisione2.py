@@ -84,12 +84,12 @@ def test_variabili_vuote_dal_compose_non_rompono_l_avvio(monkeypatch):
 def test_disattivare_dal_modulo_fa_l_offboarding_completo(client, db, admin, auth, utente, crea_corso, crea_edizione, crea_iscrizione):
     ed = crea_edizione(crea_corso(), stato=SE.pianificata)
     aperta = crea_iscrizione(ed, utente)
-    utente.calendar_token = "tok"
+    utente.calendar_token_hash = "hash-finto"
     db.commit()
     r = client.put(f"/api/auth/users/{utente.id}", headers=auth(admin), json={"is_active": False})
     assert r.status_code == 200 and "avvisi_disattivazione" in r.json()
     db.refresh(aperta); db.refresh(utente)
-    assert aperta.stato == S.annullato and utente.calendar_token is None and utente.is_active is False
+    assert aperta.stato == S.annullato and utente.calendar_token_hash is None and utente.is_active is False
     assert client.put(f"/api/auth/users/{utente.id}", headers=auth(admin), json={"is_active": True}).json()["is_active"] is True
 
 

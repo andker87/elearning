@@ -1,9 +1,8 @@
-import posixpath
+import mimetypes
 from fastapi import HTTPException, FastAPI, Request
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, Response
 from sqlalchemy.exc import DataError
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.staticfiles import StaticFiles
 from apscheduler.schedulers.background import BackgroundScheduler
 from sqlalchemy import text
 import os
@@ -25,9 +24,18 @@ from .api import (
     entra_sync as entra_sync_api, sso as sso_api, about as about_api, privacy as privacy_api, password_reset as password_reset_api, matrice_ispezione as matrice_api, configurazione as configurazione_api, etichette as etichette_api,
 )
 from .config import settings
+from .services import cifratura
 from .services.notifiche import genera_notifiche
 from .services.job_tracking import esegui_tracciato
 from .migrazioni import esegui_migrazioni
+
+def _controlla_cifratura():
+    from .services.cifratura_ops import controlla_avvio
+    db = SessionLocal()
+    try:
+        controlla_avvio(db)   # si ferma con un messaggio chiaro se chiave mancante o sbagliata
+    finally:
+        db.close()
 
 def _ensure_vapid_keys():
     """Le chiavi VAPID (notifiche push, RFC 8292) le genera la piattaforma
@@ -47,10 +55,13 @@ def _ensure_vapid_keys():
             v = Vapid01()
             v.generate_keys()
             raw_pub = v.public_key.public_bytes(Encoding.X962, PublicFormat.UncompressedPoint)
-            a.vapid_private_key = v.private_pem().decode()
+            a.vapid_private_key = cifratura.cifra_testo(v.private_pem().decode())
             a.vapid_public_key = base64.urlsafe_b64encode(raw_pub).decode().rstrip("=")
             db.commit()
             print("[startup] chiavi VAPID generate per le notifiche push")
+        elif cifratura.attiva() and not cifratura.testo_con_chiave_corrente(a.vapid_private_key):
+            a.vapid_private_key = cifratura.cifra_testo(cifratura.decifra_testo(a.vapid_private_key))   # cifra o ricifra con la chiave corrente
+            db.commit()
     finally:
         db.close()
 
@@ -59,6 +70,10 @@ app = FastAPI(title="Piattaforma E-Learning", version="0.1.0")
 # Per ammettere altri indirizzi: CORS_ORIGINS="https://uno.example,https://due.example" (solo da ambiente).
 app.add_middleware(CORSMiddleware, allow_origins=settings.cors_origins_lista, allow_credentials=False,
                     allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE"], allow_headers=["Authorization", "Content-Type"])
+
+@app.exception_handler(cifratura.ErroreCifratura)
+async def errore_cifratura(request: Request, exc: cifratura.ErroreCifratura):
+    return JSONResponse(status_code=503, content={"detail": "Dati cifrati non leggibili: controlla CHIAVE_CIFRATURA (vedi docs/sicurezza.md)"})
 
 scheduler = BackgroundScheduler()
 
@@ -88,6 +103,7 @@ def _job_sync_entra():
 @app.on_event("startup")
 async def startup():
     esegui_migrazioni()
+    _controlla_cifratura()
     _ensure_vapid_keys()
     _ensure_etichette()
     scheduler.add_job(_job_genera_notifiche, "interval", hours=24, id="notifiche_giornaliere", replace_existing=True)
@@ -111,19 +127,26 @@ os.makedirs("/app/videos/pronti", exist_ok=True)
 os.makedirs("/app/videos/sottotitoli", exist_ok=True)
 
 
-class UploadsPubblici(StaticFiles):
-    """Dei file caricati sono pubblici solo logo e icona (servono alla pagina di login e all'app installata).
-    Attestati, allegati, template e informativa si scaricano solo dalle rotte con autenticazione."""
-    PUBBLICI = ("azienda/logo.", "azienda/icona.")
-
-    async def get_response(self, path, scope):
-        norm = posixpath.normpath(path.replace("\\", "/")).lstrip("/")
-        if ".." in norm.split("/") or not norm.startswith(self.PUBBLICI):
-            raise HTTPException(404)
-        return await super().get_response(path, scope)
+# Dei file caricati sono pubblici solo logo e icona (servono alla pagina di login e all'app installata).
+# Attestati, allegati, template e informativa si scaricano solo dalle rotte con autenticazione.
+# I file possono essere cifrati su disco: qui si decifrano al volo.
+PUBBLICI = ("logo.", "icona.")
 
 
-app.mount("/uploads", UploadsPubblici(directory="/app/uploads"), name="uploads")
+@app.get("/uploads/azienda/{nome}")
+def file_pubblico(nome: str):
+    if "/" in nome or "\\" in nome or ".." in nome or not nome.startswith(PUBBLICI):
+        raise HTTPException(404)
+    percorso = os.path.join("/app/uploads/azienda", nome)
+    if not os.path.isfile(percorso):
+        raise HTTPException(404)
+    return Response(cifratura.leggi_file(percorso), media_type=mimetypes.guess_type(nome)[0] or "application/octet-stream",
+                    headers={"Cache-Control": "public, max-age=300"})
+
+
+@app.get("/uploads/{percorso:path}")
+def altri_file_non_pubblici(percorso: str):
+    raise HTTPException(404)
 
 app.include_router(setup.router)
 app.include_router(auth.router)

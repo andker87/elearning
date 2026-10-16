@@ -47,7 +47,7 @@ def disattiva_utente(db: Session, u) -> dict:
                 promossi.append(p)
     db.query(PushSubscription).filter(PushSubscription.user_id == u.id).delete()
     u.is_active = False
-    u.calendar_token = None  # il feed del calendario smette di funzionare
+    u.calendar_token_hash = None  # il feed del calendario smette di funzionare
     u.token_version = (u.token_version or 0) + 1  # le sessioni aperte smettono di valere
     db.flush()
     return {"avvisi": avvisi, "posti_liberati": liberati, "promossi": promossi}

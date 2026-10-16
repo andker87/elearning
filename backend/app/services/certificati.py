@@ -1,9 +1,12 @@
+import io
 import re
 import secrets, os
 from datetime import datetime
 from reportlab.lib.pagesizes import A4
 from reportlab.lib.colors import HexColor
 from reportlab.pdfgen import canvas
+from reportlab.lib.utils import ImageReader
+from . import cifratura
 from ..models.certificato import Certificato, TipoCertificato
 from ..models.azienda import Azienda
 from ..models.edizione import EdizioneDocente, RuoloDocente
@@ -39,11 +42,12 @@ def genera_pdf(path: str, *, nome_discente: str, titolo_corso: str,
     """Layout fisso di riserva, usato quando il corso non ha un template
     grafico assegnato (né esiste un template aziendale di default)."""
     os.makedirs(os.path.dirname(path), exist_ok=True)
-    c = canvas.Canvas(path, pagesize=A4)
+    buf = io.BytesIO()
+    c = canvas.Canvas(buf, pagesize=A4)
     width, height = A4
     if logo_path and os.path.exists(logo_path):
         try:
-            c.drawImage(logo_path, width / 2 - 60, height - 90, width=120, height=50,
+            c.drawImage(ImageReader(io.BytesIO(cifratura.leggi_file(logo_path))), width / 2 - 60, height - 90, width=120, height=50,
                          preserveAspectRatio=True, anchor="c", mask="auto")
         except Exception:
             pass
@@ -60,6 +64,7 @@ def genera_pdf(path: str, *, nome_discente: str, titolo_corso: str,
     c.drawCentredString(width / 2, 65, "Verificabile su richiesta presso l'ufficio formazione")
     c.showPage()
     c.save()
+    cifratura.scrivi_file(path, buf.getvalue())
 
 def _numero(valore, predefinito, minimo, massimo):
     try:
@@ -101,10 +106,11 @@ def genera_pdf_da_template(path: str, *, template, valori: dict):
     pdf_h = pdf_w * img_h_px / img_w_px
     scala = pdf_w / img_w_px
 
-    c = canvas.Canvas(path, pagesize=(pdf_w, pdf_h))
+    buf = io.BytesIO()
+    c = canvas.Canvas(buf, pagesize=(pdf_w, pdf_h))
     if template.immagine_path and os.path.exists(template.immagine_path):
         try:
-            c.drawImage(template.immagine_path, 0, 0, width=pdf_w, height=pdf_h)
+            c.drawImage(ImageReader(io.BytesIO(cifratura.leggi_file(template.immagine_path))), 0, 0, width=pdf_w, height=pdf_h)
         except Exception:
             pass
 
@@ -131,6 +137,7 @@ def genera_pdf_da_template(path: str, *, template, valori: dict):
             c.drawString(x, y, str(testo))
     c.showPage()
     c.save()
+    cifratura.scrivi_file(path, buf.getvalue())
 
 def _docenti_nomi(db, edizione) -> str:
     if not edizione:

@@ -11,6 +11,7 @@ from ..database import get_db
 from ..config import settings
 from ..services.export import esporta
 from ..services.audit import AZIONI_ROUTINE
+from ..services import cifratura_ops
 from ..models.audit import AuditLog
 from ..models.job_run import JobRun
 from ..models.user import User
@@ -83,6 +84,7 @@ def salute(db: Session = Depends(get_db), user=Depends(require_admin_tecnico)):
                         for r in ultime],
         },
         "smtp": {"configurato": bool(settings.smtp_enabled)},
+        "cifratura": cifratura_ops.stato(db),
         "entra": _stato_entra(db),
         "sso": {"configurato": bool(settings.sso_enabled), "provisioning": bool(settings.SSO_PROVISIONA_UTENTI),
                 "utenti_collegati": db.query(func.count(User.id)).filter(User.sso_subject.isnot(None)).scalar() or 0},

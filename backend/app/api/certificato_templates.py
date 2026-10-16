@@ -1,8 +1,9 @@
-import os, glob, io, tempfile
+import mimetypes, os, glob, io, tempfile
 from uuid import UUID
 from datetime import datetime
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Request
 from ..services import audit as audit_svc
+from ..services import cifratura
 from fastapi.responses import FileResponse, Response
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
@@ -85,8 +86,7 @@ def upload_immagine(template_id: str, file: UploadFile = File(...), db: Session 
     for vecchio in glob.glob(os.path.join(TEMPLATE_DIR, f"{template_id}.*")):
         os.remove(vecchio)
     path = os.path.join(TEMPLATE_DIR, f"{template_id}{estensione}")
-    with open(path, "wb") as f:
-        f.write(contenuto)
+    cifratura.scrivi_file(path, contenuto)
     t.immagine_path = path
     t.larghezza_px = larghezza
     t.altezza_px = altezza
@@ -136,8 +136,7 @@ def anteprima(template_id: str, db: Session = Depends(get_db), user=Depends(requ
     with tempfile.TemporaryDirectory() as cartella:  # file temporaneo proprio di questa richiesta
         path = os.path.join(cartella, "anteprima.pdf")
         genera_pdf_da_template(path, template=t, valori=valori)
-        with open(path, "rb") as f:
-            contenuto = f.read()
+        contenuto = cifratura.leggi_file(path)
     return Response(content=contenuto, media_type="application/pdf")
 
 @router.get("/{template_id}/immagine")
@@ -146,7 +145,8 @@ def immagine_template(template_id: str, db: Session = Depends(get_db), user=Depe
     t = db.query(CertificatoTemplate).filter(CertificatoTemplate.id == template_id).first()
     if not t or not t.immagine_path or not os.path.exists(t.immagine_path):
         raise HTTPException(404)
-    return FileResponse(t.immagine_path)
+    return Response(cifratura.leggi_file(t.immagine_path), media_type=mimetypes.guess_type(t.immagine_path)[0] or "application/octet-stream",
+                    headers={"Cache-Control": "private, no-store"})
 
 
 @router.delete("/{template_id}")
