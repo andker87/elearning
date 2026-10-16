@@ -1,6 +1,7 @@
 import hashlib
 import secrets
 from fastapi import APIRouter, Depends, HTTPException, Response, Request
+from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
 from ..database import get_db
 from ..models.user import User
@@ -29,7 +30,8 @@ def rigenera_url_feed(request: Request, db: Session = Depends(get_db), user: Use
     user.calendar_token_hash = impronta_token(token)
     audit_svc.log_from_request(db, request, user, "REGENERATE_CALENDAR_TOKEN", entity_type="user", entity_id=str(user.id), entity_name=user.email)
     db.commit()
-    return {"url": f"/api/calendario/feed.ics?token={token}", "attivo": True}
+    return JSONResponse({"url": f"/api/calendario/feed.ics?token={token}", "attivo": True},
+                        headers={"Cache-Control": "no-store"})   # il segreto non deve finire in nessuna cache
 
 @router.get("/feed.ics")
 def feed(token: str, db: Session = Depends(get_db)):

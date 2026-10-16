@@ -36,6 +36,6 @@ def upgrade():
 def downgrade():
     # Il token in chiaro non e' recuperabile: chi torna indietro dovra' rigenerare i link del calendario.
     op.add_column("users", sa.Column("calendar_token", sa.String(), nullable=True))
-    op.drop_constraint("users_calendar_token_hash_key", "users", type_="unique")
-    op.drop_column("users", "calendar_token_hash")
+    op.create_unique_constraint("users_calendar_token_key", "users", ["calendar_token"])
+    op.drop_column("users", "calendar_token_hash")   # toglie anche il suo vincolo, qualunque nome abbia
     op.drop_column("azienda", "cifratura_verifica")

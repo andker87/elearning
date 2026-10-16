@@ -32,7 +32,7 @@ def test_scrittura_e_lettura_di_ogni_dimensione(chiave, tmp_path, n):
     dati = os.urandom(n)
     p = str(tmp_path / "f.bin")
     c.scrivi_file(p, dati)
-    assert open(p, "rb").read(4) == c.MAGIC and (n == 0 or dati[:50] not in open(p, "rb").read())
+    assert open(p, "rb").read(4) == c.MAGIC and (n < 32 or dati[:32] not in open(p, "rb").read())   # contenuto non leggibile nel file
     assert c.leggi_file(p) == dati and c.dimensione_in_chiaro(p) == n
     assert c.stato_file(p) == "cifrato"
 
@@ -325,3 +325,22 @@ def test_strumento_da_riga_di_comando(db, chiave, tmp_path, monkeypatch, capsys)
     assert cifratura_cli.main(["decifra"]) == 0 and c.stato_file(str(tmp_path / "a.txt")) == "chiaro"
     monkeypatch.setattr(settings, "CHIAVE_CIFRATURA", None)
     assert cifratura_cli.main(["cifra"]) == 2
+
+
+@pytest.mark.parametrize("n", [0, 5, c.BLOCCO, 2 * c.BLOCCO + 9])
+def test_lettura_a_blocchi_uguale_alla_lettura_intera(chiave, tmp_path, n):
+    dati = os.urandom(n)
+    cifrato, chiaro = str(tmp_path / "c.bin"), str(tmp_path / "p.bin")
+    c.scrivi_file(cifrato, dati)
+    c.scrivi_file(chiaro, dati, cifra=False)
+    assert b"".join(c.leggi_a_blocchi(cifrato)) == dati == b"".join(c.leggi_a_blocchi(chiaro))
+    assert max((len(x) for x in c.leggi_a_blocchi(cifrato)), default=0) <= c.BLOCCO
+
+
+def test_la_conversione_non_tocca_i_video_finche_non_sanno_leggerli():
+    assert not any("videos" in cartella for cartella in ops.CARTELLE)
+
+
+def test_il_link_del_calendario_non_finisce_in_cache(client, auth, utente):
+    r = client.post("/api/calendario/url/rigenera", headers=auth(utente))
+    assert r.status_code == 200 and r.headers["cache-control"] == "no-store" and "token=" in r.json()["url"]

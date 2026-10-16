@@ -7,7 +7,8 @@ from ..config import settings
 from ..models.azienda import Azienda
 from . import cifratura as c
 
-CARTELLE = ["/app/uploads", "/app/videos"]
+# I video si aggiungono con la 1.9.4, quando la riproduzione sapra' leggerli cifrati: cifrarli prima li renderebbe illeggibili.
+CARTELLE = ["/app/uploads"]
 VERIFICA = "verifica-cifratura"
 
 
@@ -76,8 +77,9 @@ def converti_file(modo: str, cartelle=None) -> dict:
             if (modo == "cifra" and stato != "chiaro") or (modo == "decifra" and stato == "chiaro") or (modo == "ruota" and stato != "altra_chiave"):
                 saltati += 1
                 continue
-            dati = c.leggi_file(p)
-            c.scrivi_file(p, dati, cifra=(modo != "decifra"))
+            with c.Scrittore(p, cifra=(modo != "decifra")) as s:   # a blocchi: mai un file intero in memoria
+                for pezzo in c.leggi_a_blocchi(p):
+                    s.scrivi(pezzo)
             fatti += 1
         except Exception as e:   # un file rotto non ferma la conversione degli altri
             errori.append(f"{p}: {e}")

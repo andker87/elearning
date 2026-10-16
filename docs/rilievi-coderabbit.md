@@ -185,3 +185,14 @@ Aggiungere qui sotto una sezione per ogni PR, appena arriva la review della fase
 |---|---|---|
 | FATTO 1.9.2 | ROADMAP.md | la voce 1.9.2 non citava l'azienda tra le informazioni visibili agli utenti: aggiunta |
 | CHIUSO | ROADMAP.md | avviso di LanguageTool sugli asterischi: falso allarme, è il grassetto Markdown usato in tutto il file |
+
+## PR #16 (1.9.3, cifratura)
+
+| Stato | File | Rilievo |
+|---|---|---|
+| FATTO 1.9.3 | services/cifratura_ops.py | lo strumento includeva `/app/videos` tra le cartelle da cifrare, ma la riproduzione non decifra ancora: i video sarebbero diventati illeggibili. Tolta la cartella dei video fino alla 1.9.4 (aggiunto test) |
+| FATTO 1.9.3 | services/cifratura_ops.py | la conversione leggeva ogni file per intero in memoria (due copie): ora lettura e scrittura a blocchi (`leggi_a_blocchi`) |
+| FATTO 1.9.3 | api/calendario.py | risposta con il token in chiaro senza `Cache-Control: no-store`: aggiunto (con test) |
+| FATTO 1.9.3 | migrations/0005 | `downgrade` nominava un vincolo che poteva non esistere e non ricreava quello su `calendar_token`: ora ricrea il vincolo e toglie la colonna dell'impronta con il suo vincolo |
+| CHIUSO | api/matrice_ispezione.py | ZIP: file decifrati uno alla volta, picco di memoria = un file (max 25 MB); da rivedere se i limiti o i video entrano in quel percorso |
+| FATTO 1.9.3 | tests/test_cifratura.py | test casuale: con un file di 1 byte quel byte poteva comparire per caso nel file cifrato; il controllo ora vale solo per contenuti di almeno 32 byte |

@@ -229,6 +229,31 @@ def leggi_file(percorso: str) -> bytes:
                 return out.getvalue()
 
 
+def leggi_a_blocchi(percorso: str):
+    """Il contenuto in chiaro un blocco alla volta (per file grandi), cifrato o no."""
+    with open(percorso, "rb") as f:
+        if not e_cifrato(f.read(4)):
+            f.seek(0)
+            while pezzo := f.read(BLOCCO):
+                yield pezzo
+            return
+        f.seek(0)
+        intest, kid, prefisso, blocco = _leggi_intestazione(f)
+        aes = AESGCM(_chiave_per(kid, b"file-v1"))
+        totale = os.fstat(f.fileno()).st_size
+        n, pos = 0, INTESTAZIONE
+        while True:
+            lung = min(blocco + TAG, totale - pos)
+            if lung < TAG:
+                raise ContenutoNonValido("File troncato")
+            ultimo = pos + lung >= totale
+            yield _decifra_blocco(aes, intest, prefisso, n, f.read(lung), ultimo)
+            n += 1
+            pos += lung
+            if ultimo:
+                return
+
+
 def leggi_intervallo(percorso: str, inizio: int, fine: int) -> bytes:
     """Byte [inizio, fine] (estremi inclusi) del contenuto in chiaro, decifrando solo i blocchi necessari."""
     with open(percorso, "rb") as f:
