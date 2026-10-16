@@ -49,21 +49,5 @@ jobs:
       - uses: actions/checkout@v4
       - name: Prepara l'ambiente
         run: cp .env.example .env
-      - name: Costruisci le immagini
-        run: docker compose build backend frontend
-      - name: Trivy - backend
-        uses: aquasecurity/trivy-action@0.28.0
-        with:
-          image-ref: elearning-backend
-          severity: HIGH,CRITICAL
-          ignore-unfixed: true
-          scanners: vuln
-          exit-code: "1"
-      - name: Trivy - frontend
-        uses: aquasecurity/trivy-action@0.28.0
-        with:
-          image-ref: elearning-frontend
-          severity: HIGH,CRITICAL
-          ignore-unfixed: true
-          scanners: vuln
-          exit-code: "1"
+      - name: Costruisci le immagini e cercane le vulnerabilità (Trivy)
+        run: scripts/controlli-sicurezza.sh immagini
