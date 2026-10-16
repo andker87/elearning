@@ -31,6 +31,7 @@ export default function VideoPlayer({ video, iscrizioneId }) {
   const [scelta, setScelta] = useState(() => {   // "auto" oppure l'altezza scelta (preferenza di questo browser)
     try { const s = localStorage.getItem(CHIAVE_QUALITA); return s && s !== "auto" ? Number(s) : "auto"; } catch { return "auto"; }
   });
+  const [altezzaAuto, setAltezzaAuto] = useState(null);   // qualita' scelta dalla modalita' automatica
   const ripresa = useRef(null);   // punto e stato da ripristinare dopo un cambio di qualita' o di indirizzo
 
   const generazione = useRef(0);   // le risposte di una richiesta superata (altro video, nuovo tentativo) si scartano
@@ -110,7 +111,14 @@ export default function VideoPlayer({ video, iscrizioneId }) {
   }
 
   const versioni = accesso?.versioni || [];
-  const automatica = qualitaAutomatica(versioni, (window.screen?.height || 720) * (window.devicePixelRatio || 1), navigator.connection?.downlink);
+  // La qualita' automatica si decide una volta quando le qualita' sono note e poi resta ferma: se cambiasse a ogni
+  // variazione della rete rilevata dal browser, il video si ricaricherebbe a meta' visione.
+  useEffect(() => {
+    if (!versioni.length) { setAltezzaAuto(null); return; }
+    setAltezzaAuto((precedente) => (precedente != null && versioni.some((v) => v.altezza === precedente)) ? precedente
+      : qualitaAutomatica(versioni, (window.screen?.height || 720) * (window.devicePixelRatio || 1), navigator.connection?.downlink).altezza);
+  }, [accesso]);   // eslint-disable-line react-hooks/exhaustive-deps
+  const automatica = versioni.find((v) => v.altezza === altezzaAuto) || versioni[0] || null;
   const attuale = (scelta !== "auto" && versioni.find((v) => v.altezza === scelta)) || automatica;
   const videoUrl = attuale?.url || accesso?.video || null;
   const subUrl = accesso?.sottotitoli || null;

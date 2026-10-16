@@ -195,3 +195,25 @@ def test_il_file_decifrato_e_un_video_valido_alla_qualita_dichiarata(client, aut
         f.write_bytes(client.get(x["url"]).content)
         larghezza, altezza, durata = ve.sonda(str(f))
         assert altezza == x["altezza"] and 0.5 < durata < 2
+
+
+def test_elenco_video_non_fa_una_query_per_video(client, auth, formazione, db):
+    from sqlalchemy import event
+    from app.database import engine
+    for n in range(6):
+        v = VideoContenuto(titolo=f"V{n}", file_path=f"/x/{n}.mp4", stato=StatoVideo.pronto)
+        db.add(v); db.flush()
+        db.add(VideoVersione(video_id=v.id, altezza=480, file_path=f"/x/{n}_480.mp4"))
+        db.add(VideoVersione(video_id=v.id, altezza=720, file_path=f"/x/{n}_720.mp4"))
+    db.commit()
+    conta = []
+    def registra(conn, cursor, statement, *resto):
+        conta.append(statement)
+    event.listen(engine, "before_cursor_execute", registra)
+    try:
+        r = client.get("/api/video", headers=auth(formazione))
+    finally:
+        event.remove(engine, "before_cursor_execute", registra)
+    assert r.status_code == 200 and len(r.json()) == 6 and all(x["qualita"] == [480, 720] for x in r.json())
+    selezioni_video = [q for q in conta if "FROM video_versioni" in q]
+    assert len(selezioni_video) == 1          # una sola query per tutte le qualita', non una per video

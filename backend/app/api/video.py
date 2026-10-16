@@ -4,7 +4,7 @@ from datetime import timedelta
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form, BackgroundTasks, Request
 from fastapi.responses import Response, StreamingResponse
 from jose import jwt, JWTError
-from sqlalchemy.orm import Session, joinedload
+from sqlalchemy.orm import Session, joinedload, selectinload
 from pydantic import BaseModel
 from typing import Optional
 from ..config import settings
@@ -74,12 +74,12 @@ async def upload_video(background_tasks: BackgroundTasks, titolo: str = Form(...
 
 @router.get("/api/video")
 def list_video(db: Session = Depends(get_db), user=Depends(require_training_admin)):
-    rows = db.query(VideoContenuto).options(joinedload(VideoContenuto.capitoli)).order_by(VideoContenuto.created_at.desc()).all()
+    rows = db.query(VideoContenuto).options(joinedload(VideoContenuto.capitoli), selectinload(VideoContenuto.versioni)).order_by(VideoContenuto.created_at.desc()).all()
     return [_serialize(v) for v in rows]
 
 @router.get("/api/video/{video_id}")
 def get_video(video_id: str, db: Session = Depends(get_db), user=Depends(get_current_user)):
-    v = db.query(VideoContenuto).options(joinedload(VideoContenuto.capitoli)).filter(VideoContenuto.id == video_id).first()
+    v = db.query(VideoContenuto).options(joinedload(VideoContenuto.capitoli), selectinload(VideoContenuto.versioni)).filter(VideoContenuto.id == video_id).first()
     if not v or not _puo_vedere(db, user, v.id): raise HTTPException(404)
     return _serialize(v)
 
