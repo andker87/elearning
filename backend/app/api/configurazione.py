@@ -63,7 +63,7 @@ def esporta_utenti(formato: str = "csv", pagina: str = "A4", db: Session = Depen
     colonne = ["Nome", "Email", "Ruolo", "Stato", "Tipo", "Credenziali", "Data ingresso", "Gruppi"]
     righe = [[u.full_name, u.email, u.role.value, "attivo" if u.is_active else "disattivato", "esterno" if u.is_external else "interno",
               "dominio" if u.origine_credenziali != "locale" else "locali", u.data_ingresso, "; ".join(sorted(gruppi.get(u.id, [])))]
-             for u in db.query(User).order_by(User.full_name).all()]
+             for u in sorted(db.query(User).all(), key=lambda u: (u.full_name or "").casefold())]   # il nome e' cifrato: si ordina qui
     return esporta(formato, "utenti", "Utenti", colonne, righe, pagina)
 
 

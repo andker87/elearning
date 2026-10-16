@@ -38,6 +38,7 @@ class Azienda(Base):
     # parti come SMTP: è la piattaforma stessa a generarle, quindi restano
     # nel DB invece che in ambiente (vedi sezione D2 del roadmap).
     vapid_private_key = Column(Text, nullable=True)   # cifrata se la cifratura e' attiva (services/cifratura.py)
+    impronta_chiave   = Column(Text, nullable=True)   # chiave delle impronte per cercare i dati personali cifrati (services/impronte.py); cifrata se la cifratura e' attiva
     cifratura_verifica = Column(Text, nullable=True)  # valore noto cifrato: dice che la cifratura e' in uso e con quale chiave
     vapid_public_key  = Column(String, nullable=True)
 

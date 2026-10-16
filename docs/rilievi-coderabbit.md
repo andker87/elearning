@@ -210,3 +210,22 @@ Aggiungere qui sotto una sezione per ogni PR, appena arriva la review della fase
 | Stato | File | Rilievo |
 |---|---|---|
 | FATTO 1.9.5 | scripts/controlli-sicurezza.sh, docker-compose.yml | lo script scansionava `elearning-backend`/`elearning-frontend` dando per scontato che fossero i nomi delle immagini, ma Compose li ricava dal nome della cartella del progetto: con un'altra cartella avrebbe scansionato un'immagine vecchia o nessuna. Nomi esplicitamente fissati (`image:`) nel compose per backend e frontend |
+
+## PR #20 (1.9.7, dati personali cifrati nel database)
+
+| Stato | File | Rilievo |
+|---|---|---|
+| FATTO 1.9.7 | api/about.py, docs/sicurezza.md | il conteggio dei valori in chiaro nella pagina Stato guarda solo le ultime 10000 righe del registro: il limite è ora dichiarato nel changelog e nel documento di sicurezza |
+| FATTO 1.9.7 | docs/sicurezza.md | il testo diceva che chi ha il database non può confrontare le impronte: errato, due valori uguali hanno la stessa impronta (confrontabili tra loro; non si può calcolare l'impronta di un candidato senza la chiave). Testo corretto |
+| CHIUSO | api/admin_tecnico.py | nota senza modifiche richieste dalla review stessa (filtri email/IP: contratto verificato dai test) |
+
+Seconda review (sul commit di correzione):
+
+| Stato | File | Rilievo |
+|---|---|---|
+| FATTO 1.9.7 | api/auth.py (creazione utente) | due richieste insieme con la stessa email scritta con maiuscole diverse davano errore 500 al posto di «Email già esistente»: ora l'inserimento è in un punto di salvataggio e il conflitto diventa il 400 previsto |
+| FATTO 1.9.7 | api/auth.py (importazione CSV) | lo stesso conflitto fermava l'intera importazione: ora è un errore di riga e le altre righe proseguono |
+| FATTO 1.9.7 | api/sso.py | creazione al primo accesso SSO: in caso di conflitto si riprende l'utente creato dall'altra richiesta, con gli stessi controlli di collegamento |
+| FATTO 1.9.7 | services/entra_sync.py | sincronizzazione Entra: in caso di conflitto l'utente è saltato (non contato né registrato) e la sincronizzazione prosegue |
+
+Provati con test (creazione utente e CSV, corsa simulata). SSO ed Entra: modifica fatta e suite intera verde, ma senza un test dedicato alla corsa.

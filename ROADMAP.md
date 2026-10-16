@@ -869,10 +869,9 @@ Obiettivo: superare controlli di sicurezza (SAST, analisi delle dipendenze) e pr
 - [x] **1.9.2 Pagina Info** — agli utenti (e all'Ufficio Formazione) solo nome, azienda e versione; changelog e dettagli tecnici solo all'Admin tecnico. Da riprendere con il committente per eventuali altri contenuti della pagina.
 - [x] **1.9.3 Cifratura dei file e dei segreti** — file in `uploads` cifrati (AES-256-GCM a blocchi), chiave VAPID cifrata, token del calendario solo come impronta, strumento `app.cifratura_cli`, `docs/sicurezza.md`.
 - [x] **1.9.4 Video cifrati e più qualità** — 480p/720p/1080p/4K fino alla qualità dell'originale (`VIDEO_ALTEZZE`), scelta automatica o manuale nel player, file cifrati a blocchi con lettura a intervalli, originale eliminato dopo la conversione. Non fatto: streaming adattivo (HLS) che cambia qualità da solo durante la visione; i tempi di conversione del 4K sono da misurare sull'hardware di produzione.
-- [ ] **Cifratura dei dati personali nel database** (nome, email, IP...) con indici ciechi per le ricerche, prima della 2.0.0.
 - [x] **1.9.5 Dipendenze, immagini e controlli** — PyJWT al posto di python-jose, sito servito da nginx senza privilegi, `package-lock.json`, immagini senza vulnerabilità alte/critiche, `scripts/controlli-sicurezza.sh` e CI su GitHub (test, Bandit, pip-audit, npm audit, Trivy). Da provare la prima esecuzione su GitHub.
 - [x] **1.9.6 Da Create React App a Vite** — compilazione con Vite 8, `npm audit` completo a zero vulnerabilità e reso bloccante in CI e script; file con interfaccia in `.jsx`; provate tutte le pagine in un browser vero.
-- [ ] **1.9.7 Cifratura dei dati personali nel database** (nome, email, IP, telefono) con campi cifrati in modo trasparente e impronte per le ricerche esatte.
+- [x] **1.9.7 Cifratura dei dati personali nel database** — nome/email utenti, dati degli enti esterni, email/IP/dettaglio del registro cifrati nella colonna; impronte (HMAC) per login, unicità e filtri esatti; conversione dei dati esistenti con `cifratura_cli cifra`; ordinamento per nome nel programma.
 - [ ] **2.0.0**
 
 ### Y. Etichette dei corsi — SPEDITO (14/10/2026, v1.7.0)

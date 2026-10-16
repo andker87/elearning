@@ -12,8 +12,8 @@ Questo documento descrive come la piattaforma protegge i dati e **che cosa resta
 | Chiave privata delle notifiche push (VAPID) | database | cifrata con `CHIAVE_CIFRATURA` |
 | Attestati emessi, attestati esterni caricati, template, informativa, logo, icona | volume `uploads` | **cifrati su disco** (AES-256-GCM) con `CHIAVE_CIFRATURA` |
 | Video e sottotitoli | volume `videos` | non pubblici: indirizzi a tempo legati a chi ha diritto; **cifrati su disco** (a blocchi, con lettura a intervalli). Il file originale caricato viene eliminato dopo la conversione |
-| Registro attività | database | accesso solo Admin tecnico; conservazione limitata (`AUDIT_RETENZIONE_MESI`) |
-| Nomi, email, indirizzi IP e altri dati personali nel database | database | **non cifrati a livello di colonna** (servono per cercare, ordinare, accedere): vedi 3 |
+| Registro attività | database | accesso solo Admin tecnico; conservazione limitata (`AUDIT_RETENZIONE_MESI`); email, IP e dettaglio **cifrati** (vedi 3) |
+| Nome e email degli utenti; referente, email e telefono degli enti esterni; email, IP e dettaglio del registro | database | **cifrati nella colonna** (AES-256-GCM) con `CHIAVE_CIFRATURA`; la ricerca esatta usa un'impronta (vedi 3) |
 
 L'accesso ai file avviene solo da rotte autenticate; sono pubblici soltanto logo e icona (servono alla pagina di accesso e all'app installata).
 
@@ -46,13 +46,27 @@ L'accesso ai file avviene solo da rotte autenticate; sono pubblici soltanto logo
 `python -m app.cifratura_cli decifra`, poi `python -m app.cifratura_cli disattiva`, poi togli `CHIAVE_CIFRATURA`.
 
 ## 3. Dati personali nel database (nomi, email, IP...)
-Cifrare queste colonne impedirebbe di cercare, ordinare e fare accedere gli utenti con le funzioni attuali; richiede indici "ciechi" e la riscrittura di molte ricerche. Per questo oggi sono protetti da:
-- **cifratura del disco** del server che ospita il database (LUKS, BitLocker o equivalente del provider);
-- **backup del database cifrati**, con la chiave custodita a parte;
-- database **non esposto** alla rete (la piattaforma pubblica solo la porta di nginx);
-- accesso al database riservato agli amministratori dell'infrastruttura.
+**Cifrati nella colonna** (stessa chiave dei file, `CHIAVE_CIFRATURA`; chi legge il database vede solo testo cifrato):
+- utenti: nome e email;
+- enti esterni: referente, email, telefono;
+- registro attività: email, indirizzo IP, dettaglio.
 
-La cifratura di queste colonne è prevista come passo dedicato prima della versione 2.0.0.
+**Impronte per la ricerca esatta.** Un testo cifrato cambia a ogni cifratura, quindi nel database non si può cercare. Accanto all'email (utenti e registro) e all'IP (registro) si conserva un'impronta: HMAC-SHA256 del valore, senza badare a maiuscole e spazi, con una chiave propria casuale conservata nel database (cifrata con `CHIAVE_CIFRATURA`). Serve per l'accesso, i controlli di unicità e i filtri del registro; chi ha solo una copia del database non può calcolare l'impronta di un valore candidato (la chiave delle impronte è cifrata con `CHIAVE_CIFRATURA`), ma può confrontare tra loro le impronte memorizzate: due utenti o due eventi con lo stesso valore hanno la stessa impronta. Cambiare `CHIAVE_CIFRATURA` non cambia le impronte.
+
+**Cosa cambia per chi usa la piattaforma:**
+- nel registro attività i filtri «Utente» e «Indirizzo IP» cercano l'indirizzo **intero**; la ricerca libera guarda nome, id e tipo dell'entità e l'email intera, non il dettaglio. Per gli eventi sugli utenti il nome dell'entità (l'email) sta nel dettaglio;
+- ordinamento e ricerca per nome si fanno nel programma dopo la decifrazione (adatto a centinaia o poche migliaia di utenti);
+- un'email scritta con maiuscole diverse è lo stesso indirizzo (non si possono avere due account).
+
+**Cosa NON è cifrato** (lo dichiariamo per non dare false sicurezze):
+- gli identificativi dell'accesso aziendale (`sso_subject`) e gli indirizzi delle notifiche push;
+- i testi liberi inseriti dagli utenti (richieste di corso, fabbisogno, commenti di gradimento, note) e i nomi di corsi, edizioni, uffici, etichette;
+- i file di registro prodotti per un collettore (`AUDIT_EXPORT_DIR`, `AUDIT_LOG_STDOUT`): contengono email e IP in chiaro perché sono fatti per essere letti fuori dalla piattaforma; proteggili come il collettore stesso;
+- le password (non sono cifrate ma hash bcrypt, non recuperabili).
+
+**Conversione dei dati già presenti.** Dopo l'aggiornamento i dati esistenti restano in chiaro finché non si esegue `python -m app.cifratura_cli cifra` (con la chiave impostata); la pagina Stato mostra quanti valori sono ancora in chiaro (per il registro attività conta solo le ultime 10000 righe; `python -m app.cifratura_cli stato` le conta tutte, e «cifra» converte comunque l'intero registro). Il comando lavora a lotti, anche su registri molto grandi. Resta sempre valido anche un valore non ancora convertito.
+
+Restano comunque necessarie le protezioni dell'infrastruttura (sezione 4): disco cifrato, backup cifrati con la chiave custodita a parte, database non esposto, accesso ristretto: la cifratura delle colonne non protegge da chi può leggere anche la memoria del programma o le variabili d'ambiente.
 
 ## 4. A carico di chi installa (infrastruttura)
 La piattaforma non può garantire questi punti: vanno attuati dall'azienda.

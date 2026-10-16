@@ -20,6 +20,7 @@ from ..services.inviti import url_base
 from ..services.password_policy import password_valida, genera_password_temporanea, REQUISITI_PASSWORD
 from ..services.auth import hash_password
 from .deps import require_admin_tecnico
+from ..services.impronte import impronta
 
 router = APIRouter(prefix="/api/auth", tags=["password"])
 
@@ -52,7 +53,7 @@ def password_dimenticata(data: EmailIn, request: Request, db: Session = Depends(
     # non si puo' inondare di messaggi una casella. Stessa risposta, nessun invio.
     if not rate_limit.consenti(f"pwd-email:{email}", RICHIESTE_PER_EMAIL, 3600):
         return generica
-    u = db.query(User).filter(func.lower(User.email) == email).first()
+    u = db.query(User).filter(User.email_idx == impronta(email)).first()
     # Chi entra con l'account aziendale ha la password nel dominio: qui non c'e' nulla da reimpostare.
     if not u or not u.is_active or u.origine_credenziali != "locale":
         return generica

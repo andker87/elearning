@@ -13,6 +13,7 @@ from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import rsa
 import jwt
 
+from app.services.impronte import impronta
 from app.config import settings
 from app.models.audit import AuditLog
 from app.models.user import User, UserRole
@@ -179,7 +180,7 @@ def test_provisioning_crea_l_utente_solo_se_abilitato(client, db, sso, monkeypat
     assert accedi(client, sso, claims)[0] == "utente_non_abilitato"
     monkeypatch.setattr(settings, "SSO_PROVISIONA_UTENTI", True)
     assert accedi(client, sso, claims)[0] == "OK"
-    u = db.query(User).filter(User.email == "nuovo@test.it").one()
+    u = db.query(User).filter(User.email_idx == impronta("nuovo@test.it")).one()
     assert u.role == UserRole.user and u.origine_credenziali == "dominio" and u.full_name == "Nuovo Utente" and u.sso_subject == "nuovo"
 
 
@@ -187,7 +188,7 @@ def test_audit_di_accessi_e_rifiuti(client, db, sso, crea_utente):
     crea_utente("ok@test.it")
     accedi(client, sso, {"sub": "s", "email": "ok@test.it"})
     accedi(client, sso, {"sub": "altro-sub", "email": "sconosciuto@test.it"})
-    assert db.query(AuditLog).filter(AuditLog.action == "LOGIN", AuditLog.detail.ilike("SSO%")).count() == 1
+    assert len([r for r in db.query(AuditLog).filter(AuditLog.action == "LOGIN") if "SSO" in (r.detail or "")]) == 1   # il dettaglio e' cifrato: si legge qui
     assert db.query(AuditLog).filter(AuditLog.action == "SSO_LOGIN_FAILED").count() == 1
 
 

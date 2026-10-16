@@ -1,8 +1,9 @@
-from sqlalchemy import Column, String, Boolean, Integer, DateTime, Enum as SAEnum, ForeignKey
+from sqlalchemy import event, Column, String, Boolean, Integer, DateTime, Enum as SAEnum, ForeignKey
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.sql import func
 import uuid, enum
 from ..database import Base
+from .tipi import TestoCifrato
 
 class UserRole(str, enum.Enum):
     # Ruolo funzionale minimo, non negoziabile. La struttura organizzativa vera
@@ -14,8 +15,9 @@ class UserRole(str, enum.Enum):
 class User(Base):
     __tablename__ = "users"
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    email = Column(String, unique=True, nullable=False, index=True)
-    full_name = Column(String, nullable=False)
+    email = Column(TestoCifrato, nullable=False)          # cifrato: si cerca con email_idx
+    email_idx = Column(String, unique=True, nullable=False, index=True)   # impronta dell'email (services/impronte.py), univoca senza badare alle maiuscole
+    full_name = Column(TestoCifrato, nullable=False)      # cifrato: ordinamento e ricerca per nome si fanno nel programma
     hashed_password = Column(String, nullable=False)
     role = Column(SAEnum(UserRole), default=UserRole.user, nullable=False)
     is_active = Column(Boolean, default=True)
@@ -59,3 +61,10 @@ class User(Base):
     password_da_cambiare = Column(Boolean, nullable=False, default=False, server_default="false")
 
     created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+
+@event.listens_for(User, "before_insert")
+@event.listens_for(User, "before_update")
+def _impronta_email(mapper, connection, utente):
+    from ..services.impronte import impronta
+    utente.email_idx = impronta(utente.email)

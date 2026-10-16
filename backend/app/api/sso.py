@@ -6,6 +6,7 @@ import httpx
 from fastapi import APIRouter, Depends, Request
 from fastapi.responses import RedirectResponse
 from sqlalchemy import func
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from ..config import settings
@@ -15,6 +16,7 @@ from ..services import audit as audit_svc
 from ..services import sso as sso_svc
 from ..services.auth import token_per_utente, hash_password
 from ..services.percorsi_sync import sincronizza_assegnazioni
+from ..services.impronte import impronta
 
 router = APIRouter(prefix="/api/auth/sso", tags=["sso"])
 
@@ -54,7 +56,7 @@ def _risolvi_utente(db: Session, request: Request, sub: str, email: str, claims:
     u = db.query(User).filter(User.sso_subject == sub).first()
     primo_collegamento = False
     if not u:
-        u = db.query(User).filter(func.lower(User.email) == email).first()
+        u = db.query(User).filter(User.email_idx == impronta(email)).first()
         if u:
             if u.sso_subject and u.sso_subject != sub:
                 raise sso_svc.SsoErrore("identita_diversa", email)
@@ -67,11 +69,23 @@ def _risolvi_utente(db: Session, request: Request, sub: str, email: str, claims:
             nome = claims.get("name") or email.split("@")[0]
             u = User(email=email, full_name=str(nome)[:200], role=UserRole.user, is_external=False,
                      hashed_password=hash_password(secrets.token_urlsafe(32)), origine_credenziali="dominio")
-            db.add(u)
-            db.flush()
-            sincronizza_assegnazioni(db)
-            audit_svc.log_from_request(db, request, u, "CREATE", entity_type="user", entity_id=str(u.id),
-                                        entity_name=u.email, detail="creato al primo accesso SSO")
+            try:
+                with db.begin_nested():
+                    db.add(u)
+                    db.flush()
+            except IntegrityError:
+                # un'altra richiesta ha creato lo stesso utente nel frattempo: si riprende quello
+                u = db.query(User).filter(User.email_idx == impronta(email)).first()
+                if not u:
+                    raise
+                if u.sso_subject and u.sso_subject != sub:
+                    raise sso_svc.SsoErrore("identita_diversa", email)
+                if u.role == UserRole.admin_tecnico and not u.sso_subject:
+                    raise sso_svc.SsoErrore("admin_non_collegabile", email)
+            else:
+                sincronizza_assegnazioni(db)
+                audit_svc.log_from_request(db, request, u, "CREATE", entity_type="user", entity_id=str(u.id),
+                                            entity_name=u.email, detail="creato al primo accesso SSO")
             primo_collegamento = True
         else:
             raise sso_svc.SsoErrore("utente_non_abilitato", email)

@@ -89,7 +89,7 @@ export default function AuditLog() {
 
       <form className="card" onSubmit={applica}>
         <div className="row">
-          <div className="field"><label>Cerca (nome, dettaglio, id, utente)</label><input value={filtri.q} onChange={set("q")} placeholder="Testo libero" /></div>
+          <div className="field"><label>Cerca (nome, id, tipo; email intera)</label><input value={filtri.q} onChange={set("q")} placeholder="Testo libero" /></div>
           <div className="field"><label>Livello</label>
             <select value={filtri.livello} onChange={set("livello")}>
               <option value="importanti">Solo importanti</option>
@@ -110,8 +110,8 @@ export default function AuditLog() {
           </div>
         </div>
         <div className="row">
-          <div className="field"><label>Utente (email)</label><input value={filtri.utente} onChange={set("utente")} /></div>
-          <div className="field"><label>Indirizzo IP</label><input value={filtri.ip} onChange={set("ip")} /></div>
+          <div className="field"><label>Utente (email intera)</label><input value={filtri.utente} onChange={set("utente")} /></div>
+          <div className="field"><label>Indirizzo IP (intero)</label><input value={filtri.ip} onChange={set("ip")} /></div>
           <div className="field"><label>Dal</label><input type="date" value={filtri.da} onChange={set("da")} /></div>
           <div className="field"><label>Al</label><input type="date" value={filtri.a} onChange={set("a")} /></div>
           <div className="field" style={{ alignSelf: "flex-end", flex: "0 0 auto" }}>

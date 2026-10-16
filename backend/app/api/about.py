@@ -18,6 +18,13 @@ PACCHETTI = ["fastapi", "uvicorn", "sqlalchemy", "pydantic", "python-jose", "htt
              "reportlab", "openpyxl", "pywebpush", "psycopg2-binary"]
 
 CHANGELOG = [
+    {"version": "1.9.7", "date": "2026-10", "label": "Dati personali cifrati nel database", "changes": [
+        "Nome ed email degli utenti, referente/email/telefono degli enti esterni, email, IP e dettaglio del registro attività sono cifrati nella colonna (AES-256-GCM, stessa chiave dei file): chi legge il database vede solo testo cifrato",
+        "Per l'accesso e i controlli di unicità l'email ha un'impronta (HMAC con una chiave propria): l'email è la stessa senza badare alle maiuscole e due account non possono avere lo stesso indirizzo. Il registro filtra per email o IP interi; ordinamento e ricerca per nome si fanno nel programma",
+        "Per gli eventi sugli utenti il nome dell'entità (l'email) passa nel dettaglio cifrato; gli accessi falliti registrano l'indirizzo digitato, così si cercano per email",
+        "I dati esistenti si convertono con python -m app.cifratura_cli cifra (a lotti); la pagina Stato mostra quanti valori sono ancora in chiaro (per il registro attività conta solo le ultime 10000 righe: il comando `stato` da riga di comando le conta tutte); ruota e decifra valgono anche per questi dati. Un confronto scritto per errore su una colonna cifrata dà un errore invece di non trovare nulla in silenzio",
+        "docs/sicurezza.md elenca cosa è cifrato, cosa no e perché",
+    ]},
     {"version": "1.9.6", "date": "2026-10", "label": "Strumenti di compilazione del sito: da Create React App a Vite", "changes": [
         "Il sito si compila con Vite al posto di Create React App (progetto abbandonato, con decine di vulnerabilità negli strumenti di compilazione): ora `npm audit` non segnala nulla, nemmeno sugli strumenti di compilazione, e il controllo è diventato bloccante nella CI e nello script",
         "Nessuna modifica per chi usa la piattaforma: provate in un browser vero tutte le 32 pagine, il service worker e il manifest; i file del sito hanno ora il nome che cambia a ogni versione nella cartella /assets",

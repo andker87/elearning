@@ -117,7 +117,7 @@ def _metriche(db: Session, edizioni: List[Edizione], ufficio_id: Optional[str] =
 def lista_docenti(db: Session = Depends(get_db), user=Depends(require_training_admin)):
     righe = db.query(EdizioneDocente.user_id).distinct().all()
     ids = [r[0] for r in righe]
-    docenti = db.query(User).filter(User.id.in_(ids)).order_by(User.full_name).all() if ids else []
+    docenti = sorted(db.query(User).filter(User.id.in_(ids)).all(), key=lambda u: (u.full_name or "").casefold()) if ids else []
     return [{"id": str(d.id), "full_name": d.full_name} for d in docenti]
 
 @router.get("/riepilogo")

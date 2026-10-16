@@ -53,10 +53,16 @@ def ip_client(request: Request):
 
 def log_from_request(db: Session, request: Request, user, action: str,
                       entity_type: str = None, entity_id: str = None,
-                      entity_name: str = None, detail: str = None):
+                      entity_name: str = None, detail: str = None, email: str = None):
+    """`email`: per un evento senza utente (accesso fallito) l'indirizzo scritto da chi ha provato."""
+    if entity_type == "user" and entity_name:
+        # "entity_name" e' in chiaro (si cerca per nome): per un utente conterrebbe email o nome, che sono cifrati.
+        # Va nel dettaglio, che e' cifrato.
+        detail = entity_name + (f" - {detail}" if detail else "")
+        entity_name = None
     entry = AuditLog(
         user_id=getattr(user, "id", None),
-        user_email=getattr(user, "email", None),
+        user_email=getattr(user, "email", None) or email,
         action=action,
         entity_type=entity_type,
         entity_id=entity_id,

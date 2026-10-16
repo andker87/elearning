@@ -12,6 +12,7 @@ from ..config import settings
 from ..services.export import esporta
 from ..services.audit import AZIONI_ROUTINE
 from ..services import cifratura_ops
+from ..services.impronte import impronta
 from ..models.audit import AuditLog
 from ..models.job_run import JobRun
 from ..models.user import User
@@ -112,9 +113,9 @@ def _filtra_audit(db: Session, q, action, entity_type, utente, ip, da, a, livell
     if entity_type:
         query = query.filter(AuditLog.entity_type == entity_type)
     if utente:
-        query = query.filter(AuditLog.user_email.ilike(f"%{utente}%"))
+        query = query.filter(AuditLog.user_email_idx == impronta(utente))   # email e IP sono cifrati: solo valore esatto
     if ip:
-        query = query.filter(AuditLog.ip_address.ilike(f"%{ip}%"))
+        query = query.filter(AuditLog.ip_idx == impronta(ip))
     if da:
         query = query.filter(AuditLog.created_at >= da)
     if a:
@@ -123,8 +124,9 @@ def _filtra_audit(db: Session, q, action, entity_type, utente, ip, da, a, livell
         query = query.filter(AuditLog.created_at < a + timedelta(days=1)) if fine_giorno else query.filter(AuditLog.created_at <= a)
     if q:
         like = f"%{q}%"
-        query = query.filter(or_(AuditLog.entity_name.ilike(like), AuditLog.detail.ilike(like),
-                                  AuditLog.entity_id.ilike(like), AuditLog.user_email.ilike(like)))
+        # il dettaglio, l'email e l'IP sono cifrati: la ricerca libera guarda solo i campi in chiaro (l'email solo per intero)
+        query = query.filter(or_(AuditLog.entity_name.ilike(like), AuditLog.entity_id.ilike(like), AuditLog.entity_type.ilike(like),
+                                  AuditLog.user_email_idx == impronta(q)))
     return query
 
 

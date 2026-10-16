@@ -24,6 +24,7 @@ from ..models.percorso import (MotivoObbligo, PercorsoFormativo, PercorsoStep, P
 from ..models.user import User
 from ..version import APP_VERSION
 from .percorsi_sync import sincronizza_assegnazioni
+from .impronte import impronta
 
 FORMATO = "elearning-configurazione"
 SCHEMA = 1
@@ -219,7 +220,7 @@ def _gruppi(db, elenco, rapporto):
             valori["is_ufficio"] = bool(d["ufficio"])
         responsabile = None
         if d.get("responsabile"):
-            responsabile = db.query(User).filter(func.lower(User.email) == d["responsabile"].lower()).first()
+            responsabile = db.query(User).filter(User.email_idx == impronta(d["responsabile"])).first()
             if not responsabile:
                 rapporto.avvisi.append(f"Gruppo «{percorso}»: il responsabile {d['responsabile']} non esiste in questa istanza, resta da assegnare.")
         if g is None:

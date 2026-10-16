@@ -26,7 +26,9 @@ def test_filtri_dell_elenco(client, admin, utente, auth):
     voci = lambda **p: client.get("/api/admin/audit", headers=auth(admin), params={"livello": "tutti", **p}).json()
     assert {v["action"] for v in voci()["items"]} == {"LOGIN", "LOGIN_FAILED"}
     assert [v["action"] for v in voci(action="LOGIN")["items"]] == ["LOGIN"]
-    assert voci(utente=utente.email)["totale"] == 1  # il tentativo fallito non ha utente associato
+    assert voci(utente=utente.email)["totale"] == 2          # anche il tentativo fallito porta l'indirizzo scritto
+    assert voci(utente=utente.email.upper())["totale"] == 2  # senza badare alle maiuscole
+    assert voci(utente=utente.email[:5])["totale"] == 0      # l'email e' cifrata: solo indirizzo intero
     assert voci(q="sbagliata")["totale"] == 0 and voci(q=utente.email)["totale"] == 2
     assert voci(da="2999-01-01")["totale"] == 0
     assert voci(a="2000-01-01")["totale"] == 0

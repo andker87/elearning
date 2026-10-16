@@ -34,6 +34,8 @@ def _controlla_cifratura():
     db = SessionLocal()
     try:
         controlla_avvio(db)   # si ferma con un messaggio chiaro se chiave mancante o sbagliata
+        from .services.impronte import assicura
+        assicura()            # chiave per cercare i dati personali cifrati: creata al primo avvio
     finally:
         db.close()
 
