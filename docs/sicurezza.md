@@ -11,7 +11,7 @@ Questo documento descrive come la piattaforma protegge i dati e **che cosa resta
 | Link del calendario | database | solo impronta SHA-256; il link si vede una volta sola, alla creazione |
 | Chiave privata delle notifiche push (VAPID) | database | cifrata con `CHIAVE_CIFRATURA` |
 | Attestati emessi, attestati esterni caricati, template, informativa, logo, icona | volume `uploads` | **cifrati su disco** (AES-256-GCM) con `CHIAVE_CIFRATURA` |
-| Video | volume `videos` | non pubblici: indirizzi a tempo legati a chi ha diritto (vedi 1.9.0). La cifratura su disco arriva con la 1.9.4 |
+| Video e sottotitoli | volume `videos` | non pubblici: indirizzi a tempo legati a chi ha diritto; **cifrati su disco** (a blocchi, con lettura a intervalli). Il file originale caricato viene eliminato dopo la conversione |
 | Registro attività | database | accesso solo Admin tecnico; conservazione limitata (`AUDIT_RETENZIONE_MESI`) |
 | Nomi, email, indirizzi IP e altri dati personali nel database | database | **non cifrati a livello di colonna** (servono per cercare, ordinare, accedere): vedi 3 |
 
@@ -34,7 +34,8 @@ L'accesso ai file avviene solo da rotte autenticate; sono pubblici soltanto logo
 1. Genera la chiave e mettila in `CHIAVE_CIFRATURA` (e `CIFRATURA_OBBLIGATORIA=true`).
 2. Riavvia: i file nuovi vengono scritti cifrati.
 3. Per cifrare quanto esiste già: `docker compose exec backend python -m app.cifratura_cli cifra`
-4. Verifica con `python -m app.cifratura_cli stato` (file cifrati / in chiaro).
+4. Verifica con `python -m app.cifratura_cli stato` (file cifrati / in chiaro). Il comando `cifra` converte anche i video già presenti.
+5. Durante la conversione di un nuovo video, il file caricato e quelli di lavoro sono in chiaro sul disco per il tempo strettamente necessario e poi vengono eliminati: un disco del server cifrato (sezione 4) copre anche questo breve intervallo.
 
 ### Cambiare la chiave (rotazione)
 1. Genera una nuova chiave. Metti la **vecchia** in `CHIAVI_CIFRATURA_PRECEDENTI` e la **nuova** in `CHIAVE_CIFRATURA`.

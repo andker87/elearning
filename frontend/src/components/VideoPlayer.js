@@ -1,6 +1,26 @@
 import React, { useRef, useState, useEffect } from "react";
 import api, { erroreDi } from "../api";
 
+const CHIAVE_QUALITA = "qualita_video";
+
+function etichettaQualita(altezza) {
+  if (!altezza) return "Originale";
+  return altezza >= 2160 ? "4K (2160p)" : `${altezza}p`;
+}
+
+// "Auto": la qualita' piu' alta che lo schermo puo' mostrare e la rete sembra reggere. Se il browser non dice
+// nulla sulla rete si resta prudenti (fino a 720p): chi lavora da remoto non deve caricare piu' del necessario.
+export function qualitaAutomatica(versioni, schermoAltezza, bandaMbps) {
+  if (!versioni.length) return null;
+  const budgetKbps = bandaMbps ? bandaMbps * 1000 * 0.7 : null;
+  const adatte = versioni.filter((v) => {
+    if (!v.altezza) return true;
+    if (v.altezza > Math.max(schermoAltezza, versioni[0].altezza)) return false;
+    return budgetKbps != null ? (v.bitrate_kbps || 0) <= budgetKbps : v.altezza <= 720;
+  });
+  return adatte.length ? adatte[adatte.length - 1] : versioni[0];
+}
+
 export default function VideoPlayer({ video, iscrizioneId }) {
   const videoRef = useRef(null);
   const [current, setCurrent] = useState(0);
@@ -8,6 +28,10 @@ export default function VideoPlayer({ video, iscrizioneId }) {
   const lastHeartbeat = useRef(0);
   const [accesso, setAccesso] = useState(null);   // indirizzi a tempo del video
   const [erroreVideo, setErroreVideo] = useState(null);
+  const [scelta, setScelta] = useState(() => {   // "auto" oppure l'altezza scelta (preferenza di questo browser)
+    try { const s = localStorage.getItem(CHIAVE_QUALITA); return s && s !== "auto" ? Number(s) : "auto"; } catch { return "auto"; }
+  });
+  const ripresa = useRef(null);   // punto e stato da ripristinare dopo un cambio di qualita' o di indirizzo
 
   const generazione = useRef(0);   // le risposte di una richiesta superata (altro video, nuovo tentativo) si scartano
   const richiediAccesso = React.useCallback(() => {
@@ -23,17 +47,34 @@ export default function VideoPlayer({ video, iscrizioneId }) {
   const tentativi = useRef(0);
   function onErroreVideo() {
     if (++tentativi.current > 3) { setErroreVideo("Il video non si carica. Riprova più tardi."); return; }   // niente cicli infiniti
-    const el = videoRef.current;
-    const ripresa = el ? el.currentTime : 0;
+    memorizzaPunto();
     const mia = ++generazione.current;
     api.get(`/video/${video.id}/accesso`).then((r) => {
       if (mia !== generazione.current) return;
       setAccesso(r.data);
-      setTimeout(() => { if (videoRef.current) videoRef.current.currentTime = ripresa; }, 300);
     }).catch((err) => { if (mia === generazione.current) setErroreVideo(erroreDi(err, "Impossibile aprire il video")); });
   }
   function riprova() { tentativi.current = 0; richiediAccesso(); }
   function onVideoPronto() { tentativi.current = 0; }
+
+  function memorizzaPunto() {
+    const el = videoRef.current;
+    if (el) ripresa.current = { tempo: el.currentTime, inRiproduzione: !el.paused && !el.ended };
+  }
+  function onMetadati() {   // dopo il cambio di qualita' si riparte dal punto in cui si era
+    const el = videoRef.current;
+    if (el && ripresa.current) {
+      el.currentTime = ripresa.current.tempo;
+      if (ripresa.current.inRiproduzione) el.play().catch(() => {});
+      ripresa.current = null;
+    }
+  }
+  function cambiaQualita(valore) {
+    memorizzaPunto();
+    const nuova = valore === "auto" ? "auto" : Number(valore);
+    setScelta(nuova);
+    try { localStorage.setItem(CHIAVE_QUALITA, String(nuova)); } catch { /* preferenza non salvabile: vale solo ora */ }
+  }
 
   useEffect(() => {
     api.get(`/iscrizioni/${iscrizioneId}/progresso`).then((r) => {
@@ -68,7 +109,10 @@ export default function VideoPlayer({ video, iscrizioneId }) {
     videoRef.current.currentTime = sec;
   }
 
-  const videoUrl = accesso?.video || null;
+  const versioni = accesso?.versioni || [];
+  const automatica = qualitaAutomatica(versioni, (window.screen?.height || 720) * (window.devicePixelRatio || 1), navigator.connection?.downlink);
+  const attuale = (scelta !== "auto" && versioni.find((v) => v.altezza === scelta)) || automatica;
+  const videoUrl = attuale?.url || accesso?.video || null;
   const subUrl = accesso?.sottotitoli || null;
 
   return (
@@ -76,10 +120,21 @@ export default function VideoPlayer({ video, iscrizioneId }) {
       <div className="video-main">
         {erroreVideo && <div className="error-msg">{erroreVideo} <button type="button" className="secondary btn-sm" onClick={riprova}>Riprova</button></div>}
         {videoUrl && (
-          <video key={videoUrl} ref={videoRef} controls width="100%" style={{ borderRadius: 12, background: "#000" }}
-                 src={videoUrl} onError={onErroreVideo} onCanPlay={onVideoPronto} onTimeUpdate={onTimeUpdate} onSeeking={onSeeking}>
+          <video ref={videoRef} controls width="100%" style={{ borderRadius: 12, background: "#000" }}
+                 src={videoUrl} onError={onErroreVideo} onCanPlay={onVideoPronto} onLoadedMetadata={onMetadati} onTimeUpdate={onTimeUpdate} onSeeking={onSeeking}>
             {subUrl && <track src={subUrl} kind="subtitles" srcLang="it" label="Italiano" default />}
           </video>
+        )}
+        {versioni.length > 1 && (
+          <div style={{ marginTop: 8, display: "flex", alignItems: "center", gap: 8, fontSize: 13 }}>
+            <label htmlFor="qualita-video" style={{ margin: 0 }}>Qualità</label>
+            <select id="qualita-video" style={{ width: "auto" }} value={scelta === "auto" || !versioni.some((v) => v.altezza === scelta) ? "auto" : scelta}
+                    onChange={(e) => cambiaQualita(e.target.value)}>
+              <option value="auto">Automatica ({etichettaQualita(automatica?.altezza)})</option>
+              {[...versioni].reverse().map((v) => <option key={v.altezza} value={v.altezza}>{etichettaQualita(v.altezza)}</option>)}
+            </select>
+            <span className="text-muted">Una qualità più bassa usa meno rete.</span>
+          </div>
         )}
       </div>
       {video.capitoli?.length > 0 && (

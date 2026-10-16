@@ -7,8 +7,9 @@ from ..config import settings
 from ..models.azienda import Azienda
 from . import cifratura as c
 
-# I video si aggiungono con la 1.9.4, quando la riproduzione sapra' leggerli cifrati: cifrarli prima li renderebbe illeggibili.
-CARTELLE = ["/app/uploads"]
+# Esclusi i file temporanei della conversione dei video: ffmpeg li legge in chiaro e il sistema li elimina da solo.
+ESCLUSI = ("/lavoro/", "/originali/")
+CARTELLE = ["/app/uploads", "/app/videos"]
 VERIFICA = "verifica-cifratura"
 
 
@@ -54,8 +55,9 @@ def _file_da_controllare(cartelle):
     for radice in cartelle:
         for cartella, _, nomi in os.walk(radice):
             for nome in nomi:
-                if not nome.endswith(".parte"):
-                    yield os.path.join(cartella, nome)
+                percorso = os.path.join(cartella, nome)
+                if not nome.endswith(".parte") and not any(x in percorso + "/" for x in ESCLUSI):
+                    yield percorso
 
 
 def riepilogo(cartelle=None) -> dict:

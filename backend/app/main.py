@@ -37,6 +37,14 @@ def _controlla_cifratura():
     finally:
         db.close()
 
+def _recupera_video():
+    from .services.video_elaborazione import recupera_interrotti
+    db = SessionLocal()
+    try:
+        recupera_interrotti(db)   # video rimasti a meta' per un riavvio; elimina gli originali in chiaro
+    finally:
+        db.close()
+
 def _ensure_vapid_keys():
     """Le chiavi VAPID (notifiche push, RFC 8292) le genera la piattaforma
     stessa al primo avvio, una sola volta - non sono credenziali di terze
@@ -104,6 +112,7 @@ def _job_sync_entra():
 async def startup():
     esegui_migrazioni()
     _controlla_cifratura()
+    _recupera_video()
     _ensure_vapid_keys()
     _ensure_etichette()
     scheduler.add_job(_job_genera_notifiche, "interval", hours=24, id="notifiche_giornaliere", replace_existing=True)

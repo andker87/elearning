@@ -868,7 +868,7 @@ Obiettivo: superare controlli di sicurezza (SAST, analisi delle dipendenze) e pr
 - [x] **1.9.1 Registro attività** — due livelli (importanti / tutti), conservazione `AUDIT_RETENZIONE_MESI` (24 mesi, da ambiente), riepilogo per periodo, indici; esportazione giornaliera in file NDJSON (`AUDIT_EXPORT_DIR`) e copia in tempo reale sull'output (`AUDIT_LOG_STDOUT`) per un sistema di gestione dei log. Da verificare in produzione con un collettore reale.
 - [x] **1.9.2 Pagina Info** — agli utenti (e all'Ufficio Formazione) solo nome, azienda e versione; changelog e dettagli tecnici solo all'Admin tecnico. Da riprendere con il committente per eventuali altri contenuti della pagina.
 - [x] **1.9.3 Cifratura dei file e dei segreti** — file in `uploads` cifrati (AES-256-GCM a blocchi), chiave VAPID cifrata, token del calendario solo come impronta, strumento `app.cifratura_cli`, `docs/sicurezza.md`.
-- [ ] **1.9.4 Video cifrati e risoluzioni** — video cifrati a blocchi (lettura a intervalli), originali eliminati dopo la conversione, più risoluzioni (720p/1080p/4K) con scelta della qualità adatta alla rete.
+- [x] **1.9.4 Video cifrati e più qualità** — 480p/720p/1080p/4K fino alla qualità dell'originale (`VIDEO_ALTEZZE`), scelta automatica o manuale nel player, file cifrati a blocchi con lettura a intervalli, originale eliminato dopo la conversione. Non fatto: streaming adattivo (HLS) che cambia qualità da solo durante la visione; i tempi di conversione del 4K sono da misurare sull'hardware di produzione.
 - [ ] **Cifratura dei dati personali nel database** (nome, email, IP...) con indici ciechi per le ricerche, prima della 2.0.0.
 - [ ] Controlli automatici di sicurezza del codice (Bandit, pip-audit/npm audit, Semgrep, Trivy) e poi **2.0.0**.
 
