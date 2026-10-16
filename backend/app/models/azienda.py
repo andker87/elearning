@@ -37,7 +37,8 @@ class Azienda(Base):
     # sola all'avvio se assenti (vedi main.py), non sono un segreto di terze
     # parti come SMTP: è la piattaforma stessa a generarle, quindi restano
     # nel DB invece che in ambiente (vedi sezione D2 del roadmap).
-    vapid_private_key = Column(Text, nullable=True)
+    vapid_private_key = Column(Text, nullable=True)   # cifrata se la cifratura e' attiva (services/cifratura.py)
+    cifratura_verifica = Column(Text, nullable=True)  # valore noto cifrato: dice che la cifratura e' in uso e con quale chiave
     vapid_public_key  = Column(String, nullable=True)
 
     updated_at      = Column(DateTime(timezone=True), onupdate=func.now())

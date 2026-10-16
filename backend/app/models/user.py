@@ -48,7 +48,7 @@ class User(Base):
     # accesso a GET /api/calendario/url, non all'onboarding - niente di
     # segreto sul piano dei permessi (dà solo le date dei propri corsi), ma
     # va comunque rigenerabile se qualcuno lo condivide per sbaglio.
-    calendar_token = Column(String, nullable=True, unique=True)
+    calendar_token_hash = Column(String, nullable=True, unique=True)   # SHA-256 del token: il token in chiaro non e' conservato
 
     # Sicurezza accessi: blocco temporaneo dopo troppi tentativi falliti,
     # versione del token (ogni cambio/reset password invalida le altre sessioni),

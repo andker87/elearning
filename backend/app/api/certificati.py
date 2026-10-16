@@ -1,5 +1,7 @@
+import os
 from fastapi import APIRouter, Depends, HTTPException
-from fastapi.responses import FileResponse
+from fastapi.responses import Response
+from ..services import cifratura
 from sqlalchemy.orm import Session
 from ..database import get_db
 from ..models.certificato import Certificato
@@ -30,4 +32,7 @@ def scarica_pdf(certificato_id: str, db: Session = Depends(get_db), user=Depends
     i = db.query(Iscrizione).filter(Iscrizione.id == c.iscrizione_id).first()
     if str(i.user_id) != str(user.id) and user.role.value not in ("admin_tecnico", "training_admin"):
         raise HTTPException(403)
-    return FileResponse(c.pdf_path, media_type="application/pdf", filename="attestato.pdf")
+    if not os.path.exists(c.pdf_path):
+        raise HTTPException(404)
+    return Response(cifratura.leggi_file(c.pdf_path), media_type="application/pdf",
+                    headers={"Content-Disposition": 'attachment; filename="attestato.pdf"', "Cache-Control": "private, no-store"})

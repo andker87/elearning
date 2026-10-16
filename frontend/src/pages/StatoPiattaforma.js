@@ -103,6 +103,26 @@ export default function StatoPiattaforma() {
         )}
       </div>
 
+      {d.cifratura && (
+        <div className="card">
+          <h3>Cifratura dei dati</h3>
+          {d.cifratura.chiave_presente ? (
+            <p style={{ margin: 0, fontSize: 13 }}>
+              <span className="badge green">attiva</span>{" "}
+              {d.cifratura.file.cifrato} file cifrati
+              {d.cifratura.file.chiaro > 0 && <>, <strong>{d.cifratura.file.chiaro} ancora in chiaro</strong> (esegui «cifra» dallo strumento da riga di comando)</>}
+              {d.cifratura.file.altra_chiave > 0 && <>, {d.cifratura.file.altra_chiave} con una chiave precedente (esegui «ruota»)</>}.
+            </p>
+          ) : (
+            <p style={{ margin: 0, fontSize: 13 }}>
+              <span className="badge red">non attiva</span>{" "}
+              I file caricati e i segreti non sono cifrati sul disco. Imposta <code>CHIAVE_CIFRATURA</code> (vedi docs/sicurezza.md).
+              {d.cifratura.file.chiaro > 0 && <> File in chiaro: {d.cifratura.file.chiaro}.</>}
+            </p>
+          )}
+        </div>
+      )}
+
       <div className="card">
         <h3>Spazio e dati</h3>
         <div style={{ background: "var(--bg3)", borderRadius: 6, height: 10, overflow: "hidden", margin: "6px 0 12px" }}>

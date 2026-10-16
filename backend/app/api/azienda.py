@@ -10,6 +10,7 @@ from ..config import settings
 from ..models.azienda import Azienda
 from ..services.email import invia_email
 from ..services import audit as audit_svc
+from ..services import cifratura
 from .deps import require_admin_tecnico
 
 router = APIRouter(prefix="/api/azienda", tags=["azienda"])
@@ -45,7 +46,7 @@ def _get_or_create(db: Session) -> Azienda:
 
 def _serialize(a: Azienda):
     data = {c.name: getattr(a, c.name) for c in a.__table__.columns
-            if c.name not in ("vapid_private_key", "vapid_public_key")}
+            if c.name not in ("vapid_private_key", "vapid_public_key", "cifratura_verifica")}
     # Lo SMTP si configura solo a livello di ambiente/container (vedi
     # config.py) - qui si espone solo lo stato, mai credenziali: chi
     # amministra la piattaforma via UI (Admin tecnico) lo vede attivo o
@@ -129,8 +130,7 @@ def upload_icona(request: Request, file: UploadFile = File(...), db: Session = D
     for vecchio in glob.glob(os.path.join(LOGO_DIR, "icona.*")):
         os.remove(vecchio)
     path = os.path.join(LOGO_DIR, f"icona{estensione}")
-    with open(path, "wb") as f:
-        f.write(contenuto)
+    cifratura.scrivi_file(path, contenuto)
     a.icona_path = path
     audit_svc.log_from_request(db, request, user, "UPDATE", entity_type="azienda", entity_name="Icona dell'app", detail="caricata")
     db.commit()
@@ -174,8 +174,7 @@ def upload_logo(request: Request, file: UploadFile = File(...), db: Session = De
     for vecchio in glob.glob(os.path.join(LOGO_DIR, "logo.*")):
         os.remove(vecchio)
     path = os.path.join(LOGO_DIR, f"logo{estensione}")
-    with open(path, "wb") as f:
-        f.write(contenuto)
+    cifratura.scrivi_file(path, contenuto)
     a.logo_path = path
     audit_svc.log_from_request(db, request, user, "UPDATE", entity_type="azienda", entity_name="Logo aziendale", detail="caricato")
     db.commit()
@@ -203,7 +202,7 @@ def icona(size: int = Query(192), db: Session = Depends(get_db)):
     quadro = None
     if sorgente_path:
         try:
-            sorgente = Image.open(sorgente_path)
+            sorgente = Image.open(io.BytesIO(cifratura.leggi_file(sorgente_path)))
             sorgente.thumbnail((1024, 1024))  # mai elaborare l'originale intero: l'endpoint e' pubblico
             sorgente = sorgente.convert("RGBA")
             lato = max(sorgente.size)

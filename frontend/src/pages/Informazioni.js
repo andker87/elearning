@@ -39,6 +39,10 @@ export default function Informazioni() {
               <tr><td>Attivo da</td><td>{durata(d.ambiente.attivo_da_secondi)}</td></tr>
               <tr><td>URL pubblico</td><td>{d.url_pubblico || <span className="text-muted">non impostato</span>}</td></tr>
             </tbody></table>
+            <h3 style={{ marginTop: 16 }}>Sicurezza dei dati</h3>
+            <span className={`badge ${d.cifratura?.chiave_presente ? "green" : "red"}`}>
+              Cifratura dei file: {d.cifratura?.chiave_presente ? "attiva" : "non attiva"}
+            </span>
             <h3 style={{ marginTop: 16 }}>Integrazioni</h3>
             <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
               {Object.entries({ smtp: "Posta (SMTP)", sso: "Accesso aziendale", microsoft_graph: "Microsoft Teams", notifiche_push: "Notifiche push" }).map(([k, label]) => (

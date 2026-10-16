@@ -43,10 +43,15 @@ Tutto ciò che riguarda l'infrastruttura si imposta **solo qui**, mai dall'inter
 | `ENTRA_SYNC_GRUPPO_ID`, `ENTRA_SYNC_AUTO` | sincronizzazione utenti da Entra ID (permessi `User.Read.All`, `GroupMember.Read.All`) |
 | `PROXY_FIDUCIARI` | reti/indirizzi dei proxy davanti alla piattaforma, separati da virgola |
 | `PROXY_CLOUDFLARE` | `true` solo se davanti c'è Cloudflare |
+| `CHIAVE_CIFRATURA` | chiave (32 byte in base64) per cifrare file e segreti; genera con `python -m app.cifratura_cli genera-chiave`. **Se si perde, i dati cifrati sono persi**: vedi `docs/sicurezza.md` |
+| `CHIAVI_CIFRATURA_PRECEDENTI` | solo durante un cambio di chiave: le chiavi vecchie, separate da virgola |
+| `CIFRATURA_OBBLIGATORIA` | `true` (consigliato in produzione): senza chiave la piattaforma non si avvia |
 | `AUDIT_RETENZIONE_MESI` | mesi di conservazione del registro attività (24 predefiniti, `0` = per sempre) |
 | `AUDIT_EXPORT_DIR` | facoltativo: cartella dove scrivere ogni giorno un file `.ndjson` con gli eventi del giorno (con `/app/audit-export` finiscono nel volume `audit_export`). Un collettore di log (Filebeat, Promtail, Fluentd...) può prelevarli |
 | `AUDIT_LOG_STDOUT` | `true` per scrivere ogni evento anche sull'output del container come riga `AUDIT {json}` |
 | `CORS_ORIGINS` | facoltativo: siti esterni ammessi a chiamare le API (separati da virgola, mai `*`). Vuoto = nessuno; di norma non serve |
+
+Per la cifratura, la gestione della chiave e le responsabilità di chi installa vedi **`docs/sicurezza.md`**.
 
 ### Proxy e indirizzo IP del client
 L'IP del client serve all'audit e ai limiti di tentativi. La piattaforma **non crede agli header** che lo dichiarano, a meno che la connessione arrivi da un indirizzo elencato in `PROXY_FIDUCIARI`. Dietro un proxy aziendale indica qui l'indirizzo con cui il proxy raggiunge la piattaforma (e il proxy deve valorizzare `X-Forwarded-For`). Se non lo fai, tutto funziona ma l'audit mostra l'IP del proxy.

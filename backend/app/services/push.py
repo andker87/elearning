@@ -5,6 +5,7 @@ from pywebpush import webpush, WebPushException
 from sqlalchemy.orm import Session
 from ..models.azienda import Azienda
 from ..models.push_subscription import PushSubscription
+from .cifratura import decifra_testo
 
 log = logging.getLogger(__name__)
 
@@ -12,7 +13,7 @@ def _vapid(db: Session):
     a = db.query(Azienda).first()
     if not a or not a.vapid_private_key:
         return None
-    return Vapid01.from_pem(a.vapid_private_key.encode())
+    return Vapid01.from_pem(decifra_testo(a.vapid_private_key).encode())
 
 def _spedisci(vapid_pem: str, sottoscrizioni: list, payload: str):
     """Gira in sottofondo: niente sessione della richiesta, ne apre una sua solo per togliere le scadute."""
@@ -50,4 +51,4 @@ def accoda_push(db: Session, user_id, title: str, body: str, url: str = None):
         return
     subs = [(s.id, s.endpoint, s.p256dh, s.auth) for s in db.query(PushSubscription).filter(PushSubscription.user_id == user_id).all()]
     if subs:
-        dopo_il_commit(db, _spedisci, a.vapid_private_key, subs, json.dumps({"title": title, "body": body, "url": url or "/"}))
+        dopo_il_commit(db, _spedisci, decifra_testo(a.vapid_private_key), subs, json.dumps({"title": title, "body": body, "url": url or "/"}))

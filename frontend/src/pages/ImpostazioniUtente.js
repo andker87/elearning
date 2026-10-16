@@ -73,7 +73,8 @@ export default function ImpostazioniUtente() {
   const [pushAttivo, setPushAttivo] = useState(null); // null = non ancora verificato
   const [pushErrore, setPushErrore] = useState(null);
   const [pushCaricamento, setPushCaricamento] = useState(false);
-  const [calendarioUrl, setCalendarioUrl] = useState(null);
+  const [calendarioAttivo, setCalendarioAttivo] = useState(null);   // null = non ancora caricato
+  const [calendarioUrl, setCalendarioUrl] = useState(null);         // il link si vede solo subito dopo averlo creato
   const [calendarioCopiato, setCalendarioCopiato] = useState(false);
   const [calendarioErrore, setCalendarioErrore] = useState(null);
 
@@ -84,7 +85,7 @@ export default function ImpostazioniUtente() {
 
   const [urlPubblico, setUrlPubblico] = useState(null);
   useEffect(() => {
-    api.get("/calendario/url").then((r) => setCalendarioUrl(r.data.url)).catch((e) => setCalendarioErrore(erroreDi(e, "Impossibile caricare il link del calendario")));
+    api.get("/calendario/url").then((r) => setCalendarioAttivo(r.data.attivo)).catch((e) => setCalendarioErrore(erroreDi(e, "Impossibile caricare il link del calendario")));
     api.get("/about").then((r) => setUrlPubblico(r.data.url_pubblico)).catch(() => {});
   }, []);
 
@@ -101,12 +102,13 @@ export default function ImpostazioniUtente() {
   }
 
   async function rigeneraLinkCalendario() {
-    if (!window.confirm("Il link attuale smetterà di funzionare nei calendari dove l'hai già aggiunto. Continuare?")) return;
+    if (calendarioAttivo && !window.confirm("Il link attuale smetterà di funzionare nei calendari dove l'hai già aggiunto. Continuare?")) return;
     setCalendarioErrore(null);
     try {
       const r = await api.post("/calendario/url/rigenera");
       setCalendarioUrl(r.data.url);
-    } catch (err) { setCalendarioErrore(erroreDi(err, "Impossibile rigenerare il link")); }
+      setCalendarioAttivo(true);
+    } catch (err) { setCalendarioErrore(erroreDi(err, "Impossibile creare il link")); }
   }
 
   async function togglePush() {
@@ -216,20 +218,28 @@ export default function ImpostazioniUtente() {
           Abbonati a questo link da Outlook o Google Calendar per vedere sempre le date dei tuoi corsi (come iscritto o come docente),
           aggiornate automaticamente — niente da riaggiungere ogni volta che cambia una data.
         </p>
-        {calendarioUrl ? (
+        {calendarioAttivo === null ? (calendarioErrore ? null : <p className="text-muted">Caricamento...</p>) : (
           <>
-            <div className="row" style={{ alignItems: "center" }}>
-              <input readOnly value={urlAssoluta()} onFocus={(e) => e.target.select()} />
-              <div style={{ flex: "0 0 auto", display: "flex", gap: 8 }}>
-                <button type="button" className="secondary btn-sm" onClick={copiaLinkCalendario}>{calendarioCopiato ? "Copiato!" : "Copia link"}</button>
-                <button type="button" className="secondary btn-sm" onClick={rigeneraLinkCalendario} title="Genera un nuovo link, invalidando quello attuale">Rigenera</button>
-              </div>
-            </div>
-            <p className="text-muted" style={{ fontSize: 12, marginTop: 6 }}>
-              Outlook: Calendario → Aggiungi calendario → Da Internet. Google Calendar: Altri calendari → Da URL.
-            </p>
+            {calendarioUrl && (
+              <>
+                <div className="row" style={{ alignItems: "center" }}>
+                  <input readOnly value={urlAssoluta()} onFocus={(e) => e.target.select()} />
+                  <div style={{ flex: "0 0 auto" }}>
+                    <button type="button" className="secondary btn-sm" onClick={copiaLinkCalendario}>{calendarioCopiato ? "Copiato!" : "Copia link"}</button>
+                  </div>
+                </div>
+                <p className="text-muted" style={{ fontSize: 12, marginTop: 6 }}>
+                  Per sicurezza questo link si vede <strong>solo adesso</strong>: copialo e aggiungilo al calendario. Se lo perdi, ne crei uno nuovo.
+                  Outlook: Calendario → Aggiungi calendario → Da Internet. Google Calendar: Altri calendari → Da URL.
+                </p>
+              </>
+            )}
+            {!calendarioUrl && calendarioAttivo && <p className="text-muted" style={{ fontSize: 13 }}>Hai già un link attivo. Per sicurezza non si può rivedere: se ti serve di nuovo, creane uno nuovo (quello attuale smetterà di funzionare).</p>}
+            {!calendarioUrl && (
+              <button type="button" className="secondary" onClick={rigeneraLinkCalendario}>{calendarioAttivo ? "Crea un nuovo link" : "Crea il link"}</button>
+            )}
           </>
-        ) : (calendarioErrore ? null : <p className="text-muted">Caricamento...</p>)}
+        )}
         {calendarioErrore && <div className="error-msg">{calendarioErrore}</div>}
       </div>
       )}

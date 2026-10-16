@@ -13,6 +13,12 @@ class Settings(BaseSettings):
     # Vuoto = nessuno: la piattaforma funziona sullo stesso indirizzo ovunque sia installata.
     CORS_ORIGINS: Optional[str] = None
 
+    # Cifratura a riposo di file e segreti (vedi docs/sicurezza.md). Chiave: 32 byte in base64 (python -m app.cifratura_cli genera-chiave).
+    # CHIAVI_CIFRATURA_PRECEDENTI serve solo a leggere i dati scritti prima di un cambio di chiave.
+    CHIAVE_CIFRATURA: Optional[str] = None
+    CHIAVI_CIFRATURA_PRECEDENTI: Optional[str] = None
+    CIFRATURA_OBBLIGATORIA: bool = False
+
     # Registro attivita': conservazione in mesi (0 = per sempre), cartella dove scrivere ogni giorno i file
     # NDJSON da far prelevare a un sistema di gestione dei log, e copia in tempo reale sull'output del container.
     AUDIT_RETENZIONE_MESI: int = 24
