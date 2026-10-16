@@ -17,6 +17,9 @@ PACCHETTI = ["fastapi", "uvicorn", "sqlalchemy", "pydantic", "python-jose", "htt
              "reportlab", "openpyxl", "pywebpush", "psycopg2-binary"]
 
 CHANGELOG = [
+    {"version": "1.9.2", "date": "2026-10", "label": "Pagina Informazioni ridotta per gli utenti", "changes": [
+        "Gli utenti comuni e l'Ufficio Formazione vedono solo nome della piattaforma, azienda e versione; novità tecniche, ambiente, librerie e integrazioni sono visibili solo all'Admin tecnico",
+    ]},
     {"version": "1.9.1", "date": "2026-10", "label": "Registro attività gestibile", "changes": [
         "Audit log: di default si vedono solo gli eventi importanti; accessi riusciti e attività di routine si vedono scegliendo «Tutti» (anche nelle esportazioni)",
         "Riepilogo in cima alla pagina: eventi, accessi, accessi falliti e account bloccati nelle ultime 24 ore, 7 e 30 giorni, più lo stato della manutenzione",
@@ -174,10 +177,11 @@ def about(db: Session = Depends(get_db), user=Depends(get_current_user)):
         "nome_azienda": a.ragione_sociale if a else None,
         "url_pubblico": a.url_pubblico if a else None,
         "versione": APP_VERSION,
-        "changelog": CHANGELOG,
     }
+    # Agli utenti solo nome e versione: novita' tecniche, ambiente, librerie e integrazioni sono dell'Admin tecnico.
     if user.role != UserRole.admin_tecnico:
         return dati
+    dati["changelog"] = CHANGELOG
 
     versioni = {}
     for p in PACCHETTI:

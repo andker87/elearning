@@ -178,3 +178,10 @@ Aggiungere qui sotto una sezione per ogni PR, appena arriva la review della fase
 | FATTO 1.9.1 | services/audit_manutenzione.py | se un collettore sposta o cancella i file, i giorni venivano riesportati e la pulizia si bloccava: i giorni esportati sono ora registrati nel database (tabella `audit_esportazioni`, migrazione 0004), indipendentemente dai file |
 | FATTO 1.9.1 | services/audit_manutenzione.py | cancellazioni con commit intermedi e traccia a parte: ora cancellazioni e riga «AUDIT_PULIZIA» stanno in una sola transazione |
 | FATTO 1.9.1 | tests/test_registro_attivita.py | test dipendente dall'ora di esecuzione (tra 00:00 e 01:00 UTC): eventi ora a mezzogiorno UTC di giorni fissi |
+
+## PR #15 (1.9.2, pagina Informazioni)
+
+| Stato | File | Rilievo |
+|---|---|---|
+| FATTO 1.9.2 | ROADMAP.md | la voce 1.9.2 non citava l'azienda tra le informazioni visibili agli utenti: aggiunta |
+| CHIUSO | ROADMAP.md | avviso di LanguageTool sugli asterischi: falso allarme, è il grassetto Markdown usato in tutto il file |
