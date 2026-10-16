@@ -1,4 +1,5 @@
 import io
+import logging
 import re
 import secrets, os
 from datetime import datetime
@@ -11,6 +12,8 @@ from ..models.certificato import Certificato, TipoCertificato
 from ..models.azienda import Azienda
 from ..models.edizione import EdizioneDocente, RuoloDocente
 from ..models.user import User
+
+log = logging.getLogger(__name__)
 
 CERT_DIR = "/app/uploads/certificati"
 
@@ -49,8 +52,10 @@ def genera_pdf(path: str, *, nome_discente: str, titolo_corso: str,
         try:
             c.drawImage(ImageReader(io.BytesIO(cifratura.leggi_file(logo_path))), width / 2 - 60, height - 90, width=120, height=50,
                          preserveAspectRatio=True, anchor="c", mask="auto")
+        except cifratura.ErroreCifratura:
+            raise   # chiave mancante o file alterato: meglio non emettere un attestato incompleto
         except Exception:
-            pass
+            log.warning("logo non disegnabile sull'attestato", exc_info=True)
     c.setFont("Helvetica-Bold", 22)
     c.drawCentredString(width / 2, height - 120, "Attestato di partecipazione")
     c.setFont("Helvetica", 14)
@@ -111,8 +116,10 @@ def genera_pdf_da_template(path: str, *, template, valori: dict):
     if template.immagine_path and os.path.exists(template.immagine_path):
         try:
             c.drawImage(ImageReader(io.BytesIO(cifratura.leggi_file(template.immagine_path))), 0, 0, width=pdf_w, height=pdf_h)
+        except cifratura.ErroreCifratura:
+            raise
         except Exception:
-            pass
+            log.warning("sfondo del template non disegnabile", exc_info=True)
 
     for campo in (template.campi or []):
         testo = valori.get(campo.get("chiave"), "")

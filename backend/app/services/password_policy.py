@@ -4,7 +4,7 @@ import secrets
 # Policy password unica per tutti i punti che ne impostano una (setup, creazione
 # utente, cambio password, reset, import CSV): regola unica per tutta la piattaforma.
 # Centralizzata qui: se cambia, cambia una volta sola.
-REQUISITI_PASSWORD = "almeno 14 caratteri, con almeno una lettera maiuscola, un numero e un carattere speciale"
+REQUISITI_PASSWORD = "almeno 14 caratteri, con almeno una lettera maiuscola, un numero e un carattere speciale"  # nosec B105
 
 
 def password_valida(password: str) -> bool:

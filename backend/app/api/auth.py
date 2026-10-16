@@ -137,7 +137,7 @@ def login(data: LoginRequest, request: Request, db: Session = Depends(get_db)):
     token = token_per_utente(user)
     audit_svc.log_from_request(db, request, user, "LOGIN", entity_type="user", entity_id=str(user.id), entity_name=user.email)
     db.commit()
-    return {"access_token": token, "token_type": "bearer", "user": _serialize_user(user, db)}
+    return {"access_token": token, "token_type": "bearer", "user": _serialize_user(user, db)}  # nosec B105
 
 @router.get("/me")
 def me(db: Session = Depends(get_db), user: User = Depends(get_current_user)):

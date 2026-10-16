@@ -1,0 +1,69 @@
+name: Controlli
+
+on:
+  pull_request:
+  push:
+    branches: [master]
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: Test automatici
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Prepara l'ambiente di prova
+        run: cp .env.example .env
+      - name: Esegui la suite di test
+        run: docker compose --profile test run --rm tests
+
+  codice-e-librerie:
+    name: Codice e librerie
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - name: Analisi del codice Python (Bandit)
+        run: pip install bandit && bandit -r backend/app -q
+      - name: Librerie Python (pip-audit)
+        run: pip install pip-audit && pip-audit -r backend/requirements.txt --no-deps
+      - name: Librerie del sito (npm audit, senza gli strumenti di compilazione)
+        working-directory: frontend
+        run: npm ci --ignore-scripts && npm audit --omit=dev
+      - name: Strumenti di compilazione del sito (solo informativo)
+        working-directory: frontend
+        continue-on-error: true
+        run: npm audit
+
+  immagini:
+    name: Immagini Docker
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Prepara l'ambiente
+        run: cp .env.example .env
+      - name: Costruisci le immagini
+        run: docker compose build backend frontend
+      - name: Trivy - backend
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          image-ref: elearning-backend
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+          scanners: vuln
+          exit-code: "1"
+      - name: Trivy - frontend
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          image-ref: elearning-frontend
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+          scanners: vuln
+          exit-code: "1"

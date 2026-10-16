@@ -3,7 +3,8 @@ from datetime import datetime, timezone
 from datetime import timedelta
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form, BackgroundTasks, Request
 from fastapi.responses import Response, StreamingResponse
-from jose import jwt, JWTError
+import jwt
+from jwt import PyJWTError as JWTError
 from sqlalchemy.orm import Session, joinedload, selectinload
 from pydantic import BaseModel
 from typing import Optional
@@ -64,7 +65,8 @@ async def upload_video(background_tasks: BackgroundTasks, titolo: str = Form(...
                         user=Depends(require_training_admin)):
     os.makedirs(ORIGINALI_DIR, exist_ok=True)
     video_id = uuid.uuid4()
-    ext = os.path.splitext(file.filename or "")[1] or ".mp4"
+    ext = os.path.splitext(file.filename or "")[1]
+    ext = ext if re.fullmatch(r"\.[A-Za-z0-9]{1,5}", ext) else ".mp4"   # solo un'estensione semplice: il nome arriva dall'utente
     path_originale = os.path.join(ORIGINALI_DIR, f"{video_id}{ext}")
     await _salva_a_pezzi(file, path_originale, MAX_VIDEO_BYTES)
     v = VideoContenuto(id=video_id, titolo=titolo, file_originale=path_originale, stato=StatoVideo.caricato)

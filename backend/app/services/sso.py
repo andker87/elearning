@@ -5,7 +5,8 @@ import time
 from urllib.parse import urlencode
 
 import httpx
-from jose import jwt, JWTError
+import jwt
+from jwt import PyJWTError as JWTError
 
 from ..config import settings
 
@@ -104,11 +105,15 @@ def verifica_id_token(id_token: str, nonce_atteso: str) -> dict:
         raise SsoErrore("token_non_valido", f"algoritmo non ammesso: {header.get('alg')}")
 
     def _decodifica(jwks):
-        # at_hash: molti IdP (Google, Keycloak, Okta) lo mettono nell'id_token e python-jose lo pretende
-        # insieme all'access token. Qui l'id_token arriva direttamente dal token endpoint via TLS e
-        # non si usa l'access token: la verifica non aggiunge nulla e farebbe fallire ogni accesso.
-        return jwt.decode(id_token, jwks, algorithms=["RS256"], audience=settings.SSO_CLIENT_ID,
-                          issuer=discovery()["issuer"], options={"verify_at_hash": False})
+        # La chiave si sceglie per `kid` tra quelle pubblicate dall'IdP. L'at_hash non si verifica: l'id_token arriva
+        # direttamente dal token endpoint via TLS e l'access token non si usa.
+        chiavi = jwks.get("keys", [])
+        kid = header.get("kid")
+        scelte = [k for k in chiavi if k.get("kid") == kid] if kid else (chiavi if len(chiavi) == 1 else [])
+        if not scelte:
+            raise JWTError("chiave di firma non trovata nel JWKS")
+        return jwt.decode(id_token, jwt.PyJWK(scelte[0]).key, algorithms=["RS256"], audience=settings.SSO_CLIENT_ID,
+                          issuer=discovery()["issuer"], leeway=60, options={"require": ["exp", "iss", "aud"]})
     try:
         try:
             claims = _decodifica(_jwks())
