@@ -14,10 +14,16 @@ from ..models.user import UserRole
 router = APIRouter(prefix="/api/about", tags=["about"])
 _AVVIO = time.time()
 
-PACCHETTI = ["fastapi", "uvicorn", "sqlalchemy", "pydantic", "python-jose", "httpx", "apscheduler",
+PACCHETTI = ["fastapi", "uvicorn", "sqlalchemy", "pydantic", "pyjwt", "httpx", "apscheduler",
              "reportlab", "openpyxl", "pywebpush", "psycopg2-binary"]
 
 CHANGELOG = [
+    {"version": "2.0.0", "date": "2026-10", "label": "Pronta per l'uso aziendale", "changes": [
+        "Chiude la serie di sicurezza 1.9: video non pubblici con indirizzi a tempo, file e video cifrati su disco, dati personali cifrati nel database, registro attività con conservazione limitata ed esportazione, librerie senza vulnerabilità note, immagini Docker senza problemi alti o critici",
+        "Controlli automatici su GitHub Actions a ogni pull request e a ogni push su master (test, analisi del codice con Bandit, librerie Python e del sito, immagini Docker con Trivy); gli stessi controlli di sicurezza si lanciano a mano con scripts/controlli-sicurezza.sh, la suite di test con docker compose --profile test run --rm tests; revisione automatica del codice con CodeRabbit sulle pull request",
+        "docs/sicurezza.md descrive cosa è protetto, cosa no e cosa resta a carico di chi installa (HTTPS, cifratura del disco, backup, custodia della chiave)",
+        "Corretto l'elenco delle librerie nella pagina Informazioni: mostrava ancora la libreria sostituita nella 1.9.5",
+    ]},
     {"version": "1.9.7", "date": "2026-10", "label": "Dati personali cifrati nel database", "changes": [
         "Nome ed email degli utenti, referente/email/telefono degli enti esterni, email, IP e dettaglio del registro attività sono cifrati nella colonna (AES-256-GCM, stessa chiave dei file): chi legge il database vede solo testo cifrato",
         "Per l'accesso e i controlli di unicità l'email ha un'impronta (HMAC con una chiave propria): l'email è la stessa senza badare alle maiuscole e due account non possono avere lo stesso indirizzo. Il registro filtra per email o IP interi; ordinamento e ricerca per nome si fanno nel programma",

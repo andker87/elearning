@@ -872,7 +872,7 @@ Obiettivo: superare controlli di sicurezza (SAST, analisi delle dipendenze) e pr
 - [x] **1.9.5 Dipendenze, immagini e controlli** — PyJWT al posto di python-jose, sito servito da nginx senza privilegi, `package-lock.json`, immagini senza vulnerabilità alte/critiche, `scripts/controlli-sicurezza.sh` e CI su GitHub (test, Bandit, pip-audit, npm audit, Trivy). Da provare la prima esecuzione su GitHub.
 - [x] **1.9.6 Da Create React App a Vite** — compilazione con Vite 8, `npm audit` completo a zero vulnerabilità e reso bloccante in CI e script; file con interfaccia in `.jsx`; provate tutte le pagine in un browser vero.
 - [x] **1.9.7 Cifratura dei dati personali nel database** — nome/email utenti, dati degli enti esterni, email/IP/dettaglio del registro cifrati nella colonna; impronte (HMAC) per login, unicità e filtri esatti; conversione dei dati esistenti con `cifratura_cli cifra`; ordinamento per nome nel programma.
-- [ ] **2.0.0**
+- [x] **2.0.0 Pronta per l'uso aziendale** — chiusura della serie: nessuna funzione nuova; versione, changelog e documenti allineati, suite completa e controlli di sicurezza verdi. Restano a carico di chi installa HTTPS, cifratura del disco, backup e custodia della chiave (vedi `docs/sicurezza.md`).
 
 ### Y. Etichette dei corsi — SPEDITO (14/10/2026, v1.7.0)
 

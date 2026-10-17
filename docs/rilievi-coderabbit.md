@@ -229,3 +229,9 @@ Seconda review (sul commit di correzione):
 | FATTO 1.9.7 | services/entra_sync.py | sincronizzazione Entra: in caso di conflitto l'utente è saltato (non contato né registrato) e la sincronizzazione prosegue |
 
 Provati con test (creazione utente e CSV, corsa simulata). SSO ed Entra: modifica fatta e suite intera verde, ma senza un test dedicato alla corsa.
+
+## PR #21 (2.0.0, pronta per l'uso aziendale)
+
+| Stato | File | Rilievo |
+|---|---|---|
+| FATTO 2.0.0 | api/about.py | il changelog diceva «controlli automatici a ogni modifica»: il flusso GitHub gira su pull request e push su master, e lo script locale non lancia i test. Frase riscritta con le condizioni esatte |
