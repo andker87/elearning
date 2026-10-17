@@ -20,7 +20,7 @@ PACCHETTI = ["fastapi", "uvicorn", "sqlalchemy", "pydantic", "pyjwt", "httpx", "
 CHANGELOG = [
     {"version": "2.0.0", "date": "2026-10", "label": "Pronta per l'uso aziendale", "changes": [
         "Chiude la serie di sicurezza 1.9: video non pubblici con indirizzi a tempo, file e video cifrati su disco, dati personali cifrati nel database, registro attività con conservazione limitata ed esportazione, librerie senza vulnerabilità note, immagini Docker senza problemi alti o critici",
-        "Controlli automatici a ogni modifica (GitHub Actions e scripts/controlli-sicurezza.sh): test, analisi del codice (Bandit), librerie Python e del sito, immagini Docker (Trivy); revisione automatica del codice con CodeRabbit",
+        "Controlli automatici su GitHub Actions a ogni pull request e a ogni push su master (test, analisi del codice con Bandit, librerie Python e del sito, immagini Docker con Trivy); gli stessi controlli di sicurezza si lanciano a mano con scripts/controlli-sicurezza.sh, la suite di test con docker compose --profile test run --rm tests; revisione automatica del codice con CodeRabbit sulle pull request",
         "docs/sicurezza.md descrive cosa è protetto, cosa no e cosa resta a carico di chi installa (HTTPS, cifratura del disco, backup, custodia della chiave)",
         "Corretto l'elenco delle librerie nella pagina Informazioni: mostrava ancora la libreria sostituita nella 1.9.5",
     ]},
