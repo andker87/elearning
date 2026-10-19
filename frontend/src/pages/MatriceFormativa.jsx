@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import api, { erroreDi } from "../api";
 import ExportButton from "../components/ExportButton";
 import { FiltroEtichette } from "../components/Etichette";
+import { elencoUffici } from "../uffici";
 
 const ORDINE = ["valido", "in_scadenza", "in_corso", "da_aggiornare", "scaduto", "non_completato", "mancante"];
 const COLORI = { valido: "var(--green-bg)", in_scadenza: "var(--yellow-bg)", in_corso: "var(--bg3)", da_aggiornare: "var(--red-bg)", scaduto: "var(--red-bg)", non_completato: "var(--red-bg)", mancante: "var(--red-bg)" };
@@ -13,7 +14,7 @@ export default function MatriceFormativa() {
   const [m, setM] = useState(null);
   const [errore, setErrore] = useState(null);
 
-  useEffect(() => { api.get("/groups").then((r) => setUffici(r.data.filter((g) => g.is_ufficio))).catch((e) => setErrore(erroreDi(e, "Impossibile caricare gli uffici"))); }, []);
+  useEffect(() => { api.get("/groups").then((r) => setUffici(elencoUffici(r.data))).catch((e) => setErrore(erroreDi(e, "Impossibile caricare gli uffici"))); }, []);
   useEffect(() => {
     let attiva = true;  // una risposta arrivata in ritardo non deve sovrascrivere quella dei filtri attuali
     const params = { solo_obbligatori: filtri.solo_obbligatori };
@@ -50,7 +51,7 @@ export default function MatriceFormativa() {
             <label>Reparto/ufficio</label>
             <select value={filtri.ufficio_id} onChange={(e) => setFiltri({ ...filtri, ufficio_id: e.target.value })}>
               <option value="">Tutta l'azienda</option>
-              {uffici.map((u) => <option key={u.id} value={u.id}>{u.name}</option>)}
+              {uffici.map((u) => <option key={u.id} value={u.id}>{u.etichetta}</option>)}
             </select>
           </div>
           <div className="field" style={{ minWidth: 220 }}><FiltroEtichette valore={filtri.etichette} onChange={(v) => setFiltri({ ...filtri, etichette: v })} /></div>

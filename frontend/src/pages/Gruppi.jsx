@@ -1,19 +1,24 @@
 import React, { useEffect, useState } from "react";
 import api, { erroreDi } from "../api";
+import { elencoUffici } from "../uffici";
 
 // Gli uffici sono la struttura organizzativa: albero di uffici e sottouffici, ciascuno con un responsabile.
 // Le categorie trasversali (preposto, addetto antincendio...) sono le Mansioni.
+const VUOTO = { name: "", description: "", color: "#5a6b8a", parent_id: "", responsabile_id: "" };
+
 export default function Gruppi() {
   const [list, setList] = useState([]);
   const [utenti, setUtenti] = useState([]);
-  const [form, setForm] = useState({ name: "", description: "", color: "#5a6b8a", parent_id: "", responsabile_id: "" });
-  const [editId, setEditId] = useState(null);
-  const [editForm, setEditForm] = useState({ name: "", description: "", responsabile_id: "" });
+  const [form, setForm] = useState(VUOTO);
+  const [modifica, setModifica] = useState(null);     // {id, valori}
   const [errore, setErrore] = useState(null);
+  const [erroreModifica, setErroreModifica] = useState(null);
 
   function load() { api.get("/groups").then((r) => setList(r.data)); }
   useEffect(load, []);
   useEffect(() => { api.get("/auth/users/simple").then((r) => setUtenti(r.data.filter((u) => !u.is_external))); }, []);
+
+  const albero = elencoUffici(list);                // in ordine alfabetico a ogni livello, con il percorso intero
 
   async function submit(e) {
     e.preventDefault();
@@ -21,74 +26,39 @@ export default function Gruppi() {
     try {
       await api.post("/groups", { ...form, parent_id: form.parent_id || null, responsabile_id: form.responsabile_id || null });
     } catch (err) { setErrore(erroreDi(err, "Impossibile creare l'ufficio")); return; }
-    setForm({ name: "", description: "", color: "#5a6b8a", parent_id: "", responsabile_id: "" });
+    setForm(VUOTO);
     load();
   }
 
-  async function remove(id) {
-    if (!window.confirm("Eliminare questo ufficio? I sottouffici diventeranno di primo livello.")) return;
+  async function remove(g) {
+    if (!window.confirm(`Eliminare l'ufficio «${g.etichetta}»? I sottouffici diventeranno di primo livello.`)) return;
     setErrore(null);
-    try { await api.delete(`/groups/${id}`); } catch (err) { setErrore(erroreDi(err, "Impossibile eliminare l'ufficio")); return; }
+    try { await api.delete(`/groups/${g.id}`); } catch (err) { setErrore(erroreDi(err, "Impossibile eliminare l'ufficio")); return; }
+    if (modifica?.id === g.id) setModifica(null);
     load();
   }
 
-  function startEdit(g) {
-    setEditId(g.id);
-    setEditForm({ name: g.name, description: g.description || "", responsabile_id: g.responsabile_id || "" });
+  function apriModifica(g) {
+    setErroreModifica(null);
+    setModifica({ id: g.id, etichetta: g.etichetta, valori: { name: g.name, description: g.description || "", color: g.color || "#5a6b8a",
+      parent_id: g.parent_id || "", responsabile_id: g.responsabile_id || "", is_active: g.is_active !== false } });
   }
 
-  async function saveEdit(id) {
-    setErrore(null);
+  async function salvaModifica(e) {
+    e.preventDefault();
+    setErroreModifica(null);
+    const v = modifica.valori;
     try {
-      await api.put(`/groups/${id}`, { name: editForm.name, description: editForm.description, responsabile_id: editForm.responsabile_id });
-    } catch (err) { setErrore(erroreDi(err, "Impossibile salvare l'ufficio")); return; }
-    setEditId(null);
+      // parent_id e responsabile_id vuoti tolgono il collegamento (l'ufficio torna di primo livello / senza responsabile)
+      await api.put(`/groups/${modifica.id}`, { name: v.name, description: v.description, color: v.color,
+        parent_id: v.parent_id || "", responsabile_id: v.responsabile_id || "", is_active: v.is_active });
+    } catch (err) { setErroreModifica(erroreDi(err, "Impossibile salvare l'ufficio")); return; }
+    setModifica(null);
     load();
   }
 
-  // Costruisce l'albero per la visualizzazione a indentazione
-  function renderAlbero(parentId, depth) {
-    return list.filter((g) => (g.parent_id || null) === parentId).map((g) => (
-      <React.Fragment key={g.id}>
-        <tr>
-          <td style={{ paddingLeft: 16 + depth * 24 }}>
-            {editId === g.id
-              ? <input aria-label="Nome" value={editForm.name} onChange={(e) => setEditForm({ ...editForm, name: e.target.value })} />
-              : <span className="badge" style={{ background: g.color, color: "#fff" }}>{g.name}</span>}
-          </td>
-          <td>
-            {editId === g.id
-              ? <input aria-label="Descrizione" value={editForm.description} onChange={(e) => setEditForm({ ...editForm, description: e.target.value })} />
-              : g.description}
-          </td>
-          <td>
-            {editId === g.id ? (
-              <select aria-label="Responsabile" value={editForm.responsabile_id} onChange={(e) => setEditForm({ ...editForm, responsabile_id: e.target.value })}>
-                <option value="">-- nessuno --</option>
-                {utenti.map((u) => <option key={u.id} value={u.id}>{u.full_name}</option>)}
-              </select>
-            ) : (
-              g.responsabile_nome || "—"
-            )}
-          </td>
-          <td>
-            {editId === g.id ? (
-              <>
-                <button className="btn-sm" onClick={() => saveEdit(g.id)}>Salva</button>{" "}
-                <button className="btn-sm" onClick={() => setEditId(null)}>Annulla</button>
-              </>
-            ) : (
-              <>
-                <button className="btn-sm" onClick={() => startEdit(g)}>Modifica</button>{" "}
-                <button className="danger btn-sm" onClick={() => remove(g.id)}>Elimina</button>
-              </>
-            )}
-          </td>
-        </tr>
-        {renderAlbero(g.id, depth + 1)}
-      </React.Fragment>
-    ));
-  }
+  const imposta = (campo) => (e) => setModifica({ ...modifica, valori: { ...modifica.valori, [campo]: e.target.type === "checkbox" ? e.target.checked : e.target.value } });
+  const opzioniPadre = modifica ? elencoUffici(list, modifica.id) : [];   // senza l'ufficio stesso e il suo ramo
 
   return (
     <div>
@@ -99,6 +69,41 @@ export default function Gruppi() {
         </div>
       </div>
       {errore && <div className="error-msg">{errore}</div>}
+      {modifica && (
+        <div className="card">
+          <h3>Modifica «{modifica.etichetta}»</h3>
+          <form onSubmit={salvaModifica}>
+            <div className="row">
+              <div className="field"><label htmlFor="g-nome">Nome</label><input id="g-nome" required value={modifica.valori.name} onChange={imposta("name")} /></div>
+              <div className="field"><label htmlFor="g-colore">Colore</label><input id="g-colore" type="color" value={modifica.valori.color} onChange={imposta("color")} /></div>
+            </div>
+            <div className="field"><label htmlFor="g-descr">Descrizione</label><input id="g-descr" value={modifica.valori.description} onChange={imposta("description")} /></div>
+            <div className="row">
+              <div className="field">
+                <label htmlFor="g-padre">Sottoufficio di</label>
+                <select id="g-padre" value={modifica.valori.parent_id} onChange={imposta("parent_id")}>
+                  <option value="">-- nessuno (primo livello) --</option>
+                  {opzioniPadre.map((g) => <option key={g.id} value={g.id}>{g.etichetta}</option>)}
+                </select>
+                <span className="text-muted" style={{ fontSize: 12 }}>Scegli «nessuno» per togliere l'ufficio dalla gerarchia: diventa di primo livello. Non si può scegliere un suo sottoufficio.</span>
+              </div>
+              <div className="field">
+                <label htmlFor="g-resp">Responsabile</label>
+                <select id="g-resp" value={modifica.valori.responsabile_id} onChange={imposta("responsabile_id")}>
+                  <option value="">-- nessuno --</option>
+                  {utenti.map((u) => <option key={u.id} value={u.id}>{u.full_name}</option>)}
+                </select>
+              </div>
+            </div>
+            <div className="field">
+              <label><input type="checkbox" style={{ width: "auto", marginRight: 6 }} checked={modifica.valori.is_active} onChange={imposta("is_active")} />Attivo</label>
+            </div>
+            {erroreModifica && <div className="error-msg">{erroreModifica}</div>}
+            <button type="submit">Salva</button>{" "}
+            <button type="button" className="secondary" onClick={() => setModifica(null)}>Annulla</button>
+          </form>
+        </div>
+      )}
       <div className="card">
         <h3>Nuovo ufficio</h3>
         <form onSubmit={submit}>
@@ -112,7 +117,7 @@ export default function Gruppi() {
               <label>Sottoufficio di</label>
               <select value={form.parent_id} onChange={(e) => setForm({ ...form, parent_id: e.target.value })}>
                 <option value="">-- nessuno (primo livello) --</option>
-                {list.map((g) => <option key={g.id} value={g.id}>{g.name}</option>)}
+                {albero.map((g) => <option key={g.id} value={g.id}>{g.etichetta}</option>)}
               </select>
             </div>
           </div>
@@ -128,10 +133,24 @@ export default function Gruppi() {
       </div>
       <div className="table-wrap">
         <table>
-          <thead><tr><th>Nome</th><th>Descrizione</th><th>Responsabile</th><th></th></tr></thead>
+          <thead><tr><th>Ufficio</th><th>Descrizione</th><th>Responsabile</th><th>Stato</th><th></th></tr></thead>
           <tbody>
-            {renderAlbero(null, 0)}
-            {list.length === 0 && <tr><td colSpan={4} className="empty-state">Nessun ufficio ancora creato.</td></tr>}
+            {albero.map((g) => (
+              <tr key={g.id}>
+                <td style={{ paddingLeft: 16 + g.livello * 24 }}>
+                  {g.livello > 0 && <span className="text-muted" aria-hidden="true">└ </span>}
+                  <span className="badge" style={{ background: g.color, color: "#fff" }}>{g.name}</span>
+                </td>
+                <td>{g.description}</td>
+                <td>{g.responsabile_nome || "—"}</td>
+                <td>{g.is_active === false ? <span className="badge gray">non attivo</span> : <span className="badge green">attivo</span>}</td>
+                <td>
+                  <button className="btn-sm" onClick={() => apriModifica(g)}>Modifica</button>{" "}
+                  <button className="danger btn-sm" onClick={() => remove(g)}>Elimina</button>
+                </td>
+              </tr>
+            ))}
+            {albero.length === 0 && <tr><td colSpan={5} className="empty-state">Nessun ufficio ancora creato.</td></tr>}
           </tbody>
         </table>
       </div>

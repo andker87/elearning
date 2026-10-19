@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import api from "../api";
 import ExportButton from "../components/ExportButton";
+import { elencoUffici } from "../uffici";
 
 const FORM_VUOTO = {
   nome: "", motivo: "policy_interna", motivoNota: "", triggerTipo: "manuale", triggerGruppoId: "", triggerMansioneId: "",
@@ -20,7 +21,7 @@ export default function Percorsi() {
   useEffect(() => {
     load();
     api.get("/corsi").then((r) => setCorsi(r.data));
-    api.get("/groups").then((r) => setGruppi(r.data));
+    api.get("/groups").then((r) => setGruppi(elencoUffici(r.data)));
     api.get("/mansioni").then((r) => setMansioni(r.data));
   }, []);
 
@@ -109,7 +110,7 @@ export default function Percorsi() {
                 <label>Ufficio</label>
                 <select required value={form.triggerGruppoId} onChange={(e) => setForm({ ...form, triggerGruppoId: e.target.value })}>
                   <option value="">-- seleziona --</option>
-                  {gruppi.map((g) => <option key={g.id} value={g.id}>{g.name}</option>)}
+                  {gruppi.map((g) => <option key={g.id} value={g.id}>{g.etichetta}</option>)}
                 </select>
               </div>
             )}

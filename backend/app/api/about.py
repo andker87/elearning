@@ -17,6 +17,12 @@ PACCHETTI = ["fastapi", "uvicorn", "sqlalchemy", "pydantic", "pyjwt", "httpx", "
              "reportlab", "openpyxl", "pywebpush", "psycopg2-binary"]
 
 CHANGELOG = [
+    {"version": "2.3.1", "date": "2026-10", "label": "Uffici più facili da gestire", "changes": [
+        "Uffici: la modifica permette di cambiare nome, descrizione, colore, responsabile, stato e posizione nella gerarchia (sottoufficio di un altro ufficio, oppure di primo livello); non si può spostare un ufficio sotto uno dei suoi sottouffici",
+        "Gli uffici sono sempre in ordine alfabetico a ogni livello e scritti con il percorso intero (per esempio «Produzione / Linea 2») in tutte le tendine e nell'albero, così la gerarchia si legge anche nelle organizzazioni complesse",
+        "Importa da CSV: due modelli da scaricare (nuovi utenti, disattiva cessati), con le colonne giuste e una riga di esempio",
+        "Corretto: nelle pagine Fabbisogno, Matrice formativa, Registro formazione e dashboard il filtro per ufficio risultava vuoto dopo la 2.2.0",
+    ]},
     {"version": "2.3.0", "date": "2026-10", "label": "Nome e cognome separati", "changes": [
         "Nome e cognome sono due campi: si mostrano entrambi nell'elenco utenti e si usano per cercare e per ordinare (gli elenchi sono in ordine di cognome, poi nome); cifrati nel database come gli altri dati personali",
         "L'importazione CSV usa le colonne nome e cognome al posto di full_name; la configurazione iniziale chiede i due campi",

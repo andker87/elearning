@@ -3,6 +3,7 @@ import api, { erroreDi } from "../api";
 import ExportButton from "../components/ExportButton";
 import AlberoOrigine from "../components/AlberoOrigine";
 import { ThOrdina, ordinaLocale } from "../components/Ordinabile";
+import { elencoUffici } from "../uffici";
 
 const STATO_LABEL = { in_revisione: "In revisione", approvata_hr: "Ricevuta", rifiutata: "Rifiutata dai responsabili", fusa: "Unita ad altre" };
 const STATO_BADGE = { in_revisione: "gray", approvata_hr: "blue", rifiutata: "red" };
@@ -112,7 +113,7 @@ function RichiesteFormative({ campagne, campagnaIniziale }) {
   const [origineAperta, setOrigineAperta] = useState(null);
   const [errore, setErrore] = useState(null);
 
-  useEffect(() => { api.get("/groups").then((r) => setUffici(r.data.filter((g) => g.is_ufficio))).catch((e) => setErrore(erroreDi(e, "Impossibile caricare gli uffici"))); }, []);
+  useEffect(() => { api.get("/groups").then((r) => setUffici(elencoUffici(r.data))).catch((e) => setErrore(erroreDi(e, "Impossibile caricare gli uffici"))); }, []);
   const parametri = useCallback(() => {
     const p = { vista, pagina, per_pagina: PER_PAGINA, ordine: ordine.campo, direzione: ordine.verso };
     Object.entries(filtri).forEach(([k, v]) => { if (v) p[k] = v; });
@@ -167,7 +168,7 @@ function RichiesteFormative({ campagne, campagnaIniziale }) {
         </div>
         <div className="field"><label>Ufficio (con i sotto-uffici)</label>
           <select value={filtri.ufficio_id} onChange={imposta("ufficio_id")}>
-            <option value="">Tutti</option>{uffici.map((u) => <option key={u.id} value={u.id}>{u.name}</option>)}
+            <option value="">Tutti</option>{uffici.map((u) => <option key={u.id} value={u.id}>{u.etichetta}</option>)}
           </select>
         </div>
         <div className="field"><label>Periodo</label>

@@ -4,6 +4,7 @@ import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGri
 import api, { erroreDi } from "../api";
 import { FiltroEtichette } from "../components/Etichette";
 import ExportButton from "../components/ExportButton";
+import { elencoUffici } from "../uffici";
 
 const TIPO_LABEL = {
   scaduto: "Scaduto", da_aggiornare: "Da aggiornare", non_completato: "Non completato",
@@ -34,7 +35,7 @@ export default function DashboardFormazione() {
   const [msg, setMsg] = useState(null);
 
   useEffect(() => {
-    api.get("/groups").then((r) => setUffici(r.data.filter((g) => g.is_ufficio)));
+    api.get("/groups").then((r) => setUffici(elencoUffici(r.data)));
     api.get("/corsi").then((r) => setCorsi(r.data));
     api.get("/edizioni").then((r) => setEdizioni(r.data));
   }, []);
@@ -113,7 +114,7 @@ export default function DashboardFormazione() {
             <label>Reparto/ufficio</label>
             <select value={filtri.ufficio_id} onChange={(e) => setFiltri({ ...filtri, ufficio_id: e.target.value })}>
               <option value="">Tutti</option>
-              {uffici.map((u) => <option key={u.id} value={u.id}>{u.name}</option>)}
+              {uffici.map((u) => <option key={u.id} value={u.id}>{u.etichetta}</option>)}
             </select>
           </div>
           <div className="field">

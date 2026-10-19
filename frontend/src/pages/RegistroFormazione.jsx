@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import api, { downloadFile } from "../api";
 import ExportButton from "../components/ExportButton";
 import { FiltroEtichette } from "../components/Etichette";
+import { elencoUffici } from "../uffici";
 
 const BADGE = { valido: "green", scaduto: "red", non_completato: "red", in_corso: "gray", non_applicabile: "green", da_aggiornare: "red" };
 const LABEL = { valido: "valido", scaduto: "scaduto", non_completato: "non completato", in_corso: "in corso", non_applicabile: "completato", da_aggiornare: "da aggiornare (nuova versione)" };
@@ -14,7 +15,7 @@ export default function RegistroFormazione() {
   const [scarico, setScarico] = useState(false);
   const [errore, setErrore] = useState(null);
 
-  useEffect(() => { api.get("/groups").then((r) => setUffici(r.data.filter((g) => g.is_ufficio))); }, []);
+  useEffect(() => { api.get("/groups").then((r) => setUffici(elencoUffici(r.data))); }, []);
   useEffect(() => { api.get("/auth/users/simple").then((r) => setPersone(r.data)); }, []);
 
   function carica() {
@@ -69,7 +70,7 @@ export default function RegistroFormazione() {
             <label>Reparto/ufficio</label>
             <select value={filtri.ufficio_id} onChange={(e) => setFiltri({ ...filtri, ufficio_id: e.target.value })}>
               <option value="">Tutti</option>
-              {uffici.map((u) => <option key={u.id} value={u.id}>{u.name}</option>)}
+              {uffici.map((u) => <option key={u.id} value={u.id}>{u.etichetta}</option>)}
             </select>
           </div>
           <div className="field">

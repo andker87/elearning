@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import api, { erroreDi } from "../api";
 import ExportButton from "../components/ExportButton";
+import { elencoUffici } from "../uffici";
 import { REQUISITI_PASSWORD } from "../passwordPolicy";
 
 const SCHEDE = [{ id: "elenco", label: "Elenco" }, { id: "nuovo", label: "Nuovo utente" }, { id: "csv", label: "Importa da CSV" }];
@@ -18,12 +19,14 @@ function etichette(u) {
   return v;
 }
 
-// «Produzione / Linea 2»: il percorso dell'ufficio nell'albero.
-function percorsoUfficio(g, perId) {
-  const nomi = []; const visti = new Set();
-  let c = g;
-  while (c && !visti.has(c.id)) { visti.add(c.id); nomi.push(c.name); c = perId[c.parent_id]; }
-  return nomi.reverse().join(" / ");
+// Modelli del CSV: separatore «;» (Excel in italiano lo apre in colonne) e BOM per gli accenti.
+const COLONNE_CSV = ["email", "nome", "cognome", "ufficio", "mansioni", "admin", "formazione", "formatore", "is_external", "organizzazione", "data_ingresso", "password"];
+function scaricaModello(nomeFile, intestazione, riga) {
+  const testo = "\ufeff" + [intestazione.join(";"), riga.join(";")].join("\r\n") + "\r\n";
+  const url = URL.createObjectURL(new Blob([testo], { type: "text/csv;charset=utf-8" }));
+  const a = document.createElement("a");
+  a.href = url; a.download = nomeFile; a.click();
+  URL.revokeObjectURL(url);
 }
 
 // Campi comuni a «Nuovo utente» e «Modifica»: tipo di persona, permessi, ufficio, mansioni.
@@ -120,8 +123,8 @@ export default function Utenti() {
     api.get("/mansioni").then((r) => setMansioni(r.data));
   }, []);
 
-  const perId = Object.fromEntries(groups.map((g) => [g.id, g]));
-  const uffici = groups.map((g) => ({ id: g.id, percorso: percorsoUfficio(g, perId) })).sort((a, b) => a.percorso.localeCompare(b.percorso, "it", { sensitivity: "base" }));
+  const uffici = elencoUffici(groups).map((g) => ({ id: g.id, percorso: g.etichetta }));   // alfabetico a ogni livello, percorso intero
+  const percorsoDi = Object.fromEntries(uffici.map((g) => [g.id, g.percorso]));
   const mansioniAttive = mansioni.filter((m) => m.is_active);
 
   const COLONNE = [
@@ -129,7 +132,7 @@ export default function Utenti() {
     { id: "nome", label: "Nome", valore: (u) => u.nome || "" },
     { id: "email", label: "Email", valore: (u) => u.email || "" },
     { id: "permessi", label: "Permessi", valore: (u) => etichette(u).join(", ") },
-    { id: "ufficio", label: "Ufficio", valore: (u) => (u.ufficio ? percorsoUfficio(perId[u.ufficio.id] || u.ufficio, perId) : "") },
+    { id: "ufficio", label: "Ufficio", valore: (u) => (u.ufficio ? percorsoDi[u.ufficio.id] || u.ufficio.name : "") },
     { id: "mansioni", label: "Mansioni", valore: (u) => (u.mansioni || []).map((m) => m.name).sort().join(", ") },
     { id: "tipo", label: "Tipo", valore: (u) => (u.is_external ? "esterno" : "interno") },
     { id: "stato", label: "Stato", valore: (u) => (u.is_active ? "attivo" : "disabilitato") },
@@ -254,6 +257,12 @@ export default function Utenti() {
           Se non indicata, la password viene generata automaticamente: se l'invio email è configurato (pagina Azienda) l'utente riceve un link per scegliere la sua password (non la password stessa), altrimenti la password temporanea compare nel risultato qui sotto.
           <br />Per <strong>disattivare</strong> utenti in blocco (es. cessati) scegli «Disattiva cessati»: basta la colonna <code>email</code> e ogni riga disattiva l'account corrispondente, senza toccarne lo storico formativo. Gli Admin non si disattivano da qui.
         </p>
+        <p style={{ fontSize: 13 }}>
+          <strong>Modelli da scaricare</strong> (cancella la riga di esempio prima di caricarli):{" "}
+          <button type="button" className="secondary btn-sm" onClick={() => scaricaModello("modello-nuovi-utenti.csv", COLONNE_CSV,
+            ["mario.rossi@azienda.it", "Mario", "Rossi", uffici[0]?.percorso || "Nome dell'ufficio", mansioniAttive[0]?.name || "", "no", "no", "no", "no", "", "2026-01-15", ""])}>Nuovi utenti</button>{" "}
+          <button type="button" className="secondary btn-sm" onClick={() => scaricaModello("modello-cessati.csv", ["email"], ["mario.rossi@azienda.it"])}>Disattiva cessati</button>
+        </p>
         <form onSubmit={importaCsv}>
           <div className="row">
             <div className="field">
@@ -358,7 +367,7 @@ export default function Utenti() {
                 <tr key={u.id}>
                   <td>{u.cognome}</td><td>{u.nome}</td><td>{u.email}</td>
                   <td>{etichette(u).map((t) => <span key={t} className="badge" style={{ marginRight: 4 }}>{t}</span>)}{etichette(u).length === 0 && "—"}</td>
-                  <td>{u.ufficio ? u.ufficio.name : "—"}</td>
+                  <td>{u.ufficio ? (percorsoDi[u.ufficio.id] || u.ufficio.name) : "—"}</td>
                   <td>{(u.mansioni || []).map((m) => <span key={m.id} className="badge" style={{ background: m.color, color: "#fff", marginRight: 4 }}>{m.name}</span>)}{(u.mansioni || []).length === 0 && "—"}</td>
                   <td>{u.is_external ? "esterno" : "interno"}</td>
                   <td>{u.is_active ? <span className="badge green">attivo</span> : <span className="badge red">disabilitato</span>}</td>

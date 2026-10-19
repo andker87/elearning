@@ -250,3 +250,18 @@ def test_un_esterno_non_si_iscrive_come_discente(client, auth, admin, crea_utent
     r = client.post(f"/api/edizioni/{ed.id}/iscrizioni", headers=auth(admin), json=[str(esterno.id)])
     assert r.status_code == 200 and r.json()["iscritti"] == []
     assert "docente" in r.json()["non_iscritti"][0]["motivo"]      # la persona e' esclusa, con il motivo
+
+
+def test_i_modelli_csv_scaricabili_si_importano_cosi_come_sono(client, auth, admin, db, crea_ufficio):
+    """Stesso contenuto dei modelli che la pagina Utenti fa scaricare (separatore «;», BOM, riga di esempio)."""
+    crea_ufficio("Alfa")
+    client.post("/api/mansioni", headers=auth(admin), json={"name": "Preposto"})
+    nuovi = "﻿email;nome;cognome;ufficio;mansioni;admin;formazione;formatore;is_external;organizzazione;data_ingresso;password\r\n" \
+            "mario.rossi@azienda.it;Mario;Rossi;Alfa;Preposto;no;no;no;no;;2026-01-15;\r\n"
+    r = csv(client, auth, admin, nuovi.encode("utf-8")).json()
+    assert [x["esito"] for x in r["righe"]] == ["creato"], r
+    u = db.query(User).filter(User.email_idx == impronta("mario.rossi@azienda.it")).one()
+    assert (u.nome, u.cognome) == ("Mario", "Rossi") and not u.is_admin and not u.is_formatore and u.data_ingresso is not None
+    cessati = "﻿email\r\nmario.rossi@azienda.it\r\n"
+    r = client.post("/api/auth/users/import-csv?modo=cessati", headers=auth(admin), files={"file": ("modello-cessati.csv", cessati.encode("utf-8"), "text/csv")}).json()
+    assert [x["esito"] for x in r["righe"]] == ["disattivato"]
