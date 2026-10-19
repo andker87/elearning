@@ -30,7 +30,8 @@ class PercorsoIn(BaseModel):
     motivo: MotivoObbligo = MotivoObbligo.policy_interna
     motivo_nota: Optional[str] = None
     trigger_tipo: TriggerAssegnazione = TriggerAssegnazione.manuale
-    trigger_gruppo_id: Optional[str] = None
+    trigger_gruppo_id: Optional[str] = None       # ufficio (e sottouffici)
+    trigger_mansione_id: Optional[str] = None
     steps: List[StepIn] = []
 
 def _serialize(p: PercorsoFormativo):
@@ -39,6 +40,7 @@ def _serialize(p: PercorsoFormativo):
         "motivo": p.motivo, "motivo_nota": p.motivo_nota,
         "trigger_tipo": p.trigger_tipo,
         "trigger_gruppo_id": str(p.trigger_gruppo_id) if p.trigger_gruppo_id else None,
+        "trigger_mansione_id": str(p.trigger_mansione_id) if p.trigger_mansione_id else None,
         "is_active": p.is_active,
         "steps": [{"id": str(s.id), "corso_id": str(s.corso_id), "ordine": s.ordine,
                    "richiede_step_ids": [str(pr.richiede_step_id) for pr in s.prerequisiti]}
@@ -53,7 +55,7 @@ def list_percorsi(db: Session = Depends(get_db), user=Depends(get_current_user))
 def create_percorso(data: PercorsoIn, request: Request, db: Session = Depends(get_db), user=Depends(require_training_admin)):
     p = PercorsoFormativo(nome=data.nome, descrizione=data.descrizione, motivo=data.motivo,
                            motivo_nota=data.motivo_nota, trigger_tipo=data.trigger_tipo,
-                           trigger_gruppo_id=data.trigger_gruppo_id)
+                           trigger_gruppo_id=data.trigger_gruppo_id, trigger_mansione_id=data.trigger_mansione_id)
     db.add(p); db.flush()
 
     step_by_ordine = {}
@@ -171,6 +173,7 @@ def update_percorso(percorso_id: str, data: PercorsoIn, request: Request, db: Se
     p.descrizione = data.descrizione
     p.trigger_tipo = data.trigger_tipo
     p.trigger_gruppo_id = data.trigger_gruppo_id
+    p.trigger_mansione_id = data.trigger_mansione_id
     audit_svc.log_from_request(db, request, user, "UPDATE", entity_type="percorso", entity_id=str(p.id), entity_name=p.nome)
 
     # Sostituzione completa degli step: l'autoring è admin-only e poco frequente,

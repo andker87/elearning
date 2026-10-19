@@ -15,7 +15,8 @@ class MotivoObbligo(str, enum.Enum):
 class TriggerAssegnazione(str, enum.Enum):
     manuale          = "manuale"
     ingresso_azienda = "ingresso_azienda"
-    gruppo           = "gruppo"
+    gruppo           = "gruppo"      # ufficio (e sottouffici)
+    mansione         = "mansione"
 
 class PercorsoFormativo(Base):
     """Percorso: sequenza obbligatoria di Corsi (es. onboarding, refresh annuale).
@@ -29,6 +30,7 @@ class PercorsoFormativo(Base):
     motivo_nota  = Column(String, nullable=True)  # es. "cliente Acme, contratto XYZ"
     trigger_tipo = Column(SAEnum(TriggerAssegnazione), nullable=False, default=TriggerAssegnazione.manuale)
     trigger_gruppo_id = Column(UUID(as_uuid=True), ForeignKey("groups.id"), nullable=True)
+    trigger_mansione_id = Column(UUID(as_uuid=True), ForeignKey("mansioni.id"), nullable=True)
     is_active    = Column(Boolean, default=True)
     created_at   = Column(DateTime(timezone=True), server_default=func.now())
     steps        = relationship("PercorsoStep", back_populates="percorso",

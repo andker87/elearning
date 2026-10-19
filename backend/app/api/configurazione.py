@@ -9,6 +9,8 @@ from sqlalchemy.orm import Session
 from ..database import get_db
 from ..models.corso import Corso
 from ..models.group import Group, UserGroup
+from ..models.mansione import Mansione, UserMansione
+from ..services.persone import permessi_testo
 from ..models.organizzazione import Organizzazione
 from ..models.percorso import PercorsoFormativo
 from ..models.user import User
@@ -57,13 +59,14 @@ def importa_configurazione(data: ImportIn, request: Request, db: Session = Depen
 
 @router.get("/auth/users/export")
 def esporta_utenti(formato: str = "csv", pagina: str = "A4", db: Session = Depends(get_db), user=Depends(require_admin_tecnico)):
-    gruppi = {}
-    for uid, nome in db.query(UserGroup.user_id, Group.name).join(Group, Group.id == UserGroup.group_id).all():
-        gruppi.setdefault(uid, []).append(nome)
-    colonne = ["Nome", "Email", "Ruolo", "Stato", "Tipo", "Credenziali", "Data ingresso", "Gruppi"]
-    righe = [[u.full_name, u.email, u.role.value, "attivo" if u.is_active else "disattivato", "esterno" if u.is_external else "interno",
-              "dominio" if u.origine_credenziali != "locale" else "locali", u.data_ingresso, "; ".join(sorted(gruppi.get(u.id, [])))]
-             for u in sorted(db.query(User).all(), key=lambda u: (u.full_name or "").casefold())]   # il nome e' cifrato: si ordina qui
+    uffici = {uid: nome for uid, nome in db.query(UserGroup.user_id, Group.name).join(Group, Group.id == UserGroup.group_id).all()}
+    mansioni = {}
+    for uid, nome in db.query(UserMansione.user_id, Mansione.name).join(Mansione, Mansione.id == UserMansione.mansione_id).all():
+        mansioni.setdefault(uid, []).append(nome)
+    colonne = ["Cognome", "Nome", "Email", "Permessi", "Stato", "Tipo", "Credenziali", "Data ingresso", "Ufficio", "Mansioni"]
+    righe = [[u.cognome, u.nome, u.email, permessi_testo(u), "attivo" if u.is_active else "disattivato", "esterno" if u.is_external else "interno",
+              "dominio" if u.origine_credenziali != "locale" else "locali", u.data_ingresso, uffici.get(u.id, ""), "; ".join(sorted(mansioni.get(u.id, [])))]
+             for u in sorted(db.query(User).all(), key=lambda u: u.chiave_ordine)]   # il nome e' cifrato: si ordina qui
     return esporta(formato, "utenti", "Utenti", colonne, righe, pagina)
 
 
@@ -85,11 +88,11 @@ def esporta_gruppi(formato: str = "csv", pagina: str = "A4", db: Session = Depen
     membri = {}
     for gid, in db.query(UserGroup.group_id).all():
         membri[gid] = membri.get(gid, 0) + 1
-    colonne = ["Gruppo", "Tipo", "Responsabile", "Membri", "Stato"]
-    righe = [[svc._percorso_gruppo(g, per_id), "ruolo di sistema" if g.is_system else ("ufficio" if g.is_ufficio else "gruppo"),
-              utenti.get(g.responsabile_id, ""), membri.get(g.id, 0), "attivo" if g.is_active else "disattivato"] for g in gruppi]
+    colonne = ["Ufficio", "Responsabile", "Persone", "Stato"]
+    righe = [[svc._percorso_gruppo(g, per_id), utenti.get(g.responsabile_id, ""), membri.get(g.id, 0),
+              "attivo" if g.is_active else "disattivato"] for g in gruppi]
     righe.sort(key=lambda r: r[0].lower())
-    return esporta(formato, "gruppi", "Gruppi e uffici", colonne, righe, pagina)
+    return esporta(formato, "gruppi", "Uffici", colonne, righe, pagina)
 
 
 @router.get("/corsi-export/percorsi")

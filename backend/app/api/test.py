@@ -10,7 +10,7 @@ from ..models.test import Test, Domanda, OpzioneRisposta, TentativoTest, Momento
 from ..models.iscrizione import Iscrizione, StatoIscrizione
 from ..models.edizione import Edizione, EdizioneDocente, StatoEdizione
 from ..models.corso import Corso
-from ..models.user import User, UserRole
+from ..models.user import User
 from ..services import certificati as cert_svc
 from ..services import audit as audit_svc
 from ..services.export import neutralizza
@@ -22,7 +22,7 @@ def _puo_gestire_test(db: Session, user: User, corso_id: str) -> bool:
     """Creazione/modifica test riservata a Ufficio Formazione/Admin o a un
     Formatore che ha effettivamente insegnato questo corso (docente di
     almeno un'edizione pianificata o in corso) - mai all'assistente, sempre un umano autorizzato."""
-    if user.role in (UserRole.admin_tecnico, UserRole.training_admin):
+    if user.ha_poteri_formazione:
         return True
     return db.query(EdizioneDocente).join(Edizione, Edizione.id == EdizioneDocente.edizione_id).filter(
         Edizione.corso_id == corso_id, EdizioneDocente.user_id == user.id,

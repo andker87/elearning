@@ -3,7 +3,7 @@ from datetime import datetime, timedelta, timezone
 
 from app.config import settings
 from app.models.password_reset import PasswordResetToken, RichiestaResetPassword
-from app.models.user import User, UserRole
+from app.models.user import User
 from app.services.rate_limit import consenti
 
 from conftest import PASSWORD
@@ -13,11 +13,12 @@ def login(client, email, password):
     return client.post("/api/auth/login", json={"email": email, "password": password})
 
 
-def test_creazione_utente_rispetta_la_policy_password(client, admin, auth):
+def test_creazione_utente_rispetta_la_policy_password(client, admin, auth, crea_ufficio):
+    uff = str(crea_ufficio().id)
     for debole in ["corta1!A", "senzamaiuscola1!aaaa", "SenzaNumero!!!!!!", "SenzaSpeciale12345A"]:
-        r = client.post("/api/auth/users", headers=auth(admin), json={"email": "n@test.it", "full_name": "N", "password": debole})
+        r = client.post("/api/auth/users", headers=auth(admin), json={"email": "n@test.it", "nome": "N", "cognome": "C", "password": debole, "ufficio_id": uff})
         assert r.status_code == 400, debole
-    r = client.post("/api/auth/users", headers=auth(admin), json={"email": "n@test.it", "full_name": "N", "password": PASSWORD})
+    r = client.post("/api/auth/users", headers=auth(admin), json={"email": "n@test.it", "nome": "N", "cognome": "C", "password": PASSWORD, "ufficio_id": uff})
     assert r.status_code == 200
     assert r.json()["password_da_cambiare"] is True  # password scelta da altri
 

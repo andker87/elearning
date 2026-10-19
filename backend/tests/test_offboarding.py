@@ -10,7 +10,7 @@ from app.models.iscrizione import Iscrizione, StatoIscrizione as S
 from app.models.job_run import JobRun
 from app.models.notification import Notification
 from app.models.push_subscription import PushSubscription
-from app.models.user import User, UserRole
+from app.models.user import User
 from app.services import entra_sync as svc
 from app.services.job_tracking import esegui_tracciato
 from app.services.offboarding import disattiva_utente
@@ -101,7 +101,7 @@ def test_piano_crea_aggiorna_disattiva_riattiva(db, entra, crea_utente):
 
 
 def test_admin_tecnico_non_si_disattiva_mai_da_solo(db, entra, crea_utente):
-    crea_utente("capo@az.it", UserRole.admin_tecnico)
+    crea_utente("capo@az.it", "admin")
     entra.membri = [membro("qualcuno@az.it")]
     piano = svc.calcola_piano(db, svc.leggi_membri())
     assert piano["disattiva"] == [] and piano["esclusi"][0]["email"] == "capo@az.it"
@@ -134,7 +134,7 @@ def test_applica_il_piano_e_traccia_ogni_modifica(db, entra, crea_utente):
     db.expire_all()
     assert db.query(User).filter(User.email_idx == impronta("esce@az.it")).one().is_active is False
     nuovo = db.query(User).filter(User.email_idx == impronta("nuovo@az.it")).one()
-    assert nuovo.origine_credenziali == "dominio" and nuovo.role == UserRole.user and nuovo.is_active
+    assert nuovo.origine_credenziali == "dominio" and not nuovo.is_admin and not nuovo.is_formazione and nuovo.is_active
     azioni = {a.action for a in db.query(AuditLog).all()}
     assert {"CREATE", "UPDATE", "DISATTIVA_UTENTE"} <= azioni
 

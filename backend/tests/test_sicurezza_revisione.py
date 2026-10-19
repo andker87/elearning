@@ -4,7 +4,7 @@ from datetime import timedelta
 from app.api.password_reset import RICHIESTE_PER_EMAIL
 from app.config import settings
 from app.models.azienda import Azienda
-from app.models.user import User, UserRole
+from app.models.user import User
 
 from conftest import PASSWORD, adesso
 
@@ -56,7 +56,7 @@ def test_login_e_reset_ignorano_le_maiuscole(client, crea_utente, monkeypatch):
 
 def test_non_si_creano_due_utenti_che_differiscono_per_le_maiuscole(client, admin, auth, crea_utente):
     crea_utente("a@x.it")
-    r = client.post("/api/auth/users", headers=auth(admin), json={"email": "A@x.it", "full_name": "Doppione", "password": PASSWORD})
+    r = client.post("/api/auth/users", headers=auth(admin), json={"email": "A@x.it", "nome": "Doppione", "cognome": "D", "password": PASSWORD, "is_admin": True})
     assert r.status_code == 400
 
 
@@ -64,14 +64,14 @@ def test_non_si_creano_due_utenti_che_differiscono_per_le_maiuscole(client, admi
 
 def test_il_nome_del_file_non_attiva_la_disattivazione(client, db, admin, auth, crea_utente):
     u = crea_utente("resta@az.it")
-    r = client.post("/api/auth/users/import-csv", headers=auth(admin), files={"file": ("cessata_formazione_nuovi.csv", b"email,full_name\nresta@az.it,X\n", "text/csv")})
+    r = client.post("/api/auth/users/import-csv", headers=auth(admin), files={"file": ("cessata_formazione_nuovi.csv", b"email,nome,cognome\nresta@az.it,X,Y\n", "text/csv")})
     assert r.status_code == 400 and "cessati" in r.json()["detail"]
     db.refresh(u)
     assert u.is_active
 
 
 def test_i_cessati_non_includono_gli_admin_tecnici(client, db, admin, auth, crea_utente):
-    altro_admin = crea_utente("altro.admin@az.it", UserRole.admin_tecnico)
+    altro_admin = crea_utente("altro.admin@az.it", "admin")
     normale = crea_utente("esce@az.it")
     r = client.post("/api/auth/users/import-csv", headers=auth(admin), params={"modo": "cessati"},
                     files={"file": ("e.csv", b"email\naltro.admin@az.it\nesce@az.it\n", "text/csv")}).json()
@@ -130,14 +130,15 @@ def test_chi_usa_il_dominio_non_e_bloccato_dal_cambio_password(client, auth, cre
 
 # --- quarto giro di revisione ---------------------------------------------------------------------
 
-def test_non_si_degrada_l_ultimo_admin_tecnico_ne_se_stessi(client, auth, admin, crea_utente):
-    r = client.put(f"/api/auth/users/{admin.id}", json={"role": "user"}, headers=auth(admin))
+def test_non_si_degrada_l_ultimo_admin_tecnico_ne_se_stessi(client, auth, admin, crea_utente, crea_ufficio):
+    uff = str(crea_ufficio().id)
+    r = client.put(f"/api/auth/users/{admin.id}", json={"is_admin": False, "ufficio_id": uff}, headers=auth(admin))
     assert r.status_code == 400
-    secondo = crea_utente("admin2@test.it", UserRole.admin_tecnico)
+    secondo = crea_utente("admin2@test.it", "admin")
     # un altro admin si puo' degradare, se ne resta almeno uno attivo
-    assert client.put(f"/api/auth/users/{secondo.id}", json={"role": "user"}, headers=auth(admin)).status_code == 200
+    assert client.put(f"/api/auth/users/{secondo.id}", json={"is_admin": False, "ufficio_id": uff}, headers=auth(admin)).status_code == 200
     # ma non se stessi
-    assert client.put(f"/api/auth/users/{admin.id}", json={"role": "user"}, headers=auth(admin)).status_code == 400
+    assert client.put(f"/api/auth/users/{admin.id}", json={"is_admin": False, "ufficio_id": uff}, headers=auth(admin)).status_code == 400
 
 
 def test_autoiscrizione_solo_in_sessioni_aperte(client, auth, utente, crea_corso, crea_edizione):

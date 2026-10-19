@@ -46,7 +46,7 @@ def test_il_file_non_contiene_segreti_ne_cio_che_e_fuori_ambito(client, db, admi
     for vietato in ("SEGRETISSIMA", "vapid", "hashed_password", "calendar_token_hash", "sso_subject"):
         assert vietato not in r.text
     dati = r.json()
-    assert dati["formato"] == "elearning-configurazione" and dati["schema"] == 1 and dati["non_incluso"]
+    assert dati["formato"] == "elearning-configurazione" and dati["schema"] == 2 and dati["non_incluso"]
     assert dati["azienda"]["nome_piattaforma"] == "Formazione Acme" and dati["azienda"]["privacy_testo"] == "Titolare: Acme"
     assert {g["percorso"] for g in dati["gruppi"]} == {"Direzione", "Direzione / Legale"}
     assert next(g for g in dati["gruppi"] if g["nome"] == "Direzione")["responsabile"] == "resp@acme.it"
@@ -142,7 +142,7 @@ def test_elenchi_in_tabella_con_i_permessi_giusti(client, db, admin, formazione,
     crea_ufficio("Ufficio X")
     db.add(Organizzazione(ragione_sociale="Ente Beta"))
     db.commit()
-    for percorso, ammessi, contiene in (("/api/auth/users/export", {"admin"}, "Admin Test"), ("/api/admin/gruppi-export", {"admin"}, "Ufficio X"),
+    for percorso, ammessi, contiene in (("/api/auth/users/export", {"admin"}, "Test,Admin"), ("/api/admin/gruppi-export", {"admin"}, "Ufficio X"),
                                          ("/api/organizzazioni-export/elenco", {"admin"}, "Ente Beta"),
                                          ("/api/corsi-export/elenco", {"admin", "formazione"}, "Sicurezza"), ("/api/corsi-export/percorsi", {"admin", "formazione"}, "Percorso A")):
         for nome, persona in {"admin": admin, "formazione": formazione, "utente": utente}.items():

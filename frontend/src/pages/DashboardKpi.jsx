@@ -3,6 +3,7 @@ import { BarChart, Bar, LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContai
 import api from "../api";
 import ExportButton from "../components/ExportButton";
 import { FiltroEtichette } from "../components/Etichette";
+import { elencoUffici } from "../uffici";
 
 const METRICHE = [
   { key: "tasso_completamento_pct", label: "Tasso di completamento %" },
@@ -39,7 +40,7 @@ export default function DashboardKpi() {
   useEffect(() => {
     api.get("/corsi").then((r) => setCorsi(r.data));
     api.get("/dashboard/kpi/docenti").then((r) => setDocenti(r.data));
-    api.get("/groups").then((r) => setUffici(r.data.filter((g) => g.is_ufficio)));
+    api.get("/groups").then((r) => setUffici(elencoUffici(r.data)));
   }, []);
 
   const paramsBase = useMemo(() => {
@@ -104,7 +105,7 @@ export default function DashboardKpi() {
             <label>Reparto/ufficio</label>
             <select value={filtri.ufficio_id} onChange={(e) => setFiltri({ ...filtri, ufficio_id: e.target.value })}>
               <option value="">Tutti</option>
-              {uffici.map((u) => <option key={u.id} value={u.id}>{u.name}</option>)}
+              {uffici.map((u) => <option key={u.id} value={u.id}>{u.etichetta}</option>)}
             </select>
           </div>
         </div>

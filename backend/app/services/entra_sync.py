@@ -9,17 +9,18 @@ import secrets
 from datetime import datetime, timedelta, timezone
 
 import httpx
-from sqlalchemy import func
+from sqlalchemy import func, or_
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from ..config import settings
 from ..models.notification import Notification
-from ..models.user import User, UserRole
+from ..models.user import User
 from . import audit as audit_svc
 from .auth import hash_password
 from .offboarding import avvisi_disattivazione, disattiva_utente, invita_promossi
 from .password_policy import genera_password_temporanea
+from .persone import dividi_nome
 from .percorsi_sync import sincronizza_assegnazioni
 from .impronte import impronta
 
@@ -49,7 +50,7 @@ def leggi_membri() -> list:
         raise EntraErrore("sincronizzazione non configurata")
     intestazioni = {"Authorization": f"Bearer {_token()}"}
     url = (f"{GRAPH}/groups/{settings.ENTRA_SYNC_GRUPPO_ID}/transitiveMembers/microsoft.graph.user"
-           "?$select=id,displayName,mail,userPrincipalName,proxyAddresses,accountEnabled,employeeHireDate&$top=999")
+           "?$select=id,displayName,givenName,surname,mail,userPrincipalName,proxyAddresses,accountEnabled,employeeHireDate&$top=999")
     membri = []
     while url:
         r = httpx.get(url, headers=intestazioni, timeout=30)
@@ -70,9 +71,17 @@ def leggi_membri() -> list:
             indirizzi = {email, (m.get("userPrincipalName") or "").strip().lower(), (m.get("mail") or "").strip().lower()}
             indirizzi |= {a[5:].strip().lower() for a in (m.get("proxyAddresses") or []) if isinstance(a, str) and a.lower().startswith("smtp:")}
             membri.append({"email": email, "indirizzi": sorted(i for i in indirizzi if "@" in i), "nome": (m.get("displayName") or "").strip(),
+                           "given": (m.get("givenName") or "").strip(), "cognome": (m.get("surname") or "").strip(),
                            "attivo": m.get("accountEnabled") is not False, "assunto_il": assunto})
         url = dati.get("@odata.nextLink")
     return membri
+
+
+def _nome_membro(m: dict) -> tuple:
+    """(nome, cognome) di un membro: givenName e surname di Entra se ci sono entrambi, altrimenti il nome visualizzato diviso."""
+    if m.get("given") and m.get("cognome"):
+        return m["given"][:100], m["cognome"][:100]
+    return dividi_nome((m.get("nome") or m["email"].split("@")[0])[:200])
 
 
 def calcola_piano(db: Session, membri: list) -> dict:
@@ -91,14 +100,22 @@ def calcola_piano(db: Session, membri: list) -> dict:
         if m["attivo"]:
             if not u:
                 recente = m["assunto_il"] and ora - m["assunto_il"] <= timedelta(days=GIORNI_ASSUNZIONE_RECENTE)
-                piano["crea"].append({"email": m["email"], "nome": m["nome"] or m["email"].split("@")[0],
+                nome_n, cognome_n = _nome_membro(m)
+                piano["crea"].append({"email": m["email"], "nome": f"{nome_n} {cognome_n}".strip(), "nome_n": nome_n, "cognome_n": cognome_n,
                                       "data_ingresso": m["assunto_il"] if recente else None})
             elif u.is_external:
                 continue
             elif not u.is_active:
                 piano["riattiva"].append({"email": u.email, "nome": u.full_name})
-            elif m["nome"] and m["nome"] != u.full_name:
-                piano["aggiorna"].append({"email": u.email, "da": u.full_name, "a": m["nome"]})
+            else:
+                separati = bool(m.get("given") and m.get("cognome"))
+                # Con nome e cognome separati si confrontano quelli. Con il solo nome visualizzato si confronta col nome intero
+                # salvato: la divisione si usa solo se quel testo e' cambiato davvero, cosi' una correzione fatta a mano
+                # (per esempio «Maria Grazia» / «Rossi») non viene annullata a ogni giro.
+                cambiato = (_nome_membro(m) != (u.nome, u.cognome)) if separati else bool(m["nome"] and m["nome"] != u.full_name)
+                if cambiato:
+                    nome_n, cognome_n = _nome_membro(m)
+                    piano["aggiorna"].append({"email": u.email, "da": u.full_name, "a": f"{nome_n} {cognome_n}".strip(), "nome_n": nome_n, "cognome_n": cognome_n})
 
     # Uscite: account disabilitato in Entra, oppure non piu' nel gruppo (solo per i domini del gruppo).
     candidati = [u for u in piattaforma.values() if u.is_active and not u.is_external and u.email.lower().split("@")[-1] in domini]
@@ -108,7 +125,7 @@ def calcola_piano(db: Session, membri: list) -> dict:
         motivo = "account disabilitato in Entra" if (m and not m["attivo"]) else ("non più nel gruppo Entra" if not m else None)
         if not motivo:
             continue
-        if u.role == UserRole.admin_tecnico:
+        if u.is_admin:
             piano["esclusi"].append({"email": u.email, "nome": u.full_name, "motivo": f"Admin tecnico ({motivo}): non si disattiva in automatico"})
             continue
         piano["disattiva"].append({"email": u.email, "nome": u.full_name, "motivo": motivo, "avvisi": avvisi_disattivazione(db, u)})
@@ -144,7 +161,7 @@ def applica_piano(db: Session, piano: dict, request=None, admin=None, riattiva: 
             continue
         try:
             with db.begin_nested():
-                db.add(User(email=c["email"], full_name=c["nome"][:200], role=UserRole.user, is_external=False,
+                db.add(User(email=c["email"], nome=c["nome_n"], cognome=c["cognome_n"], is_external=False,
                             hashed_password=hash_password(genera_password_temporanea() + secrets.token_urlsafe(8)),
                             origine_credenziali="dominio", data_ingresso=c["data_ingresso"]))
                 db.flush()
@@ -157,13 +174,13 @@ def applica_piano(db: Session, piano: dict, request=None, admin=None, riattiva: 
     db.flush()
     for a in piano["aggiorna"]:
         u = db.query(User).filter(User.email_idx == impronta(a["email"])).first()
-        if u and u.full_name != a["a"]:
-            u.full_name = a["a"][:200]
+        if u and (u.nome, u.cognome) != (a["nome_n"], a["cognome_n"]):
+            u.nome, u.cognome = a["nome_n"], a["cognome_n"]
             traccia("UPDATE", u.email, f"nome: {a['da']} → {a['a']}")
             esito["aggiornati"] += 1
     for d in piano["disattiva"]:
         u = db.query(User).filter(User.email_idx == impronta(d["email"])).first()
-        if not u or not u.is_active or u.role == UserRole.admin_tecnico:
+        if not u or not u.is_active or u.is_admin:
             continue
         r = disattiva_utente(db, u)
         traccia("DISATTIVA_UTENTE", u.email, d["motivo"] + (f" - posti liberati: {r['posti_liberati']}" if r["posti_liberati"] else ""))
@@ -185,7 +202,7 @@ def applica_piano(db: Session, piano: dict, request=None, admin=None, riattiva: 
 
 
 def _avvisa_responsabili(db: Session, testo: str):
-    for u in db.query(User).filter(User.is_active == True, User.role.in_([UserRole.admin_tecnico, UserRole.training_admin])).all():  # noqa: E712
+    for u in db.query(User).filter(User.is_active == True, or_(User.is_admin == True, User.is_formazione == True)).all():  # noqa: E712
         db.add(Notification(user_id=u.id, tipo="sync_entra", testo=testo, link="/sincronizzazione-utenti"))
 
 

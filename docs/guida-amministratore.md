@@ -1,22 +1,25 @@
 # Guida dell'amministratore
 
-Per chi configura e fa funzionare la piattaforma (ruolo **Admin tecnico**) e per l'**Ufficio Formazione**. Le voci di menu sono scritte come nell'app.
+Per chi configura e fa funzionare la piattaforma (permesso **Admin**) e per chi ha il permesso **Formazione**. Le voci di menu sono scritte come nell'app.
 
 ## 1. Prima configurazione (nell'ordine)
 1. **Primo avvio**: crea l'Admin tecnico. Conserva bene la password: è anche l'accesso di emergenza se l'accesso aziendale non funziona.
 2. **Impostazioni → Azienda**: ragione sociale, partita IVA, indirizzo, PEC, logo. Compaiono su attestati ed export.
 3. **Impostazioni → Piattaforma**: nome, **URL pubblico** (indispensabile per i link nelle email) e icona dell'app.
 4. **Impostazioni → Informativa privacy**: testo e/o PDF; ogni utente la legge da *Impostazioni utente → Privacy*. Nessuna accettazione al login.
-5. **Gruppi**: crea la struttura. Un gruppo marcato *Ufficio* ha un **responsabile**; la gerarchia dei sotto-uffici determina chi approva e chi vede le richieste.
+5. **Uffici**: crea la struttura (uffici e sottouffici). Ogni ufficio ha un **responsabile**; la gerarchia dei sottouffici determina chi approva e chi vede le richieste. **Mansioni**: crea le categorie trasversali (per esempio preposto, addetto antincendio) per assegnare percorsi in blocco.
 6. **Etichette dei corsi**: controlla le famiglie iniziali (Tematica, Riferimento normativo, Ambito, Obbligo), aggiungi i clienti nell'Ambito, decidi quali famiglie sono obbligatorie.
 7. **Utenti**: crea o importa le persone (vedi sotto).
 8. **Corsi**, **Template attestati**, **Percorsi formativi**, **Sessioni**.
 9. **Impostazioni → Stato piattaforma**: verifica posta, accesso aziendale, spazio e job notturni.
 
 ## 2. Utenti
-- La pagina ha tre schede: **Elenco** (cerca per nome o email, filtra per ruolo, gruppo, tipo e stato, clicca sulle intestazioni per ordinare, scegli quante righe per pagina), **Nuovo utente** e **Importa da CSV**.
+- La pagina ha tre schede: **Elenco** (cerca per nome, cognome o email, filtra per permessi, ufficio, mansione, tipo e stato, clicca sulle intestazioni per ordinare, scegli quante righe per pagina), **Nuovo utente** e **Importa da CSV**.
+- **Chi è chi**: un utente è **interno** (persona dell'organizzazione, oggetto di formazione) o **esterno** (docente di una società terza: ha un'organizzazione, non ha ufficio né mansioni, non si iscrive ai corsi). Ogni interno sta in **un solo ufficio** (obbligatorio, tranne per chi è Admin). Dalla scheda di ciascun utente (*Modifica*) si assegnano i permessi, che si sommano: **Admin** (configura la piattaforma, ha anche i poteri della Formazione), **Formazione** (corsi, edizioni, iscrizioni, attestati), e la qualifica **Formatore** (può essere scelto come docente nelle edizioni, senza poteri in più). Senza nessuna spunta è un utente semplice. Le **mansioni** sono etichette trasversali agli uffici, anche più d'una per persona, senza permessi.
+- **Uffici**: *Modifica* permette di cambiare nome, descrizione, colore, responsabile, stato e posizione nella gerarchia («Sottoufficio di», oppure «nessuno» per portarlo al primo livello). Negli elenchi gli uffici sono in ordine alfabetico e scritti con il percorso intero (`Produzione / Linea 2`).
+- **Nome e cognome** sono due campi separati: si mostrano entrambi nell'elenco e si può cercare e ordinare per ciascuno. Le persone esistenti prima della 2.3.0 sono state divise così: la prima parola è il nome, il resto il cognome (per «Maria Grazia Rossi» o «Mario De Luca» non c'è una regola esatta): controllale e correggile da *Modifica*. Con l'accesso aziendale e la sincronizzazione da Entra si usano nome e cognome dell'azienda, quando ci sono.
 - **Nuovo utente**: la password iniziale è facoltativa. Con posta e URL pubblico attivi la persona riceve un link (valido 3 giorni) per scegliere la propria password; altrimenti vedi una password temporanea, **una volta sola**, da comunicare a parte. Al primo accesso con una password assegnata si deve sceglierne una propria.
-- **Import CSV** (colonne: `email`, `full_name`, facoltative `password`, `role`, `is_external`, `organizzazione`, `gruppi`, `data_ingresso`). Per **disattivare** i cessati scegli «Disattiva cessati» (basta la colonna `email`; gli Admin tecnici non si disattivano da qui).
+- **Import CSV** (colonne: `email`, `nome`, `cognome`, `ufficio`, facoltative `password`, `admin`, `formazione`, `formatore` (sì/no), `mansioni` (separate da `;`), `is_external`, `organizzazione`, `data_ingresso`). **Uffici e mansioni vanno creati prima**: l'importazione non li crea. Se l'ufficio scritto non esiste, la riga viene scartata (errore) e la persona non viene creata; se una mansione non esiste, la persona viene creata senza quella mansione e la riga è segnalata come «creato, con avvisi». Le altre righe proseguono sempre. Nella scheda *Importa da CSV* si scaricano due **modelli** (nuovi utenti, disattiva cessati) con le colonne giuste e una riga di esempio da cancellare. L'ufficio si scrive con il nome o, se il nome si ripete, con il percorso intero (`Produzione / Linea 2`); è obbligatorio per gli interni che non sono Admin. Per **disattivare** i cessati scegli «Disattiva cessati» (basta la colonna `email`; gli Admin non si disattivano da qui).
 - **Disattivare un utente** chiude l'account e le sessioni, annulla le iscrizioni aperte (chi era in lista d'attesa sale) e toglie dispositivi e calendario. Lo storico formativo resta. Docenze aperte e responsabilità di ufficio vengono segnalate da riassegnare.
 - **Reset password**: se la posta non è attiva le richieste arrivano nella voce *Reset password*; generi una password temporanea da comunicare a parte.
 - **Accessi**: password di almeno 14 caratteri, con una maiuscola, un numero e un carattere speciale; dopo 5 tentativi falliti l'account è sospeso 15 minuti (la risposta è identica a una password sbagliata) e gli Admin tecnici ricevono una notifica; *Password dimenticata* toglie la sospensione.
@@ -29,7 +32,7 @@ Per chi configura e fa funzionare la piattaforma (ruolo **Admin tecnico**) e per
 - **Corso**: titolo, validità in mesi (vuoto = nessuna scadenza), test finale, auto-iscrizione, **etichette**. Le etichette si scelgono da un elenco; quelle obbligatorie impediscono di salvare un corso incompleto.
 - **Rinnovo automatico** (solo con una validità): iscrive la persona alla prossima sessione utile prima della scadenza (giorni di anticipo a tua scelta). Se non ci sono sessioni disponibili ricevi un avviso. «Chi verrebbe iscritto» mostra l'anteprima.
 - **Nuova versione** di un corso: scegli se chi lo ha già fatto deve ripeterlo (aggiornamenti normativi) o solo vedere «aggiornamento disponibile».
-- **Percorsi formativi**: sequenze di corsi con propedeuticità, assegnabili a mano, all'ingresso in azienda o a un gruppo.
+- **Percorsi formativi**: sequenze di corsi con propedeuticità, assegnabili a mano, all'ingresso in azienda, a un ufficio (sottouffici compresi) o a una mansione.
 - **Sessioni**: modalità presenza, ibrida, remoto, video, esterna. Una sessione video senza data resta sempre aperta (adatta al rinnovo automatico). Pianificare una bozza manda l'invito calendario agli iscritti.
 - **Video**: carica il file, la piattaforma lo converte; puoi aggiungere capitoli e sottotitoli (`.vtt`).
 
@@ -46,7 +49,7 @@ Per chi configura e fa funzionare la piattaforma (ruolo **Admin tecnico**) e per
 - Un responsabile può anche aprire una **richiesta spontanea** in qualsiasi momento.
 
 ## 7. Configurazione portabile
-*Impostazioni → Configurazione*: **esporta** dati aziendali, gruppi, società di formazione, corsi, percorsi ed etichette in un file; **importa** su un altro ambiente con anteprima. Non cancella nulla. Restano fuori persone, iscrizioni, video, immagini, template degli attestati, test e credenziali.
+*Impostazioni → Configurazione*: **esporta** dati aziendali, uffici, mansioni, società di formazione, corsi, percorsi ed etichette in un file; **importa** su un altro ambiente con anteprima. Non cancella nulla. Restano fuori persone, iscrizioni, video, immagini, template degli attestati, test e credenziali.
 
 ## 8. Quando qualcosa non va
 - *Stato piattaforma*: posta, accesso aziendale, job notturni (con errore), spazio, video in errore.

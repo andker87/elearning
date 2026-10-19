@@ -66,7 +66,7 @@ class PresenzaRiga(BaseModel):
 @router.post("/checkin/docente")
 def checkin_docente(edizione_id: str, righe: List[PresenzaRiga], request: Request, db: Session = Depends(get_db), user=Depends(get_current_user)):
     e = _get_edizione(db, edizione_id)
-    if not (_is_docente(e, user) or user.role.value in ("admin_tecnico", "training_admin")):
+    if not (_is_docente(e, user) or user.ha_poteri_formazione):
         raise HTTPException(403, "Solo il docente dell'edizione può compilare il registro")
     if e.stato == StatoEdizione.chiusa: raise HTTPException(400, "Edizione già chiusa")
     now = datetime.now(timezone.utc)
@@ -238,7 +238,7 @@ def _test_permette_completamento(db: Session, iscrizione: Iscrizione, corso: Cor
 @router.post("/chiudi")
 def chiudi_edizione(edizione_id: str, request: Request, db: Session = Depends(get_db), user=Depends(get_current_user)):
     e = _get_edizione(db, edizione_id)
-    if not (_is_docente(e, user) or user.role.value in ("admin_tecnico", "training_admin")):
+    if not (_is_docente(e, user) or user.ha_poteri_formazione):
         raise HTTPException(403, "Solo un docente dell'edizione o l'ufficio formazione può chiudere l'edizione")
     if e.stato == StatoEdizione.chiusa:
         raise HTTPException(400, "Già chiusa")

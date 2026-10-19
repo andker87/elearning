@@ -9,7 +9,6 @@ from ..database import get_db
 from ..models.azienda import Azienda
 from ..version import APP_VERSION
 from .deps import get_current_user
-from ..models.user import UserRole
 
 router = APIRouter(prefix="/api/about", tags=["about"])
 _AVVIO = time.time()
@@ -18,6 +17,32 @@ PACCHETTI = ["fastapi", "uvicorn", "sqlalchemy", "pydantic", "pyjwt", "httpx", "
              "reportlab", "openpyxl", "pywebpush", "psycopg2-binary"]
 
 CHANGELOG = [
+    {"version": "2.3.2", "date": "2026-10", "label": "Selettore colore e modifica sotto la riga", "changes": [
+        "Colore di uffici e mansioni: quadrato ben visibile che apre il selettore del browser, codice esadecimale (#RRGGBB) da scrivere o incollare, colori pronti e anteprima dell'etichetta; le mansioni ora hanno il colore anche in modifica",
+        "Uffici, mansioni e utenti: il modulo di modifica si apre subito sotto la riga della voce che si sta modificando, senza dover tornare in cima alla pagina",
+        "Importa da CSV: la pagina spiega che uffici e mansioni vanno creati prima; una persona creata senza una mansione inesistente è segnalata come «creato, con avvisi»",
+        "Corretto: l'invito email dell'importazione CSV partiva con il nome sbagliato per chi aveva delle mansioni; la sincronizzazione da Entra non annulla più una correzione di nome fatta a mano quando Entra manda solo il nome visualizzato; un ufficio usato da un percorso o dal fabbisogno non si elimina più per errore",
+    ]},
+    {"version": "2.3.1", "date": "2026-10", "label": "Uffici più facili da gestire", "changes": [
+        "Uffici: la modifica permette di cambiare nome, descrizione, colore, responsabile, stato e posizione nella gerarchia (sottoufficio di un altro ufficio, oppure di primo livello); non si può spostare un ufficio sotto uno dei suoi sottouffici",
+        "Gli uffici sono sempre in ordine alfabetico a ogni livello e scritti con il percorso intero (per esempio «Produzione / Linea 2») in tutte le tendine e nell'albero, così la gerarchia si legge anche nelle organizzazioni complesse",
+        "Importa da CSV: due modelli da scaricare (nuovi utenti, disattiva cessati), con le colonne giuste e una riga di esempio",
+        "Corretto: nelle pagine Fabbisogno, Matrice formativa, Registro formazione e dashboard il filtro per ufficio risultava vuoto dopo la 2.2.0",
+    ]},
+    {"version": "2.3.0", "date": "2026-10", "label": "Nome e cognome separati", "changes": [
+        "Nome e cognome sono due campi: si mostrano entrambi nell'elenco utenti e si usano per cercare e per ordinare (gli elenchi sono in ordine di cognome, poi nome); cifrati nel database come gli altri dati personali",
+        "L'importazione CSV usa le colonne nome e cognome al posto di full_name; la configurazione iniziale chiede i due campi",
+        "Accesso aziendale e sincronizzazione da Entra usano nome e cognome dell'azienda quando ci sono, altrimenti dividono il nome intero",
+        "Chi aggiorna: le persone esistenti sono divise con una regola semplice (la prima parola è il nome, il resto il cognome, per esempio «Maria Grazia Rossi» diventa Maria / Grazia Rossi): vanno controllate e corrette dalla scheda utente. Dove si scrive ancora il nome intero (certificati, notifiche) resta «Nome Cognome»",
+    ]},
+    {"version": "2.2.0", "date": "2026-10", "label": "Permessi, uffici e mansioni", "changes": [
+        "Il ruolo unico dell'utente è sostituito da permessi che si sommano (Admin, Formazione) e dalla qualifica Formatore; senza nessuno dei tre si è utenti semplici. Si assegnano dalla scheda di ciascun utente (nuovo pulsante Modifica nell'elenco)",
+        "Gli uffici sono la sola struttura organizzativa: albero di uffici e sottouffici con responsabile, un solo ufficio per persona (obbligatorio per gli interni, tranne gli Admin). I quattro gruppi di sistema, che non facevano nulla, e la pagina Ruoli sono stati tolti",
+        "Nuove mansioni: etichette trasversali agli uffici (per esempio preposto, addetto antincendio), anche più d'una per persona, senza permessi; servono ad assegnare un percorso in blocco e a filtrare l'elenco utenti",
+        "Come docente di un'edizione si possono scegliere solo i Formatori e gli utenti esterni (un esterno è un docente di una società terza: non ha ufficio né mansioni e non si iscrive ai corsi)",
+        "L'importazione CSV usa le colonne ufficio, mansioni, admin, formazione, formatore al posto di role e gruppi; la configurazione esportata include le mansioni e i file vecchi si importano ancora",
+        "Chi aggiorna: la migrazione trasforma i dati esistenti (ruoli in permessi, gruppi liberi che non erano uffici in mansioni, chi era docente o nel gruppo Formatori diventa Formatore); chi era in più uffici resta nel primo e la migrazione lo scrive nel log. Il profilo si rilegge dal server a ogni avvio, quindi il menu si aggiorna senza rifare l'accesso",
+    ]},
     {"version": "2.1.0", "date": "2026-10", "label": "Pagina Utenti a schede", "changes": [
         "La pagina Utenti è divisa in tre schede: Elenco, Nuovo utente, Importa da CSV, così non diventa lunghissima con molti utenti",
         "L'elenco ha ricerca per nome o email, filtri per ruolo, gruppo, tipo e stato, intestazioni cliccabili per ordinare (senza badare alle maiuscole, con i numeri trattati come numeri), paginazione a 25, 50 o 100 righe e mostra anche i gruppi di ciascuno",
@@ -229,7 +254,7 @@ def about(db: Session = Depends(get_db), user=Depends(get_current_user)):
         "versione": APP_VERSION,
     }
     # Agli utenti solo nome e versione: novita' tecniche, ambiente, librerie e integrazioni sono dell'Admin tecnico.
-    if user.role != UserRole.admin_tecnico:
+    if not user.is_admin:
         return dati
     dati["changelog"] = CHANGELOG
 

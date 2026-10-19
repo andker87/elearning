@@ -2,7 +2,7 @@ from fastapi import Depends, HTTPException, Request
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy.orm import Session
 from ..database import get_db
-from ..models.user import User, UserRole
+from ..models.user import User
 from ..services.auth import decode_token
 from ..services.impronte import impronta
 
@@ -27,11 +27,11 @@ def get_current_user(
     return user
 
 def require_admin_tecnico(user: User = Depends(get_current_user)):
-    if user.role != UserRole.admin_tecnico:
-        raise HTTPException(status_code=403, detail="Richiesto ruolo Admin tecnico")
+    if not user.is_admin:
+        raise HTTPException(status_code=403, detail="Richiesto il permesso Admin")
     return user
 
 def require_training_admin(user: User = Depends(get_current_user)):
-    if user.role not in (UserRole.admin_tecnico, UserRole.training_admin):
-        raise HTTPException(status_code=403, detail="Richiesto ruolo Ufficio Formazione o Admin tecnico")
+    if not user.ha_poteri_formazione:
+        raise HTTPException(status_code=403, detail="Richiesto il permesso Formazione o Admin")
     return user

@@ -23,6 +23,16 @@ api.interceptors.response.use(
   }
 );
 
+// Il profilo (permessi, ufficio...) si legge dal server a ogni avvio: dopo un aggiornamento della piattaforma o un
+// cambio di permessi il menu resta giusto senza rifare l'accesso. Se fallisce si lavora col profilo gia' salvato.
+export async function allineaProfilo() {
+  if (!localStorage.getItem("token")) return;
+  try {
+    const r = await api.get("/auth/me", { timeout: 5000 });   // se il server non risponde, parte comunque la pagina
+    localStorage.setItem("user", JSON.stringify(r.data));
+  } catch (e) { /* offline o server in avvio: si resta con il profilo salvato */ }
+}
+
 // Le rotte di export (CSV/PDF) richiedono il Bearer token: un <a href> puro
 // non lo manda, quindi si scarica come blob autenticato invece di navigare.
 export async function downloadFile(path, filename) {

@@ -14,7 +14,7 @@ CARTELLE = ["/app/uploads", "/app/videos"]
 VERIFICA = "verifica-cifratura"
 # Dati personali nel database (colonne di tipo TestoCifrato): tabella -> colonne.
 COLONNE_PERSONALI = {
-    "users": ("email", "full_name"),
+    "users": ("email", "nome", "cognome"),
     "organizzazioni": ("referente", "email", "telefono"),
     "audit_log": ("user_email", "ip_address", "detail"),
 }

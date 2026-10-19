@@ -1,140 +1,163 @@
 import React, { useEffect, useState } from "react";
-import api from "../api";
+import api, { erroreDi } from "../api";
+import { elencoUffici } from "../uffici";
+import SelettoreColore from "../components/SelettoreColore";
+
+// Gli uffici sono la struttura organizzativa: albero di uffici e sottouffici, ciascuno con un responsabile.
+// Le categorie trasversali (preposto, addetto antincendio...) sono le Mansioni.
+const VUOTO = { name: "", description: "", color: "#5a6b8a", parent_id: "", responsabile_id: "" };
 
 export default function Gruppi() {
   const [list, setList] = useState([]);
   const [utenti, setUtenti] = useState([]);
-  const [form, setForm] = useState({ name: "", description: "", color: "#5a6b8a", parent_id: "", is_ufficio: false, responsabile_id: "" });
-  const [editId, setEditId] = useState(null);
-  const [editForm, setEditForm] = useState({ is_ufficio: false, responsabile_id: "" });
+  const [form, setForm] = useState(VUOTO);
+  const [modifica, setModifica] = useState(null);     // {id, valori}
+  const [errore, setErrore] = useState(null);
+  const [erroreModifica, setErroreModifica] = useState(null);
 
-  function load() { api.get("/groups").then((r) => setList(r.data.filter((g) => !g.is_system))); }
+  function load() { api.get("/groups").then((r) => setList(r.data)); }
   useEffect(load, []);
-  useEffect(() => { api.get("/auth/users/simple").then((r) => setUtenti(r.data)); }, []);
+  useEffect(() => { if (modifica?.id) document.getElementById("g-form-modifica")?.scrollIntoView({ block: "nearest", behavior: "smooth" }); }, [modifica?.id]);
+  useEffect(() => { api.get("/auth/users/simple").then((r) => setUtenti(r.data.filter((u) => !u.is_external))); }, []);
+
+  const albero = elencoUffici(list);                // in ordine alfabetico a ogni livello, con il percorso intero
 
   async function submit(e) {
     e.preventDefault();
-    await api.post("/groups", { ...form, parent_id: form.parent_id || null, responsabile_id: form.responsabile_id || null, permissions: {} });
-    setForm({ name: "", description: "", color: "#5a6b8a", parent_id: "", is_ufficio: false, responsabile_id: "" });
+    setErrore(null);
+    try {
+      await api.post("/groups", { ...form, parent_id: form.parent_id || null, responsabile_id: form.responsabile_id || null });
+    } catch (err) { setErrore(erroreDi(err, "Impossibile creare l'ufficio")); return; }
+    setForm(VUOTO);
     load();
   }
 
-  async function remove(id) {
-    if (!window.confirm("Eliminare questo gruppo? I sottogruppi diventeranno di primo livello.")) return;
-    await api.delete(`/groups/${id}`);
+  async function remove(g) {
+    if (!window.confirm(`Eliminare l'ufficio «${g.etichetta}»? I sottouffici diventeranno di primo livello.`)) return;
+    setErrore(null);
+    try { await api.delete(`/groups/${g.id}`); } catch (err) { setErrore(erroreDi(err, "Impossibile eliminare l'ufficio")); return; }
+    if (modifica?.id === g.id) setModifica(null);
     load();
   }
 
-  function startEdit(g) {
-    setEditId(g.id);
-    setEditForm({ is_ufficio: g.is_ufficio, responsabile_id: g.responsabile_id || "" });
+  function apriModifica(g) {
+    setErroreModifica(null);
+    setModifica({ id: g.id, etichetta: g.etichetta, valori: { name: g.name, description: g.description || "", color: g.color || "#5a6b8a",
+      parent_id: g.parent_id || "", responsabile_id: g.responsabile_id || "", is_active: g.is_active !== false } });
   }
 
-  async function saveEdit(id) {
-    await api.put(`/groups/${id}`, { is_ufficio: editForm.is_ufficio, responsabile_id: editForm.responsabile_id || null });
-    setEditId(null);
+  async function salvaModifica(e) {
+    e.preventDefault();
+    setErroreModifica(null);
+    const v = modifica.valori;
+    try {
+      // parent_id e responsabile_id vuoti tolgono il collegamento (l'ufficio torna di primo livello / senza responsabile)
+      await api.put(`/groups/${modifica.id}`, { name: v.name, description: v.description, color: v.color,
+        parent_id: v.parent_id || "", responsabile_id: v.responsabile_id || "", is_active: v.is_active });
+    } catch (err) { setErroreModifica(erroreDi(err, "Impossibile salvare l'ufficio")); return; }
+    setModifica(null);
     load();
   }
 
-  // Costruisce l'albero per la visualizzazione a indentazione
-  function renderAlbero(parentId, depth) {
-    return list.filter((g) => g.parent_id === parentId).map((g) => (
-      <React.Fragment key={g.id}>
-        <tr>
-          <td style={{ paddingLeft: 16 + depth * 24 }}>
-            <span className="badge" style={{ background: g.color, color: "#fff" }}>{g.name}</span>
-          </td>
-          <td>{g.description}</td>
-          <td>
-            {editId === g.id ? (
-              <label style={{ display: "flex", alignItems: "center", gap: 4 }}>
-                <input type="checkbox" checked={editForm.is_ufficio} onChange={(e) => setEditForm({ ...editForm, is_ufficio: e.target.checked })} /> Ufficio
-              </label>
-            ) : (
-              g.is_ufficio ? <span className="badge">Ufficio</span> : "—"
-            )}
-          </td>
-          <td>
-            {editId === g.id ? (
-              editForm.is_ufficio && (
-                <select value={editForm.responsabile_id} onChange={(e) => setEditForm({ ...editForm, responsabile_id: e.target.value })}>
-                  <option value="">-- nessuno --</option>
-                  {utenti.map((u) => <option key={u.id} value={u.id}>{u.full_name}</option>)}
-                </select>
-              )
-            ) : (
-              g.responsabile_nome || "—"
-            )}
-          </td>
-          <td>
-            {editId === g.id ? (
-              <>
-                <button className="btn-sm" onClick={() => saveEdit(g.id)}>Salva</button>{" "}
-                <button className="btn-sm" onClick={() => setEditId(null)}>Annulla</button>
-              </>
-            ) : (
-              <>
-                <button className="btn-sm" onClick={() => startEdit(g)}>Modifica</button>{" "}
-                <button className="danger btn-sm" onClick={() => remove(g.id)}>Elimina</button>
-              </>
-            )}
-          </td>
-        </tr>
-        {renderAlbero(g.id, depth + 1)}
-      </React.Fragment>
-    ));
-  }
+  const imposta = (campo) => (e) => setModifica({ ...modifica, valori: { ...modifica.valori, [campo]: e.target.type === "checkbox" ? e.target.checked : e.target.value } });
+  const impostaColore = (c) => setModifica((m) => ({ ...m, valori: { ...m.valori, color: c } }));
+  const opzioniPadre = modifica ? elencoUffici(list, modifica.id) : [];   // senza l'ufficio stesso e il suo ramo
 
   return (
     <div>
       <div className="page-header">
         <div>
-          <h2>Gruppi</h2>
-          <p>Struttura libera con sottogruppi, per modellare reparti/team reali e assegnare corsi in blocco (es. un percorso con trigger "gruppo"). Un gruppo marcato come "Ufficio" ha un responsabile: la gerarchia dei responsabili si deriva da qui.</p>
+          <h2>Uffici</h2>
+          <p>La struttura dell'organizzazione: uffici e sottouffici, ciascuno con il suo responsabile. Ogni persona interna sta in un solo ufficio (si sceglie dalla sua scheda in Utenti). Un percorso può essere assegnato a un ufficio e ai suoi sottouffici. Per le categorie trasversali (preposto, addetto antincendio...) usa le Mansioni.</p>
         </div>
       </div>
+      {errore && <div className="error-msg">{errore}</div>}
       <div className="card">
-        <h3>Nuovo gruppo</h3>
+        <h3>Nuovo ufficio</h3>
         <form onSubmit={submit}>
           <div className="row">
             <div className="field"><label>Nome</label><input required value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} /></div>
-            <div className="field"><label>Colore</label><input type="color" value={form.color} onChange={(e) => setForm({ ...form, color: e.target.value })} /></div>
+            <div className="field"><label>Colore</label><SelettoreColore valore={form.color} anteprima={form.name} onChange={(c) => setForm({ ...form, color: c })} /></div>
           </div>
           <div className="row">
             <div className="field"><label>Descrizione</label><input value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} /></div>
             <div className="field">
-              <label>Sottogruppo di</label>
+              <label>Sottoufficio di</label>
               <select value={form.parent_id} onChange={(e) => setForm({ ...form, parent_id: e.target.value })}>
                 <option value="">-- nessuno (primo livello) --</option>
-                {list.map((g) => <option key={g.id} value={g.id}>{g.name}</option>)}
+                {albero.map((g) => <option key={g.id} value={g.id}>{g.etichetta}</option>)}
               </select>
             </div>
           </div>
-          <div className="row">
-            <div className="field">
-              <label style={{ display: "flex", alignItems: "center", gap: 4 }}>
-                <input type="checkbox" checked={form.is_ufficio} onChange={(e) => setForm({ ...form, is_ufficio: e.target.checked })} /> È un ufficio
-              </label>
-            </div>
-            {form.is_ufficio && (
-              <div className="field">
-                <label>Responsabile</label>
-                <select value={form.responsabile_id} onChange={(e) => setForm({ ...form, responsabile_id: e.target.value })}>
-                  <option value="">-- nessuno --</option>
-                  {utenti.map((u) => <option key={u.id} value={u.id}>{u.full_name}</option>)}
-                </select>
-              </div>
-            )}
+          <div className="field">
+            <label>Responsabile</label>
+            <select value={form.responsabile_id} onChange={(e) => setForm({ ...form, responsabile_id: e.target.value })}>
+              <option value="">-- nessuno --</option>
+              {utenti.map((u) => <option key={u.id} value={u.id}>{u.full_name}</option>)}
+            </select>
           </div>
           <button type="submit">Crea</button>
         </form>
       </div>
       <div className="table-wrap">
         <table>
-          <thead><tr><th>Nome</th><th>Descrizione</th><th>Ufficio</th><th>Responsabile</th><th></th></tr></thead>
+          <thead><tr><th>Ufficio</th><th>Descrizione</th><th>Responsabile</th><th>Stato</th><th></th></tr></thead>
           <tbody>
-            {renderAlbero(null, 0)}
-            {list.length === 0 && <tr><td colSpan={5} className="empty-state">Nessun gruppo ancora creato.</td></tr>}
+            {albero.map((g) => (
+              <React.Fragment key={g.id}>
+              <tr>
+                <td style={{ paddingLeft: 16 + g.livello * 24 }}>
+                  {g.livello > 0 && <span className="text-muted" aria-hidden="true">└ </span>}
+                  <span className="badge" style={{ background: g.color, color: "#fff" }}>{g.name}</span>
+                </td>
+                <td>{g.description}</td>
+                <td>{g.responsabile_nome || "—"}</td>
+                <td>{g.is_active === false ? <span className="badge gray">non attivo</span> : <span className="badge green">attivo</span>}</td>
+                <td>
+                  <button className="btn-sm" onClick={() => apriModifica(g)}>Modifica</button>{" "}
+                  <button className="danger btn-sm" onClick={() => remove(g)}>Elimina</button>
+                </td>
+              </tr>
+              {modifica?.id === g.id && (
+                <tr>
+                  <td colSpan={5} style={{ background: "var(--bg3)", paddingLeft: 16 + g.livello * 24 }}>
+                    <form id="g-form-modifica" onSubmit={salvaModifica}>
+                      <h4 style={{ margin: "8px 0" }}>Modifica «{modifica.etichetta}»</h4>
+                      <div className="row">
+                        <div className="field"><label htmlFor="g-nome">Nome</label><input id="g-nome" required autoFocus value={modifica.valori.name} onChange={imposta("name")} /></div>
+                        <div className="field"><label htmlFor="g-colore">Colore</label><SelettoreColore id="g-colore" valore={modifica.valori.color} anteprima={modifica.valori.name} onChange={impostaColore} /></div>
+                      </div>
+                      <div className="field"><label htmlFor="g-descr">Descrizione</label><input id="g-descr" value={modifica.valori.description} onChange={imposta("description")} /></div>
+                      <div className="row">
+                        <div className="field">
+                          <label htmlFor="g-padre">Sottoufficio di</label>
+                          <select id="g-padre" value={modifica.valori.parent_id} onChange={imposta("parent_id")}>
+                            <option value="">-- nessuno (primo livello) --</option>
+                            {opzioniPadre.map((u) => <option key={u.id} value={u.id}>{u.etichetta}</option>)}
+                          </select>
+                          <span className="text-muted" style={{ fontSize: 12 }}>Scegli «nessuno» per togliere l'ufficio dalla gerarchia: diventa di primo livello. Non si può scegliere un suo sottoufficio.</span>
+                        </div>
+                        <div className="field">
+                          <label htmlFor="g-resp">Responsabile</label>
+                          <select id="g-resp" value={modifica.valori.responsabile_id} onChange={imposta("responsabile_id")}>
+                            <option value="">-- nessuno --</option>
+                            {utenti.map((u) => <option key={u.id} value={u.id}>{u.full_name}</option>)}
+                          </select>
+                        </div>
+                      </div>
+                      <div className="field">
+                        <label><input type="checkbox" style={{ width: "auto", marginRight: 6 }} checked={modifica.valori.is_active} onChange={imposta("is_active")} />Attivo</label>
+                      </div>
+                      {erroreModifica && <div className="error-msg">{erroreModifica}</div>}
+                      <button type="submit">Salva</button>{" "}
+                      <button type="button" className="secondary" onClick={() => setModifica(null)}>Annulla</button>
+                    </form>
+                  </td>
+                </tr>
+              )}
+              </React.Fragment>
+            ))}
+            {albero.length === 0 && <tr><td colSpan={5} className="empty-state">Nessun ufficio ancora creato.</td></tr>}
           </tbody>
         </table>
       </div>

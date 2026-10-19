@@ -3,6 +3,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 from ..models.edizione import Edizione
 from ..models.iscrizione import Iscrizione, StatoIscrizione
+from ..models.user import User
 
 STATI_OCCUPANO_POSTO = (StatoIscrizione.iscritto, StatoIscrizione.completato, StatoIscrizione.non_completato)
 
@@ -15,6 +16,9 @@ def crea_iscrizione_con_capacita(db: Session, edizione: Edizione, user_id: str) 
     altrimenti rifiutata. Centralizzato perché iscrizione diretta,
     auto-iscrizione e promozione dalla lista d'attesa devono comportarsi
     allo stesso modo."""
+    # Un esterno e' un docente di una societa' terza: non e' oggetto di formazione.
+    if db.query(User.id).filter(User.id == user_id, User.is_external == True).first():  # noqa: E712
+        raise HTTPException(400, "Un utente esterno è un docente: non si iscrive come discente")
     # Blocco della sessione fino al commit: due richieste in parallelo non possono prendere lo stesso ultimo posto.
     db.query(Edizione.id).filter(Edizione.id == edizione.id).with_for_update().first()
     if edizione.posti_max and posti_occupati(db, edizione.id) >= edizione.posti_max:

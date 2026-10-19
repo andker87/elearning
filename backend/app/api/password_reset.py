@@ -12,7 +12,7 @@ from ..database import get_db
 from ..models.azienda import Azienda
 from ..models.notification import Notification
 from ..models.password_reset import PasswordResetToken, RichiestaResetPassword
-from ..models.user import User, UserRole
+from ..models.user import User
 from ..services import audit as audit_svc
 from ..services import rate_limit
 from ..services.email import invia_email, in_sottofondo
@@ -79,7 +79,7 @@ def password_dimenticata(data: EmailIn, request: Request, db: Session = Depends(
             db.add(RichiestaResetPassword(user_id=u.id))
             audit_svc.log_from_request(db, request, u, "PASSWORD_RESET_RICHIESTA", entity_type="user", entity_id=str(u.id),
                                         entity_name=u.email, detail="in attesa di un Admin tecnico")
-            for adm in db.query(User).filter(User.role == UserRole.admin_tecnico, User.is_active == True).all():  # noqa: E712
+            for adm in db.query(User).filter(User.is_admin == True, User.is_active == True).all():  # noqa: E712
                 db.add(Notification(user_id=adm.id, tipo="richiesta_reset_password",
                                     testo=f"{u.full_name} ha chiesto di reimpostare la password.", link="/reset-password-richieste"))
             db.commit()

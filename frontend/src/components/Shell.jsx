@@ -34,8 +34,8 @@ function etichettaRichieste(uffici) {
 }
 
 function buildSections(user, haSottoposti, uffici) {
-  const isTrainingAdmin = user?.role === "training_admin" || user?.role === "admin_tecnico";
-  const isAdminTecnico = user?.role === "admin_tecnico";
+  const isTrainingAdmin = !!user?.poteri_formazione;
+  const isAdminTecnico = !!user?.is_admin;
   const sections = [
     { label: "Utente", links: [
       { to: "/miei-corsi", label: "I miei corsi", icon: "🎓" },
@@ -77,9 +77,9 @@ function buildSections(user, haSottoposti, uffici) {
   if (isAdminTecnico) {
     sections.push({ label: "Amministrazione", links: [
       { to: "/utenti", label: "Utenti", icon: "👤" },
-      { to: "/ruoli", label: "Ruoli", icon: "🏷️" },
+      { to: "/gruppi", label: "Uffici", icon: "🗂️" },
+      { to: "/mansioni", label: "Mansioni", icon: "🏷️" },
       { to: "/reset-password-richieste", label: "Reset password", icon: "🔑" },
-      { to: "/gruppi", label: "Gruppi", icon: "🗂️" },
       { to: "/sincronizzazione-utenti", label: "Sincronizzazione utenti", icon: "🔄" },
       { to: "/societa-formazione-esterne", label: "Società di formazione", icon: "🏢" },
     ], sub: { label: "Impostazioni", icon: "⚙️", chiave: SUB_IMPOSTAZIONI_KEY, links: [
