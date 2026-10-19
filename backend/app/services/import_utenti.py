@@ -10,7 +10,9 @@ Regole:
   e non parte nessuna email.
 """
 import csv
+import hashlib
 import io
+import json
 import zipfile
 from datetime import date, datetime
 
@@ -70,7 +72,10 @@ def _leggi_csv(contenuto: bytes) -> list:
         raise HTTPException(400, "File vuoto")
     delimitatore = ";" if righe[0].count(";") > righe[0].count(",") else ","
     lettore = csv.reader(io.StringIO(testo), delimiter=delimitatore)
-    return [(n, [c for c in riga]) for n, riga in enumerate(lettore, start=1)]
+    try:
+        return [(n, [c for c in riga]) for n, riga in enumerate(lettore, start=1)]
+    except csv.Error:
+        raise HTTPException(400, "Il CSV non si riesce a leggere: controlla le virgolette (una che si apre e non si chiude, o un campo enorme) oppure salva il file come Excel (.xlsx)")
 
 
 def _leggi_xlsx(contenuto: bytes) -> list:
@@ -118,11 +123,24 @@ def leggi_tabella(nome_file: str, contenuto: bytes) -> tuple:
 
 # --- nuovi utenti -----------------------------------------------------------------------------------
 
+def impronta_controllo(righe: list) -> str:
+    """Impronta di cio' che l'importazione farebbe (riga, email, esito, avvisi): la conferma deve ritrovare lo stesso
+    risultato visto nel controllo, altrimenti qualcosa e' cambiato nel frattempo e va rifatto il controllo."""
+    base = json.dumps([[r["riga"], r["email"], r["esito"], r["avvisi"]] for r in righe], ensure_ascii=False, sort_keys=True)
+    return hashlib.sha256(base.encode()).hexdigest()[:24]
+
+
+def _verifica_controllo(db, righe: list, anteprima: bool, controllo):
+    if controllo and not anteprima and impronta_controllo(righe) != controllo:
+        db.rollback()
+        raise HTTPException(409, "Dal controllo a ora qualcosa è cambiato (persone, uffici o mansioni): non è stato importato nulla. Controlla di nuovo il file.")
+
+
 def _riga(n, email, esito, messaggio, avvisi=None, **extra):
     return {"riga": n, "email": email, "esito": esito, "messaggio": messaggio, "avvisi": avvisi or [], **extra}
 
 
-def elabora_nuovi(db: Session, request, admin, intestazioni: list, righe: list, anteprima: bool) -> dict:
+def elabora_nuovi(db: Session, request, admin, intestazioni: list, righe: list, anteprima: bool, controllo: str = None) -> dict:
     if "full_name" in intestazioni and "cognome" not in intestazioni:
         raise HTTPException(400, "La colonna «full_name» non esiste più: usa due colonne, «nome» e «cognome»")
     if not {"email", "nome", "cognome"} <= set(intestazioni):
@@ -132,7 +150,9 @@ def elabora_nuovi(db: Session, request, admin, intestazioni: list, righe: list, 
 
     uffici = db.query(Group).all()
     per_id = {g.id: g for g in uffici}
-    uffici_per_percorso = {_percorso_gruppo(g, per_id).lower(): g for g in uffici}
+    uffici_per_percorso = {}                 # anche due uffici con lo stesso percorso intero (il nome non e' univoco)
+    for g in uffici:
+        uffici_per_percorso.setdefault(_percorso_gruppo(g, per_id).lower(), []).append(g)
     uffici_per_nome = {}
     for g in uffici:
         uffici_per_nome.setdefault(g.name.lower(), []).append(g)
@@ -182,15 +202,13 @@ def elabora_nuovi(db: Session, request, admin, intestazioni: list, righe: list, 
         avvisi, ufficio = [], None
         nome_ufficio = row.get("ufficio", "")
         if nome_ufficio:
-            ufficio = uffici_per_percorso.get(nome_ufficio.lower())
-            if not ufficio:
-                candidati = uffici_per_nome.get(nome_ufficio.lower(), [])
-                if len(candidati) > 1:
-                    avvisi.append(f"ufficio «{nome_ufficio}» ambiguo (esiste in più rami): scrivi il percorso intero, per esempio Produzione / Linea 2. Creato senza ufficio")
-                elif candidati:
-                    ufficio = candidati[0]
-                else:
-                    avvisi.append(f"ufficio «{nome_ufficio}» non presente. Creato senza ufficio")
+            candidati = uffici_per_percorso.get(nome_ufficio.lower()) or uffici_per_nome.get(nome_ufficio.lower(), [])   # il percorso intero ha la precedenza sul solo nome
+            if len(candidati) > 1:
+                avvisi.append(f"ufficio «{nome_ufficio}» ambiguo (ne esistono più d'uno con questo nome o percorso): scrivi il percorso intero, per esempio Produzione / Linea 2; se anche il percorso è identico, rinomina gli uffici per distinguerli. Creato senza ufficio")
+            elif candidati:
+                ufficio = candidati[0]
+            else:
+                avvisi.append(f"ufficio «{nome_ufficio}» non presente. Creato senza ufficio")
         elif not is_external and not is_admin:
             avvisi.append("ufficio non indicato. Creato senza ufficio")
 
@@ -241,6 +259,7 @@ def elabora_nuovi(db: Session, request, admin, intestazioni: list, righe: list, 
                          nome=f"{nome} {cognome}", email_inviata=inviata,
                          password=None if (anteprima or inviata) else password))
 
+    _verifica_controllo(db, out, anteprima, controllo)
     if anteprima:
         db.rollback()
     else:
@@ -248,14 +267,14 @@ def elabora_nuovi(db: Session, request, admin, intestazioni: list, righe: list, 
             audit_svc.log_from_request(db, request, admin, "CREATE", entity_type="user", entity_name=f"import: {creati} utenti creati")
         sincronizza_assegnazioni(db)
         db.commit()
-    return {"anteprima": anteprima, "totale": len(out), "creati": creati,
+    return {"anteprima": anteprima, "controllo": impronta_controllo(out), "totale": len(out), "creati": creati,
             "con_avvisi": sum(1 for r in out if r["esito"] == "creato" and r["avvisi"]),
             "errori": sum(1 for r in out if r["esito"] == "errore"), "righe": out}
 
 
 # --- cessati ----------------------------------------------------------------------------------------
 
-def elabora_cessati(db: Session, request, admin, intestazioni: list, righe: list, anteprima: bool) -> dict:
+def elabora_cessati(db: Session, request, admin, intestazioni: list, righe: list, anteprima: bool, controllo: str = None) -> dict:
     if "email" not in intestazioni:
         raise HTTPException(400, "Intestazione richiesta: email")
     out, disattivati, promossi_tutti = [], 0, []
@@ -284,6 +303,7 @@ def elabora_cessati(db: Session, request, admin, intestazioni: list, righe: list
         if avvisi:
             messaggio += " - attenzione: " + "; ".join(avvisi)
         out.append(_riga(n, email, "disattivato", messaggio, avvisi, nome=u.full_name))
+    _verifica_controllo(db, out, anteprima, controllo)
     if anteprima:
         db.rollback()
     else:
@@ -291,7 +311,7 @@ def elabora_cessati(db: Session, request, admin, intestazioni: list, righe: list
             audit_svc.log_from_request(db, request, admin, "UPDATE", entity_type="user", entity_name=f"import cessati: {disattivati} utenti disattivati")
         db.commit()
         invita_promossi(db, promossi_tutti)
-    return {"anteprima": anteprima, "totale": len(out), "creati": 0, "disattivati": disattivati,
+    return {"anteprima": anteprima, "controllo": impronta_controllo(out), "totale": len(out), "creati": 0, "disattivati": disattivati,
             "con_avvisi": sum(1 for r in out if r["esito"] == "disattivato" and r["avvisi"]),
             "errori": sum(1 for r in out if r["esito"] == "errore"), "righe": out}
 

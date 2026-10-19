@@ -23,6 +23,7 @@ CHANGELOG = [
         "Un ufficio o una mansione che non esistono, o un ufficio lasciato vuoto, non scartano più la riga: la persona viene creata senza e il riepilogo lo dice (uffici e mansioni non si creano mai da soli); restano scartate solo le righe inutilizzabili (email, nome o cognome mancanti, email già presente, esterno senza organizzazione, password o data non valide)",
         "Modelli scaricabili in Excel e CSV, generati con i nomi veri di uffici e mansioni del sistema; il modello Excel ha i fogli Istruzioni, Uffici e Mansioni e il menu a tendina per l'ufficio",
         "Dopo l'importazione si scarica il riepilogo dei problemi e si trovano le persone senza ufficio con il nuovo filtro «Senza ufficio» nell'elenco utenti",
+        "La conferma vale solo per il risultato visto nel controllo: se nel frattempo qualcosa cambia (una persona creata o disattivata da altri, un ufficio o una mansione) l'importazione si ferma senza fare nulla e chiede di controllare di nuovo; durante l'importazione la finestra non si può chiudere; due uffici con lo stesso nome o percorso risultano ambigui invece di sceglierne uno a caso; un CSV malformato dà un messaggio chiaro",
     ]},
     {"version": "2.3.2", "date": "2026-10", "label": "Selettore colore e modifica sotto la riga", "changes": [
         "Colore di uffici e mansioni: quadrato ben visibile che apre il selettore del browser, codice esadecimale (#RRGGBB) da scrivere o incollare, colori pronti e anteprima dell'etichetta; le mansioni ora hanno il colore anche in modifica",

@@ -161,3 +161,46 @@ def test_solo_l_admin_scarica_i_modelli_e_importa(client, auth, formazione, uten
     for u in (formazione, utente):
         assert client.get("/api/auth/users/import-modello", headers=auth(u)).status_code == 403
         assert invia(client, auth, u, "u.csv", "email,nome,cognome\n").status_code == 403
+
+
+# --- correzioni dalla review ----------------------------------------------------------------------
+
+def test_un_csv_malformato_da_400_con_una_spiegazione(client, auth, admin):
+    brutto = b'email,nome,cognome\n"x@az.it,Mario,' + b"a" * 200000        # virgolette mai chiuse e campo enorme
+    r = invia(client, auth, admin, "u.csv", brutto)
+    assert r.status_code == 400 and "virgolette" in r.json()["detail"]
+
+
+def test_due_uffici_con_lo_stesso_percorso_sono_ambigui(client, auth, admin, db, crea_ufficio):
+    crea_ufficio("Vendite"); crea_ufficio("Vendite")          # due uffici di primo livello con lo stesso nome
+    r = invia(client, auth, admin, "u.csv", "email,nome,cognome,ufficio\nx@az.it,X,Y,Vendite\n").json()
+    assert r["righe"][0]["esito"] == "creato" and "ambiguo" in r["righe"][0]["avvisi"][0]
+    u = db.query(User).filter(User.email_idx == impronta("x@az.it")).one()
+    assert db.query(UserGroup).filter(UserGroup.user_id == u.id).count() == 0     # niente ufficio scelto a caso
+
+
+def test_la_conferma_vale_solo_per_il_risultato_visto_nel_controllo(client, auth, admin, db, crea_ufficio, crea_utente):
+    crea_ufficio("Produzione")
+    testo = "email,nome,cognome,ufficio\nmario@az.it,Mario,Rossi,Produzione\n"
+    prima = invia(client, auth, admin, "u.csv", testo, anteprima="true").json()
+    assert len(prima["controllo"]) == 24
+    assert invia(client, auth, admin, "u.csv", testo, anteprima="true").json()["controllo"] == prima["controllo"]    # stesso file, stesso controllo
+    # nel frattempo qualcuno crea quella stessa persona: la conferma non deve procedere
+    crea_utente("mario@az.it")
+    r = invia(client, auth, admin, "u.csv", testo, controllo=prima["controllo"])
+    assert r.status_code == 409 and "Controlla di nuovo" in r.json()["detail"]
+    assert db.query(User).filter(User.email_idx == impronta("mario@az.it")).count() == 1       # solo quella gia' esistente
+    # un controllo sbagliato non importa niente
+    testo2 = "email,nome,cognome,ufficio\nanna@az.it,Anna,Verdi,Produzione\n"
+    assert invia(client, auth, admin, "u.csv", testo2, controllo="000000000000000000000000").status_code == 409
+    assert db.query(User).filter(User.email_idx == impronta("anna@az.it")).count() == 0
+    giusto = invia(client, auth, admin, "u.csv", testo2, anteprima="true").json()["controllo"]
+    assert invia(client, auth, admin, "u.csv", testo2, controllo=giusto).status_code == 200      # con il controllo giusto importa
+
+
+def test_la_conferma_dei_cessati_si_ferma_se_il_risultato_e_cambiato(client, auth, admin, db, crea_utente):
+    u = crea_utente("cessa@az.it")
+    prima = invia(client, auth, admin, "c.csv", "email\ncessa@az.it\n", anteprima="true", modo="cessati").json()
+    u.is_active = False; db.commit()                             # nel frattempo e' gia' stata disattivata da altri
+    r = invia(client, auth, admin, "c.csv", "email\ncessa@az.it\n", modo="cessati", controllo=prima["controllo"])
+    assert r.status_code == 409

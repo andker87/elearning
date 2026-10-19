@@ -280,11 +280,12 @@ def create_user(data: UserCreate, request: Request, db: Session = Depends(get_db
     return {**_serialize_user(u, db), "invito_inviato": invitato, "password_temporanea": mostra}
 
 @router.post("/users/import-csv")
-def import_users_csv(file: UploadFile = File(...), modo: str = Query("nuovi"), anteprima: bool = Query(False), request: Request = None,
+def import_users_csv(file: UploadFile = File(...), modo: str = Query("nuovi"), anteprima: bool = Query(False), controllo: str = Query(None), request: Request = None,
                      db: Session = Depends(get_db), user=Depends(require_admin_tecnico)):
     """Importazione massiva da CSV o da Excel (.xlsx): vedi services/import_utenti.py per le regole.
     Con anteprima=true si controlla il file senza creare ne' cambiare nulla (e senza inviare email) e si
-    restituisce il riepilogo per persona; la stessa chiamata senza anteprima fa l'importazione vera.
+    restituisce il riepilogo per persona e un `controllo` (impronta del risultato); la stessa chiamata senza anteprima fa
+    l'importazione vera e, se riceve quel `controllo`, si ferma con 409 quando il risultato non e' piu' lo stesso.
 
     Con modo=cessati il file e' invece un elenco di disattivazione massiva: basta la colonna email, ogni riga
     disattiva l'utente corrispondente (lo storico formativo resta intatto). E' una scelta esplicita, mai dedotta
@@ -295,7 +296,7 @@ def import_users_csv(file: UploadFile = File(...), modo: str = Query("nuovi"), a
         raise HTTPException(400, "Il nome del file suggerisce un elenco di cessati, ma hai scelto di creare nuovi utenti: scegli «Disattiva cessati» se è quello che vuoi.")
     intestazioni, righe = import_svc.leggi_tabella(file.filename, file.file.read(import_svc.LIMITE_BYTE + 1))
     elabora = import_svc.elabora_cessati if modo == "cessati" else import_svc.elabora_nuovi
-    return elabora(db, request, user, intestazioni, righe, anteprima)
+    return elabora(db, request, user, intestazioni, righe, anteprima, controllo)
 
 @router.get("/users/import-modello")
 def scarica_modello_importazione(formato: str = Query("xlsx"), modo: str = Query("nuovi"),

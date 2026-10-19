@@ -204,7 +204,7 @@ export default function Utenti() {
     try {
       const data = new FormData();
       data.append("file", csvFile);
-      const r = await api.post("/auth/users/import-csv", data, { params: { modo: csvModo } });
+      const r = await api.post("/auth/users/import-csv", data, { params: { modo: csvModo, controllo: anteprima?.controllo } });   // la conferma vale solo per il risultato visto nel controllo
       setAnteprima(null);
       setCsvRisultato(r.data);
       load();
@@ -307,7 +307,7 @@ export default function Utenti() {
                 ? <>Persone disattivate: <strong>{csvRisultato.disattivati}</strong></>
                 : <>Persone create: <strong>{csvRisultato.creati}</strong>{csvRisultato.con_avvisi > 0 && <> (di cui <strong>{csvRisultato.con_avvisi}</strong> con avvisi)</>}</>}
               {". "}Righe lette: {csvRisultato.totale}, scartate: {csvRisultato.errori}.{" "}
-              {csvRisultato.righe.some((r) => r.esito === "errore" || (r.avvisi && r.avvisi.length)) && (
+              {csvRisultato.righe.some((r) => r.esito === "errore" || r.esito === "ignorato" || (r.avvisi && r.avvisi.length)) && (
                 <button type="button" className="secondary btn-sm" onClick={() => scaricaRiepilogo(csvRisultato)}>Scarica il riepilogo dei problemi</button>
               )}{" "}
               {csvRisultato.righe.some((r) => (r.avvisi || []).some((a) => a.includes("senza ufficio"))) && (
@@ -338,9 +338,9 @@ export default function Utenti() {
           const daFare = csvModo === "cessati" ? anteprima.disattivati : anteprima.creati;
           const senzaProblemi = !scartate.length && !conAvvisi.length;
           return (
-            <Finestra titolo={csvModo === "cessati" ? "Controllo dell'elenco dei cessati" : "Controllo del file"} onChiudi={() => setAnteprima(null)}
+            <Finestra titolo={csvModo === "cessati" ? "Controllo dell'elenco dei cessati" : "Controllo del file"} onChiudi={csvCaricamento ? undefined : () => setAnteprima(null)}
               azioni={<>
-                <button type="button" className="secondary" onClick={() => setAnteprima(null)}>Annulla</button>
+                <button type="button" className="secondary" disabled={csvCaricamento} onClick={() => setAnteprima(null)}>Annulla</button>
                 <button type="button" disabled={daFare === 0 || csvCaricamento} className={csvModo === "cessati" ? "danger" : undefined} onClick={confermaImportazione}>
                   {csvCaricamento ? "Importazione in corso..." : (senzaProblemi ? (csvModo === "cessati" ? "Disattiva" : "Importa") : (csvModo === "cessati" ? "Disattiva comunque" : "Importa comunque"))}
                 </button>

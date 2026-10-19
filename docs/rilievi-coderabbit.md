@@ -254,3 +254,13 @@ Provati con test (creazione utente e CSV, corsa simulata). SSO ed Entra: modific
 | FATTO 2.3.2 | services/configurazione.py (nota) | importando un file vecchio il cui gruppo non-ufficio ha lo stesso nome di un ufficio esistente, il percorso usa l'ufficio senza dirlo: aggiunto un avviso |
 | FATTO 2.3.2 | docs/guida-amministratore.md (nota) | la guida non citava l'assegnazione dei percorsi a ufficio e mansione: aggiornata |
 | FATTO 2.3.2 | docs/progetto-ruoli-mansioni.md (nota) | la frase «nessun codice scritto» era superata: il documento ora dice che la release è stata realizzata |
+
+## PR #24 (2.3.3, importazione da Excel con controllo prima)
+
+| Stato | File | Rilievo |
+|---|---|---|
+| FATTO 2.3.3 | services/import_utenti.py | un CSV malformato (virgolette mai chiuse) dava errore 500: ora 400 con una spiegazione |
+| FATTO 2.3.3 | services/import_utenti.py | due uffici con lo stesso percorso intero si sovrascrivevano in un dizionario e l'importazione ne sceglieva uno a caso senza avviso: ora sono ambigui, la persona è creata senza ufficio e il riepilogo lo dice |
+| FATTO 2.3.3 | pages/Utenti.jsx | il pulsante del riepilogo non compariva se le righe erano solo «ignorate» (per esempio cessati non trovati): ora compare |
+| FATTO 2.3.3 | pages/Utenti.jsx | durante l'importazione la finestra si poteva chiudere (Annulla, Esc, clic fuori) dando l'impressione di aver annullato: ora è bloccata finché la richiesta non finisce |
+| FATTO 2.3.3 | api/auth.py, services/import_utenti.py | la conferma rielaborava il file senza agganciarsi a quanto visto nel controllo (rilievo maggiore): il controllo restituisce un'impronta del risultato (riga, email, esito, avvisi), la conferma la rimanda e, se il risultato è cambiato, l'importazione si ferma con 409 senza fare nulla |
