@@ -362,3 +362,11 @@ button.tab:hover:not(:disabled) { background: none; color: var(--text); }
 button.tab.active:hover:not(:disabled) { color: var(--primary); }
 th.ordinabile .th-ordina:hover:not(:disabled) { background: none; color: var(--text); }
 th.ordinabile.attivo .th-ordina { color: var(--primary); }
+
+/* Finestra di dialogo (componente Finestra) */
+.finestra-sfondo { position: fixed; inset: 0; background: rgba(15, 23, 42, .55); display: flex; align-items: center; justify-content: center; padding: 1rem; z-index: 1000; }
+.finestra { background: var(--bg2); color: var(--text); border: 1px solid var(--border); border-radius: var(--radius-lg); box-shadow: 0 20px 50px rgba(0, 0, 0, .35); width: min(720px, 100%); max-height: 88vh; display: flex; flex-direction: column; padding: 1.2rem 1.4rem; outline: none; }
+.finestra-corpo { overflow-y: auto; flex: 1 1 auto; margin: .4rem 0 1rem; }
+.finestra-azioni { display: flex; gap: .6rem; justify-content: flex-end; flex-wrap: wrap; }
+.finestra-corpo ul { margin: .3rem 0 1rem; padding-left: 1.2rem; }
+.finestra-corpo li { margin: .25rem 0; font-size: .88rem; }

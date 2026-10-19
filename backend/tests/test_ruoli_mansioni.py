@@ -194,9 +194,13 @@ def test_csv_con_ufficio_mansioni_e_permessi(client, auth, admin, db, crea_uffic
             "c@az.it,C,C,Magazzino,,,\n"
             "d@az.it,D,D,Produzione,,,x\n").json()
     esiti = [x["esito"] for x in r["righe"]]
-    assert esiti == ["creato", "errore", "errore", "creato"]
-    assert "mansioni non trovate: Inesistente" in r["righe"][0]["messaggio"]
-    assert "ufficio mancante" in r["righe"][1]["messaggio"] and "non trovato" in r["righe"][2]["messaggio"]
+    assert esiti == ["creato", "creato", "creato", "creato"]                  # un ufficio o una mansione che non c'e' non scarta la riga
+    assert r["con_avvisi"] == 3 and r["errori"] == 0
+    assert "mansione «Inesistente» non presente" in r["righe"][0]["avvisi"][0]
+    assert "ufficio non indicato" in r["righe"][1]["avvisi"][0] and "«Magazzino» non presente" in r["righe"][2]["avvisi"][0]
+    assert r["righe"][3]["avvisi"] == []
+    senza = [db.query(User).filter(User.email_idx == impronta(e)).one() for e in ("b@az.it", "c@az.it")]
+    assert all(db.query(UserGroup).filter(UserGroup.user_id == u.id).count() == 0 for u in senza)     # create senza ufficio
     a = db.query(User).filter(User.email_idx == impronta("a@az.it")).one()
     d = db.query(User).filter(User.email_idx == impronta("d@az.it")).one()
     assert a.is_formatore and not a.is_formazione and d.is_formazione
@@ -213,7 +217,7 @@ def test_csv_ufficio_con_lo_stesso_nome_in_due_rami_chiede_il_percorso(client, a
     a, b = crea_ufficio("Nord"), crea_ufficio("Sud")
     db.add_all([Group(name="Vendite", parent_id=a.id, is_ufficio=True), Group(name="Vendite", parent_id=b.id, is_ufficio=True)]); db.commit()
     r = csv(client, auth, admin, "email,nome,cognome,ufficio\nx@az.it,X,X,Vendite\ny@az.it,Y,Y,Nord / Vendite\n").json()
-    assert [x["esito"] for x in r["righe"]] == ["errore", "creato"] and "ambiguo" in r["righe"][0]["messaggio"]
+    assert [x["esito"] for x in r["righe"]] == ["creato", "creato"] and "ambiguo" in r["righe"][0]["avvisi"][0] and r["righe"][1]["avvisi"] == []
 
 
 # --- esportazione / importazione della configurazione ----------------------------------------------

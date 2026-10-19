@@ -183,9 +183,10 @@ def test_freno_entra_su_installazioni_piccole(db, crea_utente):
 
 def test_reset_password_invia_in_sottofondo_e_import_csv_dopo_il_commit():
     import inspect
-    from app.api import password_reset, auth
+    from app.api import password_reset
+    from app.services import import_utenti
     assert "in_sottofondo(invia_email" in inspect.getsource(password_reset.password_dimenticata)
-    assert "dopo_il_commit(db, invia_invito" in inspect.getsource(auth)
+    assert "dopo_il_commit(db, invia_invito" in inspect.getsource(import_utenti)
 
 
 # --- quinto giro: rilievi di CodeRabbit (blocco sicurezza e integrita') ---------------------------

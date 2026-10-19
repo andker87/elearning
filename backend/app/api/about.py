@@ -17,6 +17,13 @@ PACCHETTI = ["fastapi", "uvicorn", "sqlalchemy", "pydantic", "pyjwt", "httpx", "
              "reportlab", "openpyxl", "pywebpush", "psycopg2-binary"]
 
 CHANGELOG = [
+    {"version": "2.3.3", "date": "2026-10", "label": "Importazione da Excel con controllo prima", "changes": [
+        "Importa da Excel (.xlsx) oltre che da CSV: il tipo di file si riconosce dal contenuto (un Excel salvato con estensione .csv funziona), si legge il foglio «Utenti», i CSV salvati da Excel in codifica Windows si leggono, il vecchio .xls e i file rotti ricevono un messaggio che spiega cosa fare",
+        "Prima di importare il file viene controllato: una finestra mostra il riepilogo per persona (chi verrà creato, con quali avvisi, quali righe verranno scartate) e solo con «Importa comunque» si crea qualcosa; nel controllo non si crea niente e non parte nessuna email. Vale anche per «Disattiva cessati»",
+        "Un ufficio o una mansione che non esistono, o un ufficio lasciato vuoto, non scartano più la riga: la persona viene creata senza e il riepilogo lo dice (uffici e mansioni non si creano mai da soli); restano scartate solo le righe inutilizzabili (email, nome o cognome mancanti, email già presente, esterno senza organizzazione, password o data non valide)",
+        "Modelli scaricabili in Excel e CSV, generati con i nomi veri di uffici e mansioni del sistema; il modello Excel ha i fogli Istruzioni, Uffici e Mansioni e il menu a tendina per l'ufficio",
+        "Dopo l'importazione si scarica il riepilogo dei problemi e si trovano le persone senza ufficio con il nuovo filtro «Senza ufficio» nell'elenco utenti",
+    ]},
     {"version": "2.3.2", "date": "2026-10", "label": "Selettore colore e modifica sotto la riga", "changes": [
         "Colore di uffici e mansioni: quadrato ben visibile che apre il selettore del browser, codice esadecimale (#RRGGBB) da scrivere o incollare, colori pronti e anteprima dell'etichetta; le mansioni ora hanno il colore anche in modifica",
         "Uffici, mansioni e utenti: il modulo di modifica si apre subito sotto la riga della voce che si sta modificando, senza dover tornare in cima alla pagina",

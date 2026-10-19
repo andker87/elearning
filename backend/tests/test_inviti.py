@@ -16,7 +16,11 @@ def canale(db, monkeypatch, attivo=True):
     if attivo:
         monkeypatch.setattr(settings, "SMTP_HOST", "smtp.test")
         monkeypatch.setattr(settings, "SMTP_MITTENTE", "noreply@test.it")
-        db.add(Azienda(url_pubblico="https://formazione.acme.it"))
+        azienda = db.query(Azienda).first()      # la riga esiste gia' (chiave delle impronte): si aggiorna, non se ne aggiunge una seconda
+        if azienda:
+            azienda.url_pubblico = "https://formazione.acme.it"
+        else:
+            db.add(Azienda(url_pubblico="https://formazione.acme.it"))
         db.commit()
     monkeypatch.setattr("app.services.inviti.invia_email", lambda a, o, c: inviate.append((a, o, c)) or True)
     return inviate
