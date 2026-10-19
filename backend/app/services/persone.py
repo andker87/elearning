@@ -2,12 +2,13 @@
 
 
 def permessi_testo(u) -> str:
-    """Es. «Admin; Formatore». Vuoto = utente semplice (un esterno e' «Formatore» per definizione)."""
+    """Es. «Admin; Docente». «Utente» = nessun permesso (un esterno e' anche «Docente» per definizione)."""
     voci = []
     if u.is_admin: voci.append("Admin")
     if u.is_formazione: voci.append("Formazione")
-    if u.is_formatore or u.is_external: voci.append("Formatore")
-    return "; ".join(voci)
+    if u.is_formatore or u.is_external: voci.append("Docente")      # la qualifica si chiama is_formatore nel codice: «docente» e' gia' chi ha un'edizione assegnata
+    if u.is_external: voci.append("Esterno")
+    return "; ".join(voci) or "Utente"
 
 
 def dividi_nome(testo) -> tuple:

@@ -25,7 +25,7 @@ def xlsx(righe, foglio="Utenti"):
 
 
 XLSX = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-INTEST = ["email", "nome", "cognome", "ufficio", "mansioni", "admin", "formazione", "formatore"]
+INTEST = ["email", "nome", "cognome", "ufficio", "mansioni", "admin", "formazione", "docente"]
 
 
 # --- anteprima -------------------------------------------------------------------------------------
@@ -141,7 +141,7 @@ def test_il_modello_csv_e_il_modello_dei_cessati(client, auth, admin, crea_uffic
     crea_ufficio("Produzione")
     csv_ = client.get("/api/auth/users/import-modello?formato=csv&modo=nuovi", headers=auth(admin))
     testo = csv_.content.decode("utf-8-sig")
-    assert testo.splitlines()[0] == "email;nome;cognome;ufficio;mansioni;admin;formazione;formatore;is_external;organizzazione;data_ingresso;password"
+    assert testo.splitlines()[0] == "email;nome;cognome;ufficio;mansioni;admin;formazione;docente;is_external;organizzazione;data_ingresso;password"
     assert "Produzione" in testo.splitlines()[1]
     assert invia(client, auth, admin, "m.csv", csv_.content).json()["creati"] == 1
     for formato in ("csv", "xlsx"):
@@ -204,3 +204,10 @@ def test_la_conferma_dei_cessati_si_ferma_se_il_risultato_e_cambiato(client, aut
     u.is_active = False; db.commit()                             # nel frattempo e' gia' stata disattivata da altri
     r = invia(client, auth, admin, "c.csv", "email\ncessa@az.it\n", modo="cessati", controllo=prima["controllo"])
     assert r.status_code == 409
+
+
+def test_la_vecchia_colonna_formatore_e_ancora_accettata_come_docente(client, auth, admin, db, crea_ufficio):
+    crea_ufficio("Produzione")
+    r = invia(client, auth, admin, "u.csv", "email,nome,cognome,ufficio,formatore\na@az.it,A,A,Produzione,sì\n").json()
+    assert r["creati"] == 1
+    assert db.query(User).filter(User.email_idx == impronta("a@az.it")).one().is_formatore is True

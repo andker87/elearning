@@ -20,7 +20,7 @@ router = APIRouter(tags=["test"])
 
 def _puo_gestire_test(db: Session, user: User, corso_id: str) -> bool:
     """Creazione/modifica test riservata a Ufficio Formazione/Admin o a un
-    Formatore che ha effettivamente insegnato questo corso (docente di
+    Docente che ha effettivamente insegnato questo corso (docente di
     almeno un'edizione pianificata o in corso) - mai all'assistente, sempre un umano autorizzato."""
     if user.ha_poteri_formazione:
         return True
@@ -73,7 +73,7 @@ def create_test(corso_id: str, data: TestIn, db: Session = Depends(get_db), user
     corso = db.query(Corso).filter(Corso.id == corso_id).first()
     if not corso: raise HTTPException(404, "Corso non trovato")
     if not _puo_gestire_test(db, user, corso_id):
-        raise HTTPException(403, "Riservato a Ufficio Formazione o a un Formatore che insegna questo corso")
+        raise HTTPException(403, "Riservato a chi ha il permesso Formazione o a un Docente che insegna questo corso")
     t = Test(corso_id=corso_id, titolo=data.titolo, momento=data.momento,
               soglia_superamento_pct=data.soglia_superamento_pct, tentativi_max=data.tentativi_max)
     db.add(t); db.flush()
@@ -91,7 +91,7 @@ def update_test(test_id: str, data: TestIn, db: Session = Depends(get_db), user:
     t = db.query(Test).filter(Test.id == test_id).first()
     if not t: raise HTTPException(404)
     if not _puo_gestire_test(db, user, str(t.corso_id)):
-        raise HTTPException(403, "Riservato a Ufficio Formazione o a un Formatore che insegna questo corso")
+        raise HTTPException(403, "Riservato a chi ha il permesso Formazione o a un Docente che insegna questo corso")
     t.titolo = data.titolo; t.momento = data.momento
     t.soglia_superamento_pct = data.soglia_superamento_pct; t.tentativi_max = data.tentativi_max
     # Sostituzione completa delle domande: autoring è admin-only e poco frequente,
@@ -115,7 +115,7 @@ def delete_test(test_id: str, db: Session = Depends(get_db), user: User = Depend
     t = db.query(Test).filter(Test.id == test_id).first()
     if not t: raise HTTPException(404)
     if not _puo_gestire_test(db, user, str(t.corso_id)):
-        raise HTTPException(403, "Riservato a Ufficio Formazione o a un Formatore che insegna questo corso")
+        raise HTTPException(403, "Riservato a chi ha il permesso Formazione o a un Docente che insegna questo corso")
     db.delete(t); db.commit()
     return {"ok": True}
 

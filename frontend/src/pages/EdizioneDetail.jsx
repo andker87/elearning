@@ -184,7 +184,7 @@ export default function EdizioneDetail() {
           <div className="row">
             <select value={selectedUser} onChange={(e) => setSelectedUser(e.target.value)}>
               <option value="">-- utente --</option>
-              {utenti.map((u) => <option key={u.id} value={u.id}>{u.full_name}{u.is_external ? " (esterno)" : ""}{!u.is_formatore ? " - non Formatore" : ""}</option>)}
+              {utenti.map((u) => <option key={u.id} value={u.id}>{u.full_name}{u.is_external ? " (esterno)" : ""}{!u.is_formatore ? " - non abilitato come docente" : ""}</option>)}
             </select>
             <button onClick={assegnaDocente}>Assegna come docente</button>
             <button className="secondary" onClick={iscrivi}>Iscrivi come discente</button>

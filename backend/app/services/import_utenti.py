@@ -37,7 +37,7 @@ from ..models.user import User
 LIMITE_BYTE = 5 * 1024 * 1024
 LIMITE_ESPANSO = 50 * 1024 * 1024      # un .xlsx e' uno zip: si guarda quanto diventa, prima di aprirlo
 LIMITE_RIGHE = 20000
-COLONNE_NUOVI = ["email", "nome", "cognome", "ufficio", "mansioni", "admin", "formazione", "formatore",
+COLONNE_NUOVI = ["email", "nome", "cognome", "ufficio", "mansioni", "admin", "formazione", "docente",
                  "is_external", "organizzazione", "data_ingresso", "password"]
 _VERO = ("true", "si", "sì", "1", "yes", "x", "s")
 
@@ -146,7 +146,7 @@ def elabora_nuovi(db: Session, request, admin, intestazioni: list, righe: list, 
     if not {"email", "nome", "cognome"} <= set(intestazioni):
         raise HTTPException(400, "Intestazioni richieste: email, nome, cognome")
     if "role" in intestazioni or "gruppi" in intestazioni:
-        raise HTTPException(400, "Le colonne «role» e «gruppi» non esistono più: usa «admin», «formazione», «formatore» (sì/no), «ufficio» e «mansioni»")
+        raise HTTPException(400, "Le colonne «role» e «gruppi» non esistono più: usa «admin», «formazione», «docente» (sì/no), «ufficio» e «mansioni»")
 
     uffici = db.query(Group).all()
     per_id = {g.id: g for g in uffici}
@@ -180,7 +180,8 @@ def elabora_nuovi(db: Session, request, admin, intestazioni: list, righe: list, 
         if is_external and not org:
             out.append(_riga(n, email, "errore", "utente esterno senza organizzazione"))
             continue
-        is_admin, is_formazione, is_formatore = (si(row.get(c)) for c in ("admin", "formazione", "formatore"))
+        # la colonna «docente» ha sostituito «formatore», che resta accettata (file preparati prima della 2.3.4)
+        is_admin, is_formazione, is_formatore = si(row.get("admin")), si(row.get("formazione")), si(row.get("docente") or row.get("formatore"))
         if is_external and (is_admin or is_formazione):
             out.append(_riga(n, email, "errore", "un utente esterno non può essere Admin o Formazione"))
             continue
@@ -369,7 +370,7 @@ def modello(db: Session, formato: str, modo: str) -> tuple:
         "Obbligatori: email, nome, cognome. L'ufficio è obbligatorio per gli utenti interni che non sono Admin.",
         "Ufficio: scrivilo come nel foglio «Uffici» (la colonna ha un menu a tendina). Se un nome si ripete in più rami usa il percorso intero.",
         "Mansioni: nomi presenti nel foglio «Mansioni», separati da «;» (per esempio Preposto;Antincendio).",
-        "admin, formazione, formatore, is_external: scrivi sì o no (vuoto = no).",
+        "admin, formazione, docente, is_external: scrivi sì o no (vuoto = no).",
         "Gli esterni (is_external = sì) sono docenti di una società terza: servono l'organizzazione (ragione sociale esatta) e non hanno ufficio né mansioni.",
         "data_ingresso: AAAA-MM-GG (per esempio 2026-01-15), facoltativa. password: facoltativa (se manca la persona sceglie la sua con un link).",
         "Uffici e mansioni non vengono mai creati dal file: se un nome non esiste la persona viene creata senza, e te lo diciamo nel riepilogo prima di confermare.",

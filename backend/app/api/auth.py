@@ -232,11 +232,11 @@ def list_users(db: Session = Depends(get_db), user=Depends(require_admin_tecnico
     return _serialize_users(users, db)
 
 @router.get("/users/simple")
-def list_users_simple(formatori: bool = False, db: Session = Depends(get_db), user=Depends(get_current_user)):
-    """Lista semplificata utenti attivi - usata per i picker. Con `formatori=true` solo chi si puo'
-    assegnare come docente (qualifica Formatore, oppure esterno)."""
+def list_users_simple(docenti: bool = False, db: Session = Depends(get_db), user=Depends(get_current_user)):
+    """Lista semplificata utenti attivi - usata per i picker. Con `docenti=true` solo chi si puo'
+    assegnare come docente (qualifica Docente, oppure esterno)."""
     users = sorted(db.query(User).filter(User.is_active == True).all(), key=lambda u: u.chiave_ordine)
-    if formatori:
+    if docenti:
         users = [u for u in users if u.puo_essere_docente]
     return [{"id": str(u.id), "full_name": u.full_name, "email": u.email, "is_external": u.is_external,
              "is_formatore": bool(u.is_formatore or u.is_external)} for u in users]
@@ -391,7 +391,7 @@ def update_user(user_id: str, data: UserUpdate, request: Request,
         if u.is_external and data.is_external:     # passa a esterno: ufficio e mansioni cadono
             ufficio_finale, mansioni_finali = None, []
         # L'ufficio si pretende solo se la richiesta lo riguarda: chi arriva dall'accesso aziendale senza ufficio
-        # puo' intanto ricevere mansioni o la qualifica Formatore.
+        # puo' intanto ricevere mansioni o la qualifica Docente.
         richiedi_ufficio = any(x is not None for x in (data.ufficio_id, data.is_external, data.is_admin))
         _controlla_coerenza(u, ufficio_finale, mansioni_finali, richiedi_ufficio)
         _assegna_ufficio(u.id, ufficio_finale, db)
