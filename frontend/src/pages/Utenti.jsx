@@ -227,7 +227,7 @@ export default function Utenti() {
               </select></div>
           </div>
           <div className="flex-between">
-            <span className="text-muted" style={{ fontSize: 13 }}>{visibili.length} utenti{visibili.length !== list.length ? ` su ${list.length}` : ""}</span>
+            <span aria-live="polite" className="text-muted" style={{ fontSize: 13 }}>{visibili.length} utenti{visibili.length !== list.length ? ` su ${list.length}` : ""}</span>
             <ExportButton path="/auth/users/export" filename="utenti" />
           </div>
         </div>
@@ -266,7 +266,7 @@ export default function Utenti() {
           </span>
           <span>
             <button type="button" className="secondary" disabled={paginaCorrente === 0} onClick={() => setPagina(paginaCorrente - 1)}>Precedente</button>
-            <span style={{ margin: "0 10px", fontSize: 13 }}>Pagina {paginaCorrente + 1} di {pagineTotali}</span>
+            <span aria-live="polite" style={{ margin: "0 10px", fontSize: 13 }}>Pagina {paginaCorrente + 1} di {pagineTotali}</span>
             <button type="button" className="secondary" disabled={paginaCorrente >= pagineTotali - 1} onClick={() => setPagina(paginaCorrente + 1)}>Successiva</button>
           </span>
         </div>

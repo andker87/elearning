@@ -235,3 +235,9 @@ Provati con test (creazione utente e CSV, corsa simulata). SSO ed Entra: modific
 | Stato | File | Rilievo |
 |---|---|---|
 | FATTO 2.0.0 | api/about.py | il changelog diceva «controlli automatici a ogni modifica»: il flusso GitHub gira su pull request e push su master, e lo script locale non lancia i test. Frase riscritta con le condizioni esatte |
+
+## PR #22 (2.1.0, pagina Utenti a schede)
+
+| Stato | File | Rilievo |
+|---|---|---|
+| FATTO 2.1.0 | pages/Utenti.jsx | il numero di pagina non era annunciato dai lettori di schermo quando cambia: aggiunto `aria-live="polite"` all'indicatore di pagina e, per lo stesso motivo, al conteggio dei risultati |
