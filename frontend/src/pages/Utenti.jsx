@@ -1,10 +1,11 @@
 import React, { useEffect, useState } from "react";
-import api, { erroreDi } from "../api";
+import api, { downloadFile, erroreDi } from "../api";
 import ExportButton from "../components/ExportButton";
 import { elencoUffici } from "../uffici";
+import Finestra from "../components/Finestra";
 import { REQUISITI_PASSWORD } from "../passwordPolicy";
 
-const SCHEDE = [{ id: "elenco", label: "Elenco" }, { id: "nuovo", label: "Nuovo utente" }, { id: "csv", label: "Importa da CSV" }];
+const SCHEDE = [{ id: "elenco", label: "Elenco" }, { id: "nuovo", label: "Nuovo utente" }, { id: "csv", label: "Importa da Excel o CSV" }];
 const PER_PAGINA = [25, 50, 100];
 const PERMESSI = { admin: "Admin", formazione: "Formazione", formatore: "Formatore", nessuno: "Nessuno (utente semplice)" };
 const VUOTO = { nome: "", cognome: "", email: "", password: "", is_admin: false, is_formazione: false, is_formatore: false, is_external: false,
@@ -19,13 +20,14 @@ function etichette(u) {
   return v;
 }
 
-// Modelli del CSV: separatore «;» (Excel in italiano lo apre in colonne) e BOM per gli accenti.
-const COLONNE_CSV = ["email", "nome", "cognome", "ufficio", "mansioni", "admin", "formazione", "formatore", "is_external", "organizzazione", "data_ingresso", "password"];
-function scaricaModello(nomeFile, intestazione, riga) {
-  const testo = "\ufeff" + [intestazione.join(";"), riga.join(";")].join("\r\n") + "\r\n";
+// Riepilogo delle righe con problemi, scaricabile (CSV con «;» e BOM: Excel lo apre in colonne).
+function scaricaRiepilogo(risultato) {
+  const righe = risultato.righe.filter((r) => r.esito === "errore" || (r.avvisi && r.avvisi.length) || r.esito === "ignorato");
+  const testo = "\ufeff" + [["riga", "email", "esito", "dettaglio"], ...righe.map((r) => [r.riga, r.email, r.esito, (r.avvisi && r.avvisi.length ? r.avvisi.join(" | ") : r.messaggio)])]
+    .map((r) => r.map((c) => { const t = String(c); return `"${(/^[=+\-@\t\r]/.test(t) ? "'" + t : t).replace(/"/g, '""')}"`; }).join(";")).join("\r\n") + "\r\n";   // mai una formula in Excel
   const url = URL.createObjectURL(new Blob([testo], { type: "text/csv;charset=utf-8" }));
   const a = document.createElement("a");
-  a.href = url; a.download = nomeFile; a.click();
+  a.href = url; a.download = "riepilogo-importazione.csv"; a.click();
   URL.revokeObjectURL(url);
 }
 
@@ -112,6 +114,7 @@ export default function Utenti() {
   const [csvModo, setCsvModo] = useState("nuovi");
   const [csvRisultato, setCsvRisultato] = useState(null);
   const [csvCaricamento, setCsvCaricamento] = useState(false);
+  const [anteprima, setAnteprima] = useState(null);     // riepilogo del controllo, mostrato in una finestra prima di importare
   const [creato, setCreato] = useState(null);
   const [erroreCrea, setErroreCrea] = useState(null);
 
@@ -178,7 +181,8 @@ export default function Utenti() {
     load();
   }
 
-  async function importaCsv(e) {
+  // 1) si controlla il file senza creare nulla; 2) la persona vede il riepilogo e conferma o annulla.
+  async function controllaFile(e) {
     e.preventDefault();
     if (!csvFile) return;
     setCsvCaricamento(true);
@@ -186,12 +190,27 @@ export default function Utenti() {
     try {
       const data = new FormData();
       data.append("file", csvFile);
-      if (csvModo === "cessati" && !window.confirm("Disattivare tutti gli utenti elencati nel file? Perdono l'accesso e le loro iscrizioni aperte vengono annullate (lo storico resta).")) { setCsvCaricamento(false); return; }
-      const r = await api.post("/auth/users/import-csv", data, { params: { modo: csvModo } });
+      const r = await api.post("/auth/users/import-csv", data, { params: { modo: csvModo, anteprima: true } });
+      setAnteprima(r.data);
+    } catch (err) {
+      setCsvRisultato({ errore: erroreDi(err, "Errore durante il controllo del file") });
+    } finally {
+      setCsvCaricamento(false);
+    }
+  }
+
+  async function confermaImportazione() {
+    setCsvCaricamento(true);
+    try {
+      const data = new FormData();
+      data.append("file", csvFile);
+      const r = await api.post("/auth/users/import-csv", data, { params: { modo: csvModo, controllo: anteprima?.controllo } });   // la conferma vale solo per il risultato visto nel controllo
+      setAnteprima(null);
       setCsvRisultato(r.data);
       load();
     } catch (err) {
-      setCsvRisultato({ errore: erroreDi(err, "Errore durante l'import") });
+      setAnteprima(null);
+      setCsvRisultato({ errore: erroreDi(err, "Errore durante l'importazione") });
     } finally {
       setCsvCaricamento(false);
     }
@@ -207,7 +226,7 @@ export default function Utenti() {
       && (!filtro.permesso || (filtro.permesso === "nessuno" ? etichette(u).length === 0 : etichette(u).includes(PERMESSI[filtro.permesso])))
       && (!filtro.tipo || (filtro.tipo === "esterno") === !!u.is_external)
       && (!filtro.stato || (filtro.stato === "attivo") === !!u.is_active)
-      && (!filtro.ufficio || u.ufficio?.id === filtro.ufficio)
+      && (!filtro.ufficio || (filtro.ufficio === "__nessuno__" ? !u.ufficio && !u.is_external : u.ufficio?.id === filtro.ufficio))
       && (!filtro.mansione || (u.mansioni || []).some((m) => m.id === filtro.mansione)))
     .sort((a, b) => ordine.verso * colOrdine.valore(a).localeCompare(colOrdine.valore(b), "it", { sensitivity: "base", numeric: true }));
   const pagineTotali = Math.max(1, Math.ceil(visibili.length / perPagina));
@@ -248,53 +267,62 @@ export default function Utenti() {
         )}
       </div>}
       {scheda === "csv" && <div className="card">
-        <h3>Import massivo da CSV</h3>
+        <h3>Importazione da Excel o CSV</h3>
         <p className="text-muted" style={{ fontSize: 13 }}>
-          Colonne attese (intestazione, maiuscole/minuscole indifferenti): <code>email</code>, <code>nome</code>, <code>cognome</code>,
-          <code>ufficio</code> (nome, o percorso intero come <code>Produzione / Linea 2</code> se il nome si ripete; obbligatorio per gli interni che non sono Admin),
-          e opzionalmente <code>password</code>, <code>admin</code>, <code>formazione</code>, <code>formatore</code> (sì/no),
-          <code>mansioni</code> (nomi separati da <code>;</code> o <code>|</code>), <code>is_external</code>,
-          <code>organizzazione</code> (ragione sociale esatta, per gli esterni), <code>data_ingresso</code> (AAAA-MM-GG).
-          <br /><strong>Uffici e mansioni vanno creati prima</strong>: il file non li crea. Se l'ufficio scritto non esiste la riga viene scartata (errore) e la persona non viene creata; se una mansione non esiste la persona viene creata senza quella mansione e la riga è segnalata con «creato, con avvisi».
-          <br />Se non indicata, la password viene generata automaticamente: se l'invio email è configurato (pagina Azienda) l'utente riceve un link per scegliere la sua password (non la password stessa), altrimenti la password temporanea compare nel risultato qui sotto.
-          <br />Per <strong>disattivare</strong> utenti in blocco (es. cessati) scegli «Disattiva cessati»: basta la colonna <code>email</code> e ogni riga disattiva l'account corrispondente, senza toccarne lo storico formativo. Gli Admin non si disattivano da qui.
+          Puoi caricare un file <strong>Excel (.xlsx)</strong> o un <strong>CSV</strong>. Parti da un modello: ha le colonne giuste, e nel modello Excel i fogli «Uffici» e «Mansioni» elencano i nomi validi (la colonna Ufficio ha anche un menu a tendina).
+          Colonne (maiuscole/minuscole indifferenti): <code>email</code>, <code>nome</code>, <code>cognome</code>, <code>ufficio</code> (nome, o percorso intero come <code>Produzione / Linea 2</code> se il nome si ripete),
+          e opzionalmente <code>mansioni</code> (separate da <code>;</code>), <code>admin</code>, <code>formazione</code>, <code>formatore</code>, <code>is_external</code> (sì/no), <code>organizzazione</code> (per gli esterni), <code>data_ingresso</code> (AAAA-MM-GG), <code>password</code>.
+        </p>
+        <p className="text-muted" style={{ fontSize: 13 }}>
+          <strong>Prima di importare il file viene controllato</strong> e vedi un riepilogo per persona: solo se confermi si crea qualcosa. Uffici e mansioni non vengono mai creati dal file: se un nome non esiste (o l'ufficio è vuoto) la persona viene creata <em>senza</em> quell'ufficio o quella mansione e te lo diciamo nel riepilogo. Le righe inutilizzabili (email, nome o cognome mancanti, email già presente, esterno senza organizzazione...) vengono scartate.
+          Per <strong>disattivare</strong> in blocco (es. cessati) scegli «Disattiva cessati»: basta la colonna <code>email</code>; gli Admin non si disattivano da qui.
         </p>
         <p style={{ fontSize: 13 }}>
-          <strong>Modelli da scaricare</strong> (cancella la riga di esempio prima di caricarli):{" "}
-          <button type="button" className="secondary btn-sm" onClick={() => scaricaModello("modello-nuovi-utenti.csv", COLONNE_CSV,
-            ["mario.rossi@azienda.it", "Mario", "Rossi", uffici[0]?.percorso || "Nome dell'ufficio", mansioniAttive[0]?.name || "", "no", "no", "no", "no", "", "2026-01-15", ""])}>Nuovi utenti</button>{" "}
-          <button type="button" className="secondary btn-sm" onClick={() => scaricaModello("modello-cessati.csv", ["email"], ["mario.rossi@azienda.it"])}>Disattiva cessati</button>
+          <strong>Modelli da scaricare</strong> (cancella la riga di esempio):{" "}
+          Nuovi utenti:{" "}
+          <button type="button" className="secondary btn-sm" onClick={() => downloadFile("/auth/users/import-modello?formato=xlsx&modo=nuovi", "modello-nuovi-utenti.xlsx")}>Excel</button>{" "}
+          <button type="button" className="secondary btn-sm" onClick={() => downloadFile("/auth/users/import-modello?formato=csv&modo=nuovi", "modello-nuovi-utenti.csv")}>CSV</button>
+          {" · "}Disattiva cessati:{" "}
+          <button type="button" className="secondary btn-sm" onClick={() => downloadFile("/auth/users/import-modello?formato=xlsx&modo=cessati", "modello-cessati.xlsx")}>Excel</button>{" "}
+          <button type="button" className="secondary btn-sm" onClick={() => downloadFile("/auth/users/import-modello?formato=csv&modo=cessati", "modello-cessati.csv")}>CSV</button>
         </p>
-        <form onSubmit={importaCsv}>
+        <form onSubmit={controllaFile}>
           <div className="row">
             <div className="field">
-              <label>Cosa fa il file</label>
-              <select value={csvModo} onChange={(e) => setCsvModo(e.target.value)}>
+              <label htmlFor="csv-modo">Cosa fa il file</label>
+              <select id="csv-modo" value={csvModo} onChange={(e) => { setCsvModo(e.target.value); setCsvRisultato(null); }}>
                 <option value="nuovi">Crea nuovi utenti</option>
                 <option value="cessati">Disattiva cessati</option>
               </select>
             </div>
-            <div className="field"><label>File CSV</label><input type="file" accept=".csv" onChange={(e) => setCsvFile(e.target.files[0])} /></div>
-            <div className="field" style={{ alignSelf: "flex-end" }}><button type="submit" className={csvModo === "cessati" ? "danger" : undefined} disabled={!csvFile || csvCaricamento}>{csvCaricamento ? "Import in corso..." : csvModo === "cessati" ? "Disattiva" : "Importa"}</button></div>
+            <div className="field"><label htmlFor="csv-file">File Excel (.xlsx) o CSV</label><input id="csv-file" type="file" accept=".xlsx,.csv" onChange={(e) => { setCsvFile(e.target.files[0]); setCsvRisultato(null); }} /></div>
+            <div className="field" style={{ alignSelf: "flex-end" }}><button type="submit" disabled={!csvFile || csvCaricamento}>{csvCaricamento ? "Controllo in corso..." : "Controlla il file"}</button></div>
           </div>
         </form>
-        {csvRisultato && csvRisultato.errore && <p style={{ color: "#b02a2a" }}>{csvRisultato.errore}</p>}
+        {csvRisultato && csvRisultato.errore && <div className="error-msg">{csvRisultato.errore}</div>}
         {csvRisultato && !csvRisultato.errore && (
           <div>
             <p>
-              <strong>{csvRisultato.creati}</strong> creati
-              {csvRisultato.righe.some((r) => r.esito === "disattivato") && <> · <strong>{csvRisultato.righe.filter((r) => r.esito === "disattivato").length}</strong> disattivati</>}
-              {" "}su {csvRisultato.totale} righe ({csvRisultato.errori} errori).
+              {csvRisultato.disattivati !== undefined && csvModo === "cessati"
+                ? <>Persone disattivate: <strong>{csvRisultato.disattivati}</strong></>
+                : <>Persone create: <strong>{csvRisultato.creati}</strong>{csvRisultato.con_avvisi > 0 && <> (di cui <strong>{csvRisultato.con_avvisi}</strong> con avvisi)</>}</>}
+              {". "}Righe lette: {csvRisultato.totale}, scartate: {csvRisultato.errori}.{" "}
+              {csvRisultato.righe.some((r) => r.esito === "errore" || r.esito === "ignorato" || (r.avvisi && r.avvisi.length)) && (
+                <button type="button" className="secondary btn-sm" onClick={() => scaricaRiepilogo(csvRisultato)}>Scarica il riepilogo dei problemi</button>
+              )}{" "}
+              {csvRisultato.righe.some((r) => (r.avvisi || []).some((a) => a.includes("senza ufficio"))) && (
+                <button type="button" className="secondary btn-sm" onClick={() => { setFiltro({ ...filtro, ufficio: "__nessuno__" }); setPagina(0); setScheda("elenco"); }}>Mostra le persone senza ufficio</button>
+              )}
             </p>
             <div className="table-wrap">
               <table>
-                <thead><tr><th>Riga</th><th>Email</th><th>Esito</th><th>Messaggio</th><th>Password</th></tr></thead>
+                <thead><tr><th>Riga</th><th>Email</th><th>Esito</th><th>Dettaglio</th><th>Password</th></tr></thead>
                 <tbody>
                   {csvRisultato.righe.map((r) => (
                     <tr key={r.riga}>
                       <td>{r.riga}</td><td>{r.email}</td>
-                      <td><span className={`badge ${r.esito === "creato" && r.messaggio !== "creato" ? "yellow" : r.esito === "creato" || r.esito === "disattivato" ? "green" : r.esito === "ignorato" ? "gray" : "red"}`}>{r.esito === "creato" && r.messaggio !== "creato" ? "creato, con avvisi" : r.esito}</span></td>
-                      <td>{r.messaggio}</td>
+                      <td><span className={`badge ${r.esito === "creato" && r.avvisi?.length ? "yellow" : r.esito === "creato" || r.esito === "disattivato" ? "green" : r.esito === "ignorato" ? "gray" : "red"}`}>{r.esito === "creato" && r.avvisi?.length ? "creato, con avvisi" : r.esito}</span></td>
+                      <td>{r.avvisi?.length && r.esito === "creato" ? <ul style={{ margin: 0, paddingLeft: "1.1rem" }}>{r.avvisi.map((a, i) => <li key={i}>{a}</li>)}</ul> : r.messaggio}</td>
                       <td>{r.password ? <code>{r.password}</code> : (r.email_inviata ? "invito in invio per email" : "-")}</td>
                     </tr>
                   ))}
@@ -303,6 +331,43 @@ export default function Utenti() {
             </div>
           </div>
         )}
+        {anteprima && (() => {
+          const scartate = anteprima.righe.filter((r) => r.esito === "errore");
+          const conAvvisi = anteprima.righe.filter((r) => r.esito === "creato" && r.avvisi?.length);
+          const ignorate = anteprima.righe.filter((r) => r.esito === "ignorato");
+          const daFare = csvModo === "cessati" ? anteprima.disattivati : anteprima.creati;
+          const senzaProblemi = !scartate.length && !conAvvisi.length;
+          return (
+            <Finestra titolo={csvModo === "cessati" ? "Controllo dell'elenco dei cessati" : "Controllo del file"} onChiudi={csvCaricamento ? undefined : () => setAnteprima(null)}
+              azioni={<>
+                <button type="button" className="secondary" disabled={csvCaricamento} onClick={() => setAnteprima(null)}>Annulla</button>
+                <button type="button" disabled={daFare === 0 || csvCaricamento} className={csvModo === "cessati" ? "danger" : undefined} onClick={confermaImportazione}>
+                  {csvCaricamento ? "Importazione in corso..." : (senzaProblemi ? (csvModo === "cessati" ? "Disattiva" : "Importa") : (csvModo === "cessati" ? "Disattiva comunque" : "Importa comunque"))}
+                </button>
+              </>}>
+              <p style={{ marginTop: 0 }}>
+                {csvModo === "cessati"
+                  ? <>Persone da disattivare: <strong>{anteprima.disattivati}</strong>. Perdono l'accesso e le loro iscrizioni aperte vengono annullate (lo storico resta).</>
+                  : <>Persone da creare: <strong>{anteprima.creati}</strong>{conAvvisi.length > 0 && <> (di cui <strong>{conAvvisi.length}</strong> con qualche dato in meno)</>}.</>}
+                {scartate.length > 0 && <> Righe scartate: <strong>{scartate.length}</strong>.</>}
+                {senzaProblemi && daFare > 0 && <> Nessun problema trovato.</>}
+              </p>
+              {conAvvisi.length > 0 && <>
+                <strong>Persone create con qualche dato in meno</strong>
+                <ul>{conAvvisi.map((r) => <li key={r.riga}><strong>{r.nome || r.email}</strong> ({r.email}, riga {r.riga}): {r.avvisi.join("; ")}</li>)}</ul>
+              </>}
+              {scartate.length > 0 && <>
+                <strong>Righe scartate</strong>
+                <ul>{scartate.map((r) => <li key={r.riga}>Riga {r.riga}{r.email ? ` (${r.email})` : ""}: {r.messaggio}</li>)}</ul>
+              </>}
+              {ignorate.length > 0 && <>
+                <strong>Ignorate</strong>
+                <ul>{ignorate.map((r) => <li key={r.riga}>Riga {r.riga} ({r.email}): {r.messaggio}</li>)}</ul>
+              </>}
+              {csvModo !== "cessati" && conAvvisi.length > 0 && <p className="text-muted" style={{ fontSize: 13 }}>Se preferisci correggere il file, premi «Annulla»: finché non confermi non viene creato nulla. Se confermi, le persone nascono senza quei dati e le potrai sistemare dalla loro scheda (filtro «Senza ufficio» nell'elenco).</p>}
+            </Finestra>
+          );
+        })()}
       </div>}
       {scheda === "elenco" && <>
         <div className="card">
@@ -316,6 +381,7 @@ export default function Utenti() {
             <div className="field"><label htmlFor="u-ufficio">Ufficio</label>
               <select id="u-ufficio" value={filtro.ufficio} onChange={(e) => cambiaFiltro("ufficio", e.target.value)}>
                 <option value="">Tutti</option>
+                <option value="__nessuno__">Senza ufficio</option>
                 {uffici.map((g) => <option key={g.id} value={g.id}>{g.percorso}</option>)}
               </select></div>
             <div className="field"><label htmlFor="u-mansione">Mansione</label>

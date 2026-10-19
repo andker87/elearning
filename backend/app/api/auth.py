@@ -1,26 +1,24 @@
-from fastapi import APIRouter, Depends, HTTPException, Query, Request, UploadFile, File
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response, UploadFile, File
 from sqlalchemy import func
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, joinedload
 from pydantic import BaseModel, EmailStr
 from typing import Optional, List
 from datetime import datetime, timedelta, timezone
-import csv, io
 from ..database import get_db
 from ..config import settings
 from ..models.user import User
 from ..models.mansione import Mansione, UserMansione
 from ..models.group import Group, UserGroup
-from ..models.organizzazione import Organizzazione
 from ..services.auth import verify_password, hash_password, token_per_utente
-from ..services.configurazione import _percorso_gruppo
+from ..services import import_utenti as import_svc
 from ..services.password_policy import password_valida, genera_password_temporanea, REQUISITI_PASSWORD
 from ..services import rate_limit
 from ..models.notification import Notification
 from ..services import audit as audit_svc
 from ..services.percorsi_sync import sincronizza_assegnazioni
 from ..services.gerarchia import responsabili_di, sottoposti_di, e_responsabile, uffici_guidati_da
-from ..services.email import invia_email, dopo_il_commit
+from ..services.email import invia_email
 from ..services.inviti import crea_link_invito, invia_invito
 from ..services.offboarding import disattiva_utente, invita_promossi
 from .deps import get_current_user, require_training_admin, require_admin_tecnico
@@ -281,214 +279,33 @@ def create_user(data: UserCreate, request: Request, db: Session = Depends(get_db
     mostra = password if (u.origine_credenziali == "locale" and not scelta_dall_admin and not invitato) else None
     return {**_serialize_user(u, db), "invito_inviato": invitato, "password_temporanea": mostra}
 
-def _si(valore) -> bool:
-    return (valore or "").strip().lower() in ("true", "si", "sì", "1", "yes", "x", "s")
-
-def _leggi_csv(file: UploadFile) -> str:
-    try:
-        return file.file.read().decode("utf-8-sig")
-    except UnicodeDecodeError:
-        raise HTTPException(400, "Il file non è in UTF-8: salvalo come CSV UTF-8")
-
 @router.post("/users/import-csv")
-def import_users_csv(file: UploadFile = File(...), modo: str = Query("nuovi"), request: Request = None,
-                            db: Session = Depends(get_db), user=Depends(require_admin_tecnico)):
-    """Import bulk per onboarding: CSV con colonne (case-insensitive) email,
-    nome, cognome, password (opz.), admin / formazione / formatore (opz., sì/no),
-    is_external (opz.), organizzazione (ragione sociale, opz.), ufficio (nome o
-    percorso intero, obbligatorio per gli interni non Admin), mansioni (nomi
-    separati da ';' o '|', opz.), data_ingresso (opz., YYYY-MM-DD). Righe con errori vengono
-    segnalate ma non bloccano le altre. Se SMTP è configurato le credenziali
-    vengono inviate per email, altrimenti tornano nella risposta.
+def import_users_csv(file: UploadFile = File(...), modo: str = Query("nuovi"), anteprima: bool = Query(False), controllo: str = Query(None), request: Request = None,
+                     db: Session = Depends(get_db), user=Depends(require_admin_tecnico)):
+    """Importazione massiva da CSV o da Excel (.xlsx): vedi services/import_utenti.py per le regole.
+    Con anteprima=true si controlla il file senza creare ne' cambiare nulla (e senza inviare email) e si
+    restituisce il riepilogo per persona e un `controllo` (impronta del risultato); la stessa chiamata senza anteprima fa
+    l'importazione vera e, se riceve quel `controllo`, si ferma con 409 quando il risultato non e' piu' lo stesso.
 
-    Con modo=cessati il file e' invece un elenco di disattivazione massiva: basta
-    la colonna email, ogni riga disattiva l'utente corrispondente (lo storico
-    formativo resta intatto). E' una scelta esplicita, mai dedotta dal nome del
-    file; gli Admin tecnici non si disattivano da qui."""
+    Con modo=cessati il file e' invece un elenco di disattivazione massiva: basta la colonna email, ogni riga
+    disattiva l'utente corrispondente (lo storico formativo resta intatto). E' una scelta esplicita, mai dedotta
+    dal nome del file; gli Admin non si disattivano da qui."""
     if modo not in ("nuovi", "cessati"):
         raise HTTPException(400, "Modo non valido: usa nuovi o cessati")
     if modo == "nuovi" and "cessat" in (file.filename or "").lower():
         raise HTTPException(400, "Il nome del file suggerisce un elenco di cessati, ma hai scelto di creare nuovi utenti: scegli «Disattiva cessati» se è quello che vuoi.")
-    if modo == "cessati":
-        return _disattiva_utenti_csv(file, request, db, user)
+    intestazioni, righe = import_svc.leggi_tabella(file.filename, file.file.read(import_svc.LIMITE_BYTE + 1))
+    elabora = import_svc.elabora_cessati if modo == "cessati" else import_svc.elabora_nuovi
+    return elabora(db, request, user, intestazioni, righe, anteprima, controllo)
 
-    raw = _leggi_csv(file)
-    righe_testo = raw.splitlines()
-    if not righe_testo:
-        raise HTTPException(400, "File vuoto")
-    delimitatore = ";" if righe_testo[0].count(";") > righe_testo[0].count(",") else ","
-    reader = csv.DictReader(io.StringIO(raw), delimiter=delimitatore)
-    reader.fieldnames = [(f or "").strip().lower() for f in (reader.fieldnames or [])]
-    if "full_name" in reader.fieldnames and "cognome" not in reader.fieldnames:
-        raise HTTPException(400, "La colonna «full_name» non esiste più: usa due colonne, «nome» e «cognome»")
-    if "email" not in reader.fieldnames or "nome" not in reader.fieldnames or "cognome" not in reader.fieldnames:
-        raise HTTPException(400, "Intestazioni richieste: email, nome, cognome")
-    if "role" in reader.fieldnames or "gruppi" in reader.fieldnames:
-        raise HTTPException(400, "Le colonne «role» e «gruppi» non esistono più: usa «admin», «formazione», «formatore» (sì/no), «ufficio» e «mansioni»")
-
-    tutti_gli_uffici = db.query(Group).all()
-    uffici_per_id = {g.id: g for g in tutti_gli_uffici}
-    uffici_per_percorso = {_percorso_gruppo(g, uffici_per_id).lower(): g for g in tutti_gli_uffici}
-    uffici_per_nome = {}
-    for g in tutti_gli_uffici:
-        uffici_per_nome.setdefault(g.name.lower(), []).append(g)
-    mansioni_tutte = {m.name.lower(): m for m in db.query(Mansione).all()}
-    org_tutte = {o.ragione_sociale.lower(): o for o in db.query(Organizzazione).all()}
-
-    righe = []
-    creati = 0
-    for n, row in enumerate(reader, start=2):  # riga 1 = intestazione
-        row = {(k or "").strip().lower(): (v or "").strip() for k, v in row.items()}
-        email = row.get("email")
-        nome, cognome = row.get("nome"), row.get("cognome")
-        if not email or not nome or not cognome:
-            righe.append({"riga": n, "email": email, "esito": "errore", "messaggio": "email, nome o cognome mancante"})
-            continue
-        if db.query(User).filter(User.email_idx == impronta(email)).first():
-            righe.append({"riga": n, "email": email, "esito": "errore", "messaggio": "email già esistente"})
-            continue
-        is_external = row.get("is_external", "").lower() in ("true", "si", "sì", "1", "yes", "x")
-        org = None
-        if row.get("organizzazione"):
-            org = org_tutte.get(row["organizzazione"].lower())
-            if not org:
-                righe.append({"riga": n, "email": email, "esito": "errore", "messaggio": f"organizzazione \"{row['organizzazione']}\" non trovata"})
-                continue
-        if is_external and not org:
-            righe.append({"riga": n, "email": email, "esito": "errore", "messaggio": "utente esterno senza organizzazione"})
-            continue
-        is_admin, is_formazione, is_formatore = (_si(row.get(c)) for c in ("admin", "formazione", "formatore"))
-        if is_external and (is_admin or is_formazione):
-            righe.append({"riga": n, "email": email, "esito": "errore", "messaggio": "un utente esterno non può essere Admin o Formazione"})
-            continue
-        ufficio = None
-        nome_ufficio = row.get("ufficio")
-        if nome_ufficio and is_external:
-            righe.append({"riga": n, "email": email, "esito": "errore", "messaggio": "un utente esterno non ha ufficio"})
-            continue
-        if nome_ufficio:
-            ufficio = uffici_per_percorso.get(nome_ufficio.lower())
-            if not ufficio:
-                candidati = uffici_per_nome.get(nome_ufficio.lower(), [])
-                if len(candidati) > 1:
-                    righe.append({"riga": n, "email": email, "esito": "errore", "messaggio": f"ufficio \"{nome_ufficio}\" ambiguo: scrivi il percorso intero (es. Produzione / Linea 2)"})
-                    continue
-                ufficio = candidati[0] if candidati else None
-            if not ufficio:
-                righe.append({"riga": n, "email": email, "esito": "errore", "messaggio": f"ufficio \"{nome_ufficio}\" non trovato"})
-                continue
-        elif not is_external and not is_admin:
-            righe.append({"riga": n, "email": email, "esito": "errore", "messaggio": "ufficio mancante (obbligatorio per gli utenti interni)"})
-            continue
-        data_ingresso = None
-        if row.get("data_ingresso"):
-            try:
-                data_ingresso = datetime.strptime(row["data_ingresso"], "%Y-%m-%d")
-            except ValueError:
-                righe.append({"riga": n, "email": email, "esito": "errore", "messaggio": "data_ingresso non valida (formato YYYY-MM-DD)"})
-                continue
-        password = row.get("password") or genera_password_temporanea()
-        if not password_valida(password):
-            righe.append({"riga": n, "email": email, "esito": "errore", "messaggio": f"password non valida: richiesti {REQUISITI_PASSWORD}"})
-            continue
-
-        u = User(
-            email=email, nome=nome, cognome=cognome,
-            hashed_password=hash_password(password),
-            is_admin=is_admin, is_formazione=is_formazione, is_formatore=is_formatore, is_external=is_external,
-            organizzazione_id=org.id if org else None,
-            data_ingresso=data_ingresso,
-            origine_credenziali="locale",
-            password_da_cambiare=True,
-        )
-        try:
-            with db.begin_nested():
-                db.add(u); db.flush()
-        except IntegrityError:
-            if not db.query(User).filter(User.email_idx == impronta(email)).first():
-                raise
-            righe.append({"riga": n, "email": email, "esito": "errore", "messaggio": "email già esistente"})
-            continue
-
-        _assegna_ufficio(u.id, ufficio.id if ufficio else None, db)
-        mansioni_non_trovate = []
-        if row.get("mansioni") and not is_external:
-            mansione_ids = []
-            for nome_mansione in row["mansioni"].replace("|", ";").split(";"):
-                nome_mansione = nome_mansione.strip()
-                if not nome_mansione:
-                    continue
-                m = mansioni_tutte.get(nome_mansione.lower())
-                if m:
-                    mansione_ids.append(str(m.id))
-                else:
-                    mansioni_non_trovate.append(nome_mansione)
-            _assegna_mansioni(u.id, mansione_ids, db)
-
-        link = crea_link_invito(db, u)
-        db.flush()
-        inviata = bool(link)
-        if link:
-            dopo_il_commit(db, invia_invito, email, u.full_name, link)  # il link, mai la password; parte solo a commit riuscito
-        creati += 1
-        messaggio = "creato"
-        if mansioni_non_trovate:
-            messaggio += f" (mansioni non trovate: {', '.join(mansioni_non_trovate)})"
-        righe.append({
-            "riga": n, "email": email, "esito": "creato", "messaggio": messaggio,
-            "email_inviata": inviata, "password": None if inviata else password,
-        })
-
-    if request is not None:
-        audit_svc.log_from_request(db, request, user, "CREATE", entity_type="user", entity_name=f"import CSV: {creati} utenti creati")
-    sincronizza_assegnazioni(db)
-    db.commit()
-    return {"totale": len(righe), "creati": creati, "errori": len(righe) - creati, "righe": righe}
-
-def _disattiva_utenti_csv(file: UploadFile, request: Request, db: Session, user) -> dict:
-    raw = _leggi_csv(file)
-    righe_testo = raw.splitlines()
-    if not righe_testo:
-        raise HTTPException(400, "File vuoto")
-    delimitatore = ";" if righe_testo[0].count(";") > righe_testo[0].count(",") else ","
-    reader = csv.DictReader(io.StringIO(raw), delimiter=delimitatore)
-    reader.fieldnames = [(f or "").strip().lower() for f in (reader.fieldnames or [])]
-    if "email" not in reader.fieldnames:
-        raise HTTPException(400, "Intestazione richiesta: email")
-
-    righe = []
-    disattivati = 0
-    promossi_tutti = []
-    for n, row in enumerate(reader, start=2):
-        email = (row.get("email") or "").strip()
-        if not email:
-            righe.append({"riga": n, "email": email, "esito": "errore", "messaggio": "email mancante"})
-            continue
-        u = db.query(User).filter(User.email_idx == impronta(email)).first()
-        if not u:
-            righe.append({"riga": n, "email": email, "esito": "ignorato", "messaggio": "email non trovata"})
-            continue
-        if not u.is_active:
-            righe.append({"riga": n, "email": email, "esito": "ignorato", "messaggio": "già disattivato"})
-            continue
-        if u.is_admin:
-            righe.append({"riga": n, "email": email, "esito": "errore", "messaggio": "Admin: non si disattiva da un elenco"})
-            continue
-        r = disattiva_utente(db, u)
-        promossi_tutti.extend(r["promossi"])
-        disattivati += 1
-        messaggio = "disattivato"
-        if r["posti_liberati"]:
-            messaggio += f" ({r['posti_liberati']} iscrizioni aperte annullate)"
-        if r["avvisi"]:
-            messaggio += " - attenzione: " + "; ".join(r["avvisi"])
-        righe.append({"riga": n, "email": email, "esito": "disattivato", "messaggio": messaggio})
-
-    if request is not None:
-        audit_svc.log_from_request(db, request, user, "UPDATE", entity_type="user", entity_name=f"import CSV cessati: {disattivati} utenti disattivati")
-    db.commit()
-    invita_promossi(db, promossi_tutti)
-    return {"totale": len(righe), "creati": 0, "errori": sum(1 for r in righe if r["esito"] == "errore"), "righe": righe}
+@router.get("/users/import-modello")
+def scarica_modello_importazione(formato: str = Query("xlsx"), modo: str = Query("nuovi"),
+                                 db: Session = Depends(get_db), user=Depends(require_admin_tecnico)):
+    """Modello da compilare (Excel o CSV) con i nomi veri di uffici e mansioni del sistema."""
+    if formato not in ("xlsx", "csv") or modo not in ("nuovi", "cessati"):
+        raise HTTPException(400, "Formato o modo non validi")
+    contenuto, nome, tipo = import_svc.modello(db, formato, modo)
+    return Response(content=contenuto, media_type=tipo, headers={"Content-Disposition": f'attachment; filename="{nome}"'})
 
 def _solo_se_stesso_o_formazione(user: User, user_id: str):
     """La struttura dei responsabili non e' un elenco pubblico: la vede la persona per se' e la Formazione."""
