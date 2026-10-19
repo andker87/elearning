@@ -17,6 +17,11 @@ PACCHETTI = ["fastapi", "uvicorn", "sqlalchemy", "pydantic", "pyjwt", "httpx", "
              "reportlab", "openpyxl", "pywebpush", "psycopg2-binary"]
 
 CHANGELOG = [
+    {"version": "2.4.1", "date": "2026-10", "label": "Sezione Video a schede", "changes": [
+        "Video: schede «Elenco video» e «Carica video». L'elenco è una tabella (titolo, stato, durata, qualità, sottotitoli sì/no, numero di capitoli, anti-skip, in quante sessioni è usato) e ogni video si apre sotto la riga per gestirne le proprietà",
+        "Dal video aperto: cambiare il titolo, attivare o no l'anti-skip, vedere l'anteprima compatta, caricare, sostituire o eliminare i sottotitoli, aggiungere, modificare ed eliminare i capitoli (si scrivono in minuti:secondi, non più in secondi, con controllo che non superino la durata)",
+        "Si può eliminare un video con i suoi file (qualità, originale, sottotitoli), ma solo se nessuna sessione lo usa e non è in elaborazione; l'eliminazione è registrata nel registro attività",
+    ]},
     {"version": "2.4.0", "date": "2026-10", "label": "Etichette libere, corsi a schede, player compatto", "changes": [
         "Etichette dei corsi: il sistema non crea più nessuna famiglia preimpostata (tematica, norma, ambito, obbligo): le definisci tu da zero, e la pagina vuota spiega come. Chi aggiorna non perde nulla: le famiglie già presenti restano. Solo chi arriva dal vecchio campo Categoria trova una famiglia «Tematica» con quei testi",
         "Corsi: schede «Elenco corsi» e «Nuovo corso»; tabella più snella (titolo con le sue caratteristiche in capsule, etichette, validità, versione, stato); in fondo alla riga i pulsanti Modifica, Test e Nuova versione. «Modifica» apre sotto la riga un modulo completo, uguale a quello di creazione (titolo, descrizione, validità, attestato, etichette, rinnovo automatico con anteprima, test finale, auto-iscrizione, stato). Dalla pagina Corsi c'è il collegamento alla gestione delle etichette",

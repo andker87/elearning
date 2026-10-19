@@ -37,7 +37,7 @@ Per chi configura e fa funzionare la piattaforma (permesso **Admin**) e per chi 
 - **Nuova versione** di un corso: scegli se chi lo ha già fatto deve ripeterlo (aggiornamenti normativi) o solo vedere «aggiornamento disponibile».
 - **Percorsi formativi**: sequenze di corsi con propedeuticità, assegnabili a mano, all'ingresso in azienda, a un ufficio (sottouffici compresi) o a una mansione.
 - **Sessioni**: modalità presenza, ibrida, remoto, video, esterna. Una sessione video senza data resta sempre aperta (adatta al rinnovo automatico). Pianificare una bozza manda l'invito calendario agli iscritti.
-- **Video**: carica il file, la piattaforma lo converte; puoi aggiungere capitoli e sottotitoli (`.vtt`).
+- **Video**: la pagina ha due schede. In **Carica video** scegli titolo e file: la piattaforma lo converte in più qualità. In **Elenco video** ogni riga ha titolo, stato, durata, qualità, sottotitoli, capitoli, anti-skip e il numero di sessioni che lo usano; **Apri** mostra sotto la riga il pannello del video: titolo, anti-skip, anteprima compatta (non conta come visione), sottotitoli (`.vtt`: carica, sostituisci, elimina) e capitoli (si scrivono in minuti:secondi, si modificano e si eliminano). Un video si può eliminare solo se nessuna sessione lo usa.
 
 ## 5. Controllo e audit
 
