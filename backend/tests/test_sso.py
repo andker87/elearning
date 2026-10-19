@@ -16,7 +16,7 @@ import jwt
 from app.services.impronte import impronta
 from app.config import settings
 from app.models.audit import AuditLog
-from app.models.user import User, UserRole
+from app.models.user import User
 from app.services import sso as sso_svc
 
 from conftest import PASSWORD
@@ -135,7 +135,7 @@ def test_primo_collegamento_per_email_senza_distinguere_maiuscole(client, db, ss
 def test_con_sso_attivo_la_password_vale_solo_per_locali_e_admin(client, sso, crea_utente):
     dominio = crea_utente("dom@test.it", origine_credenziali="dominio")
     assert client.post("/api/auth/login", json={"email": dominio.email, "password": PASSWORD}).status_code == 401
-    admin_dominio = crea_utente("adm@test.it", UserRole.admin_tecnico, origine_credenziali="dominio")
+    admin_dominio = crea_utente("adm@test.it", "admin", origine_credenziali="dominio")
     assert client.post("/api/auth/login", json={"email": admin_dominio.email, "password": PASSWORD}).status_code == 200  # accesso di emergenza
     locale = crea_utente("loc@test.it")
     assert client.post("/api/auth/login", json={"email": locale.email, "password": PASSWORD}).status_code == 200
@@ -181,7 +181,7 @@ def test_provisioning_crea_l_utente_solo_se_abilitato(client, db, sso, monkeypat
     monkeypatch.setattr(settings, "SSO_PROVISIONA_UTENTI", True)
     assert accedi(client, sso, claims)[0] == "OK"
     u = db.query(User).filter(User.email_idx == impronta("nuovo@test.it")).one()
-    assert u.role == UserRole.user and u.origine_credenziali == "dominio" and u.full_name == "Nuovo Utente" and u.sso_subject == "nuovo"
+    assert not u.is_admin and not u.is_formazione and u.origine_credenziali == "dominio" and u.full_name == "Nuovo Utente" and u.sso_subject == "nuovo"
 
 
 def test_audit_di_accessi_e_rifiuti(client, db, sso, crea_utente):
@@ -193,7 +193,7 @@ def test_audit_di_accessi_e_rifiuti(client, db, sso, crea_utente):
 
 
 def test_admin_tecnico_non_si_collega_per_email_ma_chi_e_gia_collegato_entra(client, db, sso, crea_utente):
-    adm = crea_utente("admin@az.it", UserRole.admin_tecnico)
+    adm = crea_utente("admin@az.it", "admin")
     assert accedi(client, sso, {"sub": "admin-sub", "email": "admin@az.it"})[0] == "admin_non_collegabile"
     db.refresh(adm)
     assert adm.sso_subject is None

@@ -8,7 +8,7 @@ from datetime import datetime, timezone
 from ..database import get_db
 from ..models.richiesta_corso import RichiestaCorso, RichiestaCorsoPersona, StatoRichiestaCorso
 from ..models.corso import Corso
-from ..models.user import User, UserRole
+from ..models.user import User
 from ..services.gerarchia import e_responsabile, sottoposti_di
 from .deps import get_current_user, require_training_admin
 
@@ -25,7 +25,7 @@ class RichiestaCorsoValuta(BaseModel):
     nota_valutazione: Optional[str] = None
 
 def _is_admin(user: User) -> bool:
-    return user.role in (UserRole.admin_tecnico, UserRole.training_admin)
+    return user.ha_poteri_formazione
 
 def _uuid(valore: str, cosa: str) -> str:
     try:

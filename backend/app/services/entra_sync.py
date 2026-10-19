@@ -9,13 +9,13 @@ import secrets
 from datetime import datetime, timedelta, timezone
 
 import httpx
-from sqlalchemy import func
+from sqlalchemy import func, or_
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from ..config import settings
 from ..models.notification import Notification
-from ..models.user import User, UserRole
+from ..models.user import User
 from . import audit as audit_svc
 from .auth import hash_password
 from .offboarding import avvisi_disattivazione, disattiva_utente, invita_promossi
@@ -108,7 +108,7 @@ def calcola_piano(db: Session, membri: list) -> dict:
         motivo = "account disabilitato in Entra" if (m and not m["attivo"]) else ("non più nel gruppo Entra" if not m else None)
         if not motivo:
             continue
-        if u.role == UserRole.admin_tecnico:
+        if u.is_admin:
             piano["esclusi"].append({"email": u.email, "nome": u.full_name, "motivo": f"Admin tecnico ({motivo}): non si disattiva in automatico"})
             continue
         piano["disattiva"].append({"email": u.email, "nome": u.full_name, "motivo": motivo, "avvisi": avvisi_disattivazione(db, u)})
@@ -144,7 +144,7 @@ def applica_piano(db: Session, piano: dict, request=None, admin=None, riattiva: 
             continue
         try:
             with db.begin_nested():
-                db.add(User(email=c["email"], full_name=c["nome"][:200], role=UserRole.user, is_external=False,
+                db.add(User(email=c["email"], full_name=c["nome"][:200], is_external=False,
                             hashed_password=hash_password(genera_password_temporanea() + secrets.token_urlsafe(8)),
                             origine_credenziali="dominio", data_ingresso=c["data_ingresso"]))
                 db.flush()
@@ -163,7 +163,7 @@ def applica_piano(db: Session, piano: dict, request=None, admin=None, riattiva: 
             esito["aggiornati"] += 1
     for d in piano["disattiva"]:
         u = db.query(User).filter(User.email_idx == impronta(d["email"])).first()
-        if not u or not u.is_active or u.role == UserRole.admin_tecnico:
+        if not u or not u.is_active or u.is_admin:
             continue
         r = disattiva_utente(db, u)
         traccia("DISATTIVA_UTENTE", u.email, d["motivo"] + (f" - posti liberati: {r['posti_liberati']}" if r["posti_liberati"] else ""))
@@ -185,7 +185,7 @@ def applica_piano(db: Session, piano: dict, request=None, admin=None, riattiva: 
 
 
 def _avvisa_responsabili(db: Session, testo: str):
-    for u in db.query(User).filter(User.is_active == True, User.role.in_([UserRole.admin_tecnico, UserRole.training_admin])).all():  # noqa: E712
+    for u in db.query(User).filter(User.is_active == True, or_(User.is_admin == True, User.is_formazione == True)).all():  # noqa: E712
         db.add(Notification(user_id=u.id, tipo="sync_entra", testo=testo, link="/sincronizzazione-utenti"))
 
 

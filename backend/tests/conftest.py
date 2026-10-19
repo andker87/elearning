@@ -27,7 +27,7 @@ from fastapi.testclient import TestClient
 from app.config import settings
 from app.database import Base, SessionLocal, engine
 from app.main import app  # importa anche tutti i modelli
-from app.models.user import User, UserRole
+from app.models.user import User
 from app.services import rate_limit
 import bcrypt
 from app.services.auth import token_per_utente
@@ -85,10 +85,11 @@ def client():
 
 @pytest.fixture
 def crea_utente(db):
-    def _crea(email=None, ruolo=UserRole.user, password=PASSWORD, **kw):
+    def _crea(email=None, ruolo=None, password=PASSWORD, **kw):
+        """ruolo: None (utente semplice), "admin" o "formazione"."""
         u = User(id=uuid.uuid4(), email=email or f"u{uuid.uuid4().hex[:8]}@test.it", full_name=kw.pop("full_name", "Utente Test"),
                  hashed_password=bcrypt.hashpw(password.encode(), bcrypt.gensalt(rounds=4)).decode(),
-                 role=ruolo, **kw)  # costo bcrypt basso: i test restano veloci
+                 **{"is_admin": ruolo == "admin", "is_formazione": ruolo == "formazione", **kw})  # costo bcrypt basso: i test restano veloci
         db.add(u)
         db.commit()
         db.refresh(u)
@@ -105,12 +106,12 @@ def auth():
 
 @pytest.fixture
 def admin(crea_utente):
-    return crea_utente("admin@test.it", UserRole.admin_tecnico, full_name="Admin Test")
+    return crea_utente("admin@test.it", "admin", full_name="Admin Test")
 
 
 @pytest.fixture
 def formazione(crea_utente):
-    return crea_utente("formazione@test.it", UserRole.training_admin, full_name="Ufficio Formazione")
+    return crea_utente("formazione@test.it", "formazione", full_name="Ufficio Formazione")
 
 
 @pytest.fixture

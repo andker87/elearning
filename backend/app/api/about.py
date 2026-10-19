@@ -9,7 +9,6 @@ from ..database import get_db
 from ..models.azienda import Azienda
 from ..version import APP_VERSION
 from .deps import get_current_user
-from ..models.user import UserRole
 
 router = APIRouter(prefix="/api/about", tags=["about"])
 _AVVIO = time.time()
@@ -18,6 +17,14 @@ PACCHETTI = ["fastapi", "uvicorn", "sqlalchemy", "pydantic", "pyjwt", "httpx", "
              "reportlab", "openpyxl", "pywebpush", "psycopg2-binary"]
 
 CHANGELOG = [
+    {"version": "2.2.0", "date": "2026-10", "label": "Permessi, uffici e mansioni", "changes": [
+        "Il ruolo unico dell'utente è sostituito da permessi che si sommano (Admin, Formazione) e dalla qualifica Formatore; senza nessuno dei tre si è utenti semplici. Si assegnano dalla scheda di ciascun utente (nuovo pulsante Modifica nell'elenco)",
+        "Gli uffici sono la sola struttura organizzativa: albero di uffici e sottouffici con responsabile, un solo ufficio per persona (obbligatorio per gli interni, tranne gli Admin). I quattro gruppi di sistema, che non facevano nulla, e la pagina Ruoli sono stati tolti",
+        "Nuove mansioni: etichette trasversali agli uffici (per esempio preposto, addetto antincendio), anche più d'una per persona, senza permessi; servono ad assegnare un percorso in blocco e a filtrare l'elenco utenti",
+        "Come docente di un'edizione si possono scegliere solo i Formatori e gli utenti esterni (un esterno è un docente di una società terza: non ha ufficio né mansioni e non si iscrive ai corsi)",
+        "L'importazione CSV usa le colonne ufficio, mansioni, admin, formazione, formatore al posto di role e gruppi; la configurazione esportata include le mansioni e i file vecchi si importano ancora",
+        "Chi aggiorna: la migrazione trasforma i dati esistenti (ruoli in permessi, gruppi liberi che non erano uffici in mansioni, chi era docente o nel gruppo Formatori diventa Formatore); chi era in più uffici resta nel primo e la migrazione lo scrive nel log. Il profilo si rilegge dal server a ogni avvio, quindi il menu si aggiorna senza rifare l'accesso",
+    ]},
     {"version": "2.1.0", "date": "2026-10", "label": "Pagina Utenti a schede", "changes": [
         "La pagina Utenti è divisa in tre schede: Elenco, Nuovo utente, Importa da CSV, così non diventa lunghissima con molti utenti",
         "L'elenco ha ricerca per nome o email, filtri per ruolo, gruppo, tipo e stato, intestazioni cliccabili per ordinare (senza badare alle maiuscole, con i numeri trattati come numeri), paginazione a 25, 50 o 100 righe e mostra anche i gruppi di ciascuno",
@@ -229,7 +236,7 @@ def about(db: Session = Depends(get_db), user=Depends(get_current_user)):
         "versione": APP_VERSION,
     }
     # Agli utenti solo nome e versione: novita' tecniche, ambiente, librerie e integrazioni sono dell'Admin tecnico.
-    if user.role != UserRole.admin_tecnico:
+    if not user.is_admin:
         return dati
     dati["changelog"] = CHANGELOG
 

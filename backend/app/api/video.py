@@ -12,7 +12,6 @@ from ..config import settings
 from ..database import get_db, SessionLocal
 from ..models.video import VideoContenuto, VideoCapitolo, VideoProgresso, StatoVideo
 from ..models.iscrizione import Iscrizione, StatoIscrizione
-from ..models.user import UserRole
 from ..models.edizione import Edizione
 from ..models.evidenza import Evidenza, FonteEvidenza
 from ..services import audit as audit_svc
@@ -87,7 +86,7 @@ def get_video(video_id: str, db: Session = Depends(get_db), user=Depends(get_cur
 
 def _puo_vedere(db: Session, user, video_id) -> bool:
     """Chi gestisce la formazione vede tutto; gli altri solo i video delle sessioni a cui sono iscritti."""
-    if user.role in (UserRole.admin_tecnico, UserRole.training_admin):
+    if user.ha_poteri_formazione:
         return True
     return db.query(Iscrizione.id).join(Edizione, Edizione.id == Iscrizione.edizione_id).filter(
         Iscrizione.user_id == user.id, Iscrizione.stato.in_(STATI_CON_ACCESSO), Edizione.video_id == video_id).first() is not None

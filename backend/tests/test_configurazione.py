@@ -46,7 +46,7 @@ def test_il_file_non_contiene_segreti_ne_cio_che_e_fuori_ambito(client, db, admi
     for vietato in ("SEGRETISSIMA", "vapid", "hashed_password", "calendar_token_hash", "sso_subject"):
         assert vietato not in r.text
     dati = r.json()
-    assert dati["formato"] == "elearning-configurazione" and dati["schema"] == 1 and dati["non_incluso"]
+    assert dati["formato"] == "elearning-configurazione" and dati["schema"] == 2 and dati["non_incluso"]
     assert dati["azienda"]["nome_piattaforma"] == "Formazione Acme" and dati["azienda"]["privacy_testo"] == "Titolare: Acme"
     assert {g["percorso"] for g in dati["gruppi"]} == {"Direzione", "Direzione / Legale"}
     assert next(g for g in dati["gruppi"] if g["nome"] == "Direzione")["responsabile"] == "resp@acme.it"

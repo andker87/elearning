@@ -13,7 +13,7 @@ from ..models.fabbisogno import (
 )
 from ..models.group import Group
 from ..models.notification import Notification
-from ..models.user import User, UserRole
+from ..models.user import User
 from ..services.export import esporta
 from ..services.gerarchia import e_responsabile, uffici_guidati_da, uffici_radice, uffici_figli, ufficio_padre
 from .deps import get_current_user, require_training_admin
@@ -467,7 +467,7 @@ def origine_richiesta(richiesta_id: str, db: Session = Depends(get_db), user: Us
         for f in ctx.figli.get(r.id, []):
             yield from sottoalbero(f)
 
-    if user.role not in (UserRole.admin_tecnico, UserRole.training_admin):
+    if not user.ha_poteri_formazione:
         mie = {u.id for u in uffici_guidati_da(db, user.id)}
         ammesso = any(n.creata_da_id == user.id or n.ufficio_origine_id in mie or n.ufficio_in_revisione_presso_id in mie for n in sottoalbero(radice))
         if not ammesso:

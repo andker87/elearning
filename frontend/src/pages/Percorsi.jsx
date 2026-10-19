@@ -3,7 +3,7 @@ import api from "../api";
 import ExportButton from "../components/ExportButton";
 
 const FORM_VUOTO = {
-  nome: "", motivo: "policy_interna", motivoNota: "", triggerTipo: "manuale", triggerGruppoId: "",
+  nome: "", motivo: "policy_interna", motivoNota: "", triggerTipo: "manuale", triggerGruppoId: "", triggerMansioneId: "",
   steps: [{ corso_id: "", ordine: 1, richiede_step_ordini: [] }],
 };
 
@@ -11,6 +11,7 @@ export default function Percorsi() {
   const [list, setList] = useState([]);
   const [corsi, setCorsi] = useState([]);
   const [gruppi, setGruppi] = useState([]);
+  const [mansioni, setMansioni] = useState([]);
   const [form, setForm] = useState(FORM_VUOTO);
   const [editingId, setEditingId] = useState(null);
   const [msg, setMsg] = useState(null);
@@ -20,6 +21,7 @@ export default function Percorsi() {
     load();
     api.get("/corsi").then((r) => setCorsi(r.data));
     api.get("/groups").then((r) => setGruppi(r.data));
+    api.get("/mansioni").then((r) => setMansioni(r.data));
   }, []);
 
   function addStep() {
@@ -38,7 +40,7 @@ export default function Percorsi() {
     const stepByStepId = Object.fromEntries(p.steps.map((s) => [s.id, s.ordine]));
     setForm({
       nome: p.nome, motivo: p.motivo, motivoNota: p.motivo_nota || "",
-      triggerTipo: p.trigger_tipo, triggerGruppoId: p.trigger_gruppo_id || "",
+      triggerTipo: p.trigger_tipo, triggerGruppoId: p.trigger_gruppo_id || "", triggerMansioneId: p.trigger_mansione_id || "",
       steps: p.steps.map((s) => ({
         corso_id: s.corso_id, ordine: s.ordine,
         richiede_step_ordini: s.richiede_step_ids.map((id) => stepByStepId[id]).filter((o) => o !== undefined),
@@ -57,6 +59,7 @@ export default function Percorsi() {
     const payload = {
       nome: form.nome, steps: form.steps,
       trigger_tipo: form.triggerTipo, trigger_gruppo_id: form.triggerTipo === "gruppo" ? form.triggerGruppoId : null,
+      trigger_mansione_id: form.triggerTipo === "mansione" ? form.triggerMansioneId : null,
     };
     if (editingId) {
       await api.put(`/percorsi/${editingId}`, payload);
@@ -74,7 +77,7 @@ export default function Percorsi() {
     load();
   }
 
-  const TRIGGER_LABEL = { manuale: "Assegnazione manuale", ingresso_azienda: "Automatico all'ingresso in azienda", gruppo: "Automatico per gruppo" };
+  const TRIGGER_LABEL = { manuale: "Assegnazione manuale", ingresso_azienda: "Automatico all'ingresso in azienda", gruppo: "Automatico per ufficio", mansione: "Automatico per mansione" };
 
   return (
     <div>
@@ -97,15 +100,25 @@ export default function Percorsi() {
               <select value={form.triggerTipo} onChange={(e) => setForm({ ...form, triggerTipo: e.target.value })}>
                 <option value="manuale">Manuale</option>
                 <option value="ingresso_azienda">Automatica all'ingresso in azienda</option>
-                <option value="gruppo">Automatica per appartenenza a un gruppo</option>
+                <option value="gruppo">Automatica per ufficio (sottouffici compresi)</option>
+                <option value="mansione">Automatica per mansione</option>
               </select>
             </div>
             {form.triggerTipo === "gruppo" && (
               <div className="field">
-                <label>Gruppo</label>
+                <label>Ufficio</label>
                 <select required value={form.triggerGruppoId} onChange={(e) => setForm({ ...form, triggerGruppoId: e.target.value })}>
                   <option value="">-- seleziona --</option>
                   {gruppi.map((g) => <option key={g.id} value={g.id}>{g.name}</option>)}
+                </select>
+              </div>
+            )}
+            {form.triggerTipo === "mansione" && (
+              <div className="field">
+                <label>Mansione</label>
+                <select required value={form.triggerMansioneId} onChange={(e) => setForm({ ...form, triggerMansioneId: e.target.value })}>
+                  <option value="">-- seleziona --</option>
+                  {mansioni.filter((m) => m.is_active).map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}
                 </select>
               </div>
             )}

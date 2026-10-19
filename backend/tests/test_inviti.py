@@ -23,7 +23,7 @@ def canale(db, monkeypatch, attivo=True):
 
 
 def crea(client, admin, auth, **extra):
-    return client.post("/api/auth/users", headers=auth(admin), json={"email": "nuovo@test.it", "full_name": "Nuova Persona", **extra})
+    return client.post("/api/auth/users", headers=auth(admin), json={"email": "nuovo@test.it", "full_name": "Nuova Persona", "is_admin": True, **extra})
 
 
 def test_con_email_attiva_arriva_un_link_e_nessuna_password(client, db, admin, auth, monkeypatch):
@@ -85,18 +85,20 @@ def test_utente_del_dominio_non_riceve_inviti(client, db, admin, auth, monkeypat
     assert inviate == [] and r["invito_inviato"] is False and r["password_temporanea"] is None
 
 
-def test_import_csv_manda_il_link_non_la_password(client, db, admin, auth, monkeypatch):
+def test_import_csv_manda_il_link_non_la_password(client, db, admin, auth, monkeypatch, crea_ufficio):
+    crea_ufficio("Produzione")
     inviate = canale(db, monkeypatch)
-    csv_ = b"email,full_name,password\nuno@az.it,Uno,\ndue@az.it,Due,Scelta!DaDue12345\n"
+    csv_ = b"email,full_name,password,ufficio\nuno@az.it,Uno,,Produzione\ndue@az.it,Due,Scelta!DaDue12345,Produzione\n"
     r = client.post("/api/auth/users/import-csv", headers=auth(admin), files={"file": ("nuovi.csv", csv_, "text/csv")}).json()
     assert [x["esito"] for x in r["righe"]] == ["creato", "creato"] and [x["password"] for x in r["righe"]] == [None, None]
     assert len(inviate) == 2 and all("reimposta-password?token=" in m[2] for m in inviate)
     assert not any("Scelta!DaDue12345" in m[2] for m in inviate)
 
 
-def test_import_csv_senza_email_mostra_le_password(client, db, admin, auth, monkeypatch):
+def test_import_csv_senza_email_mostra_le_password(client, db, admin, auth, monkeypatch, crea_ufficio):
+    crea_ufficio("Produzione")
     canale(db, monkeypatch, attivo=False)
     r = client.post("/api/auth/users/import-csv", headers=auth(admin),
-                    files={"file": ("nuovi.csv", b"email,full_name\nuno@az.it,Uno\n", "text/csv")}).json()
+                    files={"file": ("nuovi.csv", b"email,full_name,ufficio\nuno@az.it,Uno,Produzione\n", "text/csv")}).json()
     password = r["righe"][0]["password"]
     assert password and client.post("/api/auth/login", json={"email": "uno@az.it", "password": password}).status_code == 200

@@ -8,10 +8,12 @@ from datetime import datetime, timedelta, timezone
 import csv, io
 from ..database import get_db
 from ..config import settings
-from ..models.user import User, UserRole
+from ..models.user import User
+from ..models.mansione import Mansione, UserMansione
 from ..models.group import Group, UserGroup
 from ..models.organizzazione import Organizzazione
 from ..services.auth import verify_password, hash_password, token_per_utente
+from ..services.configurazione import _percorso_gruppo
 from ..services.password_policy import password_valida, genera_password_temporanea, REQUISITI_PASSWORD
 from ..services import rate_limit
 from ..models.notification import Notification
@@ -33,10 +35,13 @@ class UserCreate(BaseModel):
     email: EmailStr
     full_name: str
     password: Optional[str] = None  # vuota: la sceglie la persona (link via email) o viene generata una temporanea
-    role: UserRole = UserRole.user
+    is_admin: bool = False
+    is_formazione: bool = False
+    is_formatore: bool = False
     is_external: bool = False
     organizzazione_id: Optional[str] = None
-    group_ids: List[str] = []
+    ufficio_id: Optional[str] = None
+    mansione_ids: List[str] = []
     data_ingresso: Optional[datetime] = None
     origine_credenziali: str = "locale"
 
@@ -48,10 +53,13 @@ class UserUpdate(BaseModel):
     full_name: Optional[str] = None
     is_active: Optional[bool] = None
     password: Optional[str] = None
-    role: Optional[UserRole] = None
+    is_admin: Optional[bool] = None
+    is_formazione: Optional[bool] = None
+    is_formatore: Optional[bool] = None
     is_external: Optional[bool] = None
     organizzazione_id: Optional[str] = None
-    group_ids: Optional[List[str]] = None
+    ufficio_id: Optional[str] = None       # "" = toglie l'ufficio
+    mansione_ids: Optional[List[str]] = None
     can_see_all: Optional[bool] = None
     data_ingresso: Optional[datetime] = None
     origine_credenziali: Optional[str] = None
@@ -60,27 +68,81 @@ def _is_docente_di_qualcosa(user_id, db: Session) -> bool:
     from ..models.edizione import EdizioneDocente
     return db.query(EdizioneDocente).filter(EdizioneDocente.user_id == user_id).first() is not None
 
-def _serialize_user(u: User, db: Session):
-    memberships = db.query(UserGroup).options(joinedload(UserGroup.group)).filter(UserGroup.user_id == u.id).all()
-    groups = [{"id": str(m.group_id), "name": m.group.name, "color": m.group.color} for m in memberships if m.group]
+def _serialize_user(u: User, db: Session, uffici=None, mansioni=None, docenti=None):
+    """`uffici`, `mansioni` e `docenti` (calcolati una volta per tutti) evitano una query per riga negli elenchi."""
+    if uffici is None:
+        riga = db.query(UserGroup).options(joinedload(UserGroup.group)).filter(UserGroup.user_id == u.id).first()
+        uffici = {u.id: riga.group} if riga and riga.group else {}
+    if mansioni is None:
+        mansioni = _mansioni_per_utente(db, [u.id])
+    g = uffici.get(u.id)
     return {
         "id": str(u.id), "email": u.email, "full_name": u.full_name,
-        "role": u.role, "is_active": u.is_active,
+        "is_admin": bool(u.is_admin), "is_formazione": bool(u.is_formazione),
+        "is_formatore": bool(u.is_formatore or u.is_external),   # un esterno e' docente per definizione
+        "poteri_formazione": u.ha_poteri_formazione,
+        "is_active": u.is_active,
         "is_external": u.is_external,
         "organizzazione_id": str(u.organizzazione_id) if u.organizzazione_id else None,
         "can_see_all": u.can_see_all or False,
         "data_ingresso": u.data_ingresso,
         "origine_credenziali": u.origine_credenziali,
         "password_da_cambiare": bool(u.password_da_cambiare and u.origine_credenziali == "locale"),
-        "is_docente": _is_docente_di_qualcosa(u.id, db),
-        "groups": groups, "created_at": u.created_at,
+        "is_docente": (u.id in docenti) if docenti is not None else _is_docente_di_qualcosa(u.id, db),
+        "ufficio": {"id": str(g.id), "name": g.name, "color": g.color} if g else None,
+        "mansioni": [{"id": str(m.id), "name": m.name, "color": m.color} for m in mansioni.get(u.id, [])],
+        "created_at": u.created_at,
     }
 
-def _assign_groups(user_id: str, group_ids: List[str], db: Session):
+def _mansioni_per_utente(db: Session, user_ids=None):
+    q = db.query(UserMansione.user_id, Mansione).join(Mansione, Mansione.id == UserMansione.mansione_id)
+    if user_ids is not None:
+        q = q.filter(UserMansione.user_id.in_(user_ids))
+    per_utente = {}
+    for uid, m in q.all():
+        per_utente.setdefault(uid, []).append(m)
+    for lista in per_utente.values():
+        lista.sort(key=lambda m: m.name.casefold())
+    return per_utente
+
+def _serialize_users(users, db: Session):
+    """Elenco: 4 query in tutto, non una per riga."""
+    from ..models.edizione import EdizioneDocente
+    uffici = {r.user_id: r.group for r in db.query(UserGroup).options(joinedload(UserGroup.group)).all() if r.group}
+    mansioni = _mansioni_per_utente(db)
+    docenti = {r[0] for r in db.query(EdizioneDocente.user_id).distinct().all()}
+    return [_serialize_user(u, db, uffici, mansioni, docenti) for u in users]
+
+def _assegna_ufficio(user_id, ufficio_id, db: Session):
+    """Un solo ufficio per persona. Vuoto = nessun ufficio."""
+    if ufficio_id and not db.query(Group.id).filter(Group.id == ufficio_id).first():
+        raise HTTPException(400, "Ufficio non trovato")
     db.query(UserGroup).filter(UserGroup.user_id == user_id).delete()
-    for gid in group_ids:
-        db.add(UserGroup(user_id=user_id, group_id=gid))
+    if ufficio_id:
+        db.add(UserGroup(user_id=user_id, group_id=ufficio_id))
     db.flush()
+
+def _assegna_mansioni(user_id, mansione_ids: List[str], db: Session):
+    ids = list(dict.fromkeys(mansione_ids))
+    if ids and db.query(Mansione).filter(Mansione.id.in_(ids)).count() != len(ids):
+        raise HTTPException(400, "Mansione non trovata")
+    db.query(UserMansione).filter(UserMansione.user_id == user_id).delete()
+    for mid in ids:
+        db.add(UserMansione(user_id=user_id, mansione_id=mid))
+    db.flush()
+
+def _controlla_coerenza(u: User, ufficio_id, mansione_ids, richiedi_ufficio: bool = True):
+    """Regole sul tipo di persona: l'esterno e' un docente di una societa' terza (niente permessi,
+    ufficio, mansioni); l'interno ha un ufficio, salvo chi e' Admin (il primo Admin non ne ha)."""
+    if u.is_external:
+        if u.is_admin or u.is_formazione:
+            raise HTTPException(400, "Un utente esterno non può avere i permessi Admin o Formazione")
+        if ufficio_id or mansione_ids:
+            raise HTTPException(400, "Un utente esterno non ha ufficio né mansioni")
+        if not u.organizzazione_id:
+            raise HTTPException(400, "Un utente esterno deve avere un'organizzazione di riferimento")
+    elif richiedi_ufficio and not ufficio_id and not u.is_admin:
+        raise HTTPException(400, "Un utente interno deve avere un ufficio")
 
 MAX_TENTATIVI = 5
 BLOCCO_MINUTI = 15
@@ -122,7 +184,7 @@ def login(data: LoginRequest, request: Request, db: Session = Depends(get_db)):
                 chiave = f"account_bloccato:{user.id}:{now:%Y%m%d%H}"
                 if not db.query(Notification).filter(Notification.dedup_key == chiave).first():
                     # solo in-app: niente invio email dentro la richiesta di login (rallenterebbe chi accede)
-                    for adm in db.query(User).filter(User.role == UserRole.admin_tecnico, User.is_active == True).all():  # noqa: E712
+                    for adm in db.query(User).filter(User.is_admin == True, User.is_active == True).all():  # noqa: E712
                         db.add(Notification(user_id=adm.id, tipo="account_bloccato", dedup_key=chiave, link="/audit-log",
                                             testo=f"L'account {user.email} è stato sospeso per {BLOCCO_MINUTI} minuti dopo {MAX_TENTATIVI} tentativi di accesso falliti."))
         db.commit()
@@ -130,8 +192,8 @@ def login(data: LoginRequest, request: Request, db: Session = Depends(get_db)):
     if not user.is_active:
         raise HTTPException(401, "Utente disabilitato")
     # Con l'SSO attivo chi ha le credenziali gestite dal dominio entra solo da li';
-    # l'Admin tecnico resta sempre ammesso con password (accesso di emergenza se l'IdP e' giu').
-    if settings.sso_enabled and user.origine_credenziali != "locale" and user.role != UserRole.admin_tecnico:
+    # chi ha il permesso Admin resta sempre ammesso con password (accesso di emergenza se l'IdP e' giu').
+    if settings.sso_enabled and user.origine_credenziali != "locale" and not user.is_admin:
         audit_svc.log_from_request(db, request, user, "LOGIN_FAILED", detail="password non ammessa: credenziali gestite dal dominio")
         db.commit()
         raise HTTPException(401, "Questo account usa l'accesso aziendale: usa il pulsante «Accedi con l'account aziendale»")
@@ -167,20 +229,22 @@ def cambia_password(data: PasswordChange, request: Request, db: Session = Depend
 @router.get("/users")
 def list_users(db: Session = Depends(get_db), user=Depends(require_admin_tecnico)):
     users = sorted(db.query(User).all(), key=lambda u: (u.full_name or "").casefold())   # il nome e' cifrato: si ordina qui
-    return [_serialize_user(u, db) for u in users]
+    return _serialize_users(users, db)
 
 @router.get("/users/simple")
-def list_users_simple(db: Session = Depends(get_db), user=Depends(get_current_user)):
-    """Lista semplificata utenti attivi - usata per i picker (es. scelta docenti)."""
+def list_users_simple(formatori: bool = False, db: Session = Depends(get_db), user=Depends(get_current_user)):
+    """Lista semplificata utenti attivi - usata per i picker. Con `formatori=true` solo chi si puo'
+    assegnare come docente (qualifica Formatore, oppure esterno)."""
     users = sorted(db.query(User).filter(User.is_active == True).all(), key=lambda u: (u.full_name or "").casefold())
-    return [{"id": str(u.id), "full_name": u.full_name, "email": u.email, "is_external": u.is_external} for u in users]
+    if formatori:
+        users = [u for u in users if u.puo_essere_docente]
+    return [{"id": str(u.id), "full_name": u.full_name, "email": u.email, "is_external": u.is_external,
+             "is_formatore": bool(u.is_formatore or u.is_external)} for u in users]
 
 @router.post("/users")
 def create_user(data: UserCreate, request: Request, db: Session = Depends(get_db), user=Depends(require_admin_tecnico)):
     if db.query(User).filter(User.email_idx == impronta(data.email)).first():
         raise HTTPException(400, "Email già esistente")
-    if data.is_external and not data.organizzazione_id:
-        raise HTTPException(400, "Un utente esterno deve avere un'organizzazione di riferimento")
     if data.password and not password_valida(data.password):
         raise _password_non_valida()
     scelta_dall_admin = bool(data.password)
@@ -188,12 +252,14 @@ def create_user(data: UserCreate, request: Request, db: Session = Depends(get_db
     u = User(
         email=data.email, full_name=data.full_name,
         hashed_password=hash_password(password),
-        role=data.role, is_external=data.is_external,
-        organizzazione_id=data.organizzazione_id,
+        is_admin=data.is_admin, is_formazione=data.is_formazione, is_formatore=data.is_formatore,
+        is_external=data.is_external,
+        organizzazione_id=data.organizzazione_id or None,
         data_ingresso=data.data_ingresso,
         origine_credenziali=data.origine_credenziali,
         password_da_cambiare=True,  # password scelta da altri: la persona ne sceglie una sua
     )
+    _controlla_coerenza(u, data.ufficio_id, data.mansione_ids)
     try:
         with db.begin_nested():   # punto di salvataggio: un conflitto non rovina il resto della transazione
             db.add(u); db.flush()
@@ -202,8 +268,8 @@ def create_user(data: UserCreate, request: Request, db: Session = Depends(get_db
         if db.query(User).filter(User.email_idx == impronta(data.email)).first():
             raise HTTPException(400, "Email già esistente")
         raise
-    if data.group_ids:
-        _assign_groups(str(u.id), data.group_ids, db)
+    _assegna_ufficio(u.id, data.ufficio_id, db)
+    _assegna_mansioni(u.id, data.mansione_ids, db)
     audit_svc.log_from_request(db, request, user, "CREATE", entity_type="user", entity_id=str(u.id), entity_name=u.email)
     sincronizza_assegnazioni(db)
     link = crea_link_invito(db, u) if u.origine_credenziali == "locale" else None
@@ -212,6 +278,9 @@ def create_user(data: UserCreate, request: Request, db: Session = Depends(get_db
     # Una password che l'admin non ha scelto e che non e' partita per email gli va mostrata (una volta sola).
     mostra = password if (u.origine_credenziali == "locale" and not scelta_dall_admin and not invitato) else None
     return {**_serialize_user(u, db), "invito_inviato": invitato, "password_temporanea": mostra}
+
+def _si(valore) -> bool:
+    return (valore or "").strip().lower() in ("true", "si", "sì", "1", "yes", "x", "s")
 
 def _leggi_csv(file: UploadFile) -> str:
     try:
@@ -223,9 +292,10 @@ def _leggi_csv(file: UploadFile) -> str:
 def import_users_csv(file: UploadFile = File(...), modo: str = Query("nuovi"), request: Request = None,
                             db: Session = Depends(get_db), user=Depends(require_admin_tecnico)):
     """Import bulk per onboarding: CSV con colonne (case-insensitive) email,
-    full_name, password (opz.), role (opz., default 'user'), is_external
-    (opz.), organizzazione (ragione sociale, opz.), gruppi (nomi separati da
-    ';' o '|', opz.), data_ingresso (opz., YYYY-MM-DD). Righe con errori vengono
+    full_name, password (opz.), admin / formazione / formatore (opz., sì/no),
+    is_external (opz.), organizzazione (ragione sociale, opz.), ufficio (nome o
+    percorso intero, obbligatorio per gli interni non Admin), mansioni (nomi
+    separati da ';' o '|', opz.), data_ingresso (opz., YYYY-MM-DD). Righe con errori vengono
     segnalate ma non bloccano le altre. Se SMTP è configurato le credenziali
     vengono inviate per email, altrimenti tornano nella risposta.
 
@@ -249,8 +319,16 @@ def import_users_csv(file: UploadFile = File(...), modo: str = Query("nuovi"), r
     reader.fieldnames = [(f or "").strip().lower() for f in (reader.fieldnames or [])]
     if "email" not in reader.fieldnames or not ("full_name" in reader.fieldnames or "nome" in reader.fieldnames):
         raise HTTPException(400, "Intestazioni richieste: email, full_name (o nome)")
+    if "role" in reader.fieldnames or "gruppi" in reader.fieldnames:
+        raise HTTPException(400, "Le colonne «role» e «gruppi» non esistono più: usa «admin», «formazione», «formatore» (sì/no), «ufficio» e «mansioni»")
 
-    gruppi_tutti = {g.name.lower(): g for g in db.query(Group).all()}
+    tutti_gli_uffici = db.query(Group).all()
+    uffici_per_id = {g.id: g for g in tutti_gli_uffici}
+    uffici_per_percorso = {_percorso_gruppo(g, uffici_per_id).lower(): g for g in tutti_gli_uffici}
+    uffici_per_nome = {}
+    for g in tutti_gli_uffici:
+        uffici_per_nome.setdefault(g.name.lower(), []).append(g)
+    mansioni_tutte = {m.name.lower(): m for m in db.query(Mansione).all()}
     org_tutte = {o.ragione_sociale.lower(): o for o in db.query(Organizzazione).all()}
 
     righe = []
@@ -275,11 +353,28 @@ def import_users_csv(file: UploadFile = File(...), modo: str = Query("nuovi"), r
         if is_external and not org:
             righe.append({"riga": n, "email": email, "esito": "errore", "messaggio": "utente esterno senza organizzazione"})
             continue
-        role_raw = row.get("role") or "user"
-        try:
-            role = UserRole(role_raw)
-        except ValueError:
-            righe.append({"riga": n, "email": email, "esito": "errore", "messaggio": f"ruolo \"{role_raw}\" non valido"})
+        is_admin, is_formazione, is_formatore = (_si(row.get(c)) for c in ("admin", "formazione", "formatore"))
+        if is_external and (is_admin or is_formazione):
+            righe.append({"riga": n, "email": email, "esito": "errore", "messaggio": "un utente esterno non può essere Admin o Formazione"})
+            continue
+        ufficio = None
+        nome_ufficio = row.get("ufficio")
+        if nome_ufficio and is_external:
+            righe.append({"riga": n, "email": email, "esito": "errore", "messaggio": "un utente esterno non ha ufficio"})
+            continue
+        if nome_ufficio:
+            ufficio = uffici_per_percorso.get(nome_ufficio.lower())
+            if not ufficio:
+                candidati = uffici_per_nome.get(nome_ufficio.lower(), [])
+                if len(candidati) > 1:
+                    righe.append({"riga": n, "email": email, "esito": "errore", "messaggio": f"ufficio \"{nome_ufficio}\" ambiguo: scrivi il percorso intero (es. Produzione / Linea 2)"})
+                    continue
+                ufficio = candidati[0] if candidati else None
+            if not ufficio:
+                righe.append({"riga": n, "email": email, "esito": "errore", "messaggio": f"ufficio \"{nome_ufficio}\" non trovato"})
+                continue
+        elif not is_external and not is_admin:
+            righe.append({"riga": n, "email": email, "esito": "errore", "messaggio": "ufficio mancante (obbligatorio per gli utenti interni)"})
             continue
         data_ingresso = None
         if row.get("data_ingresso"):
@@ -296,7 +391,7 @@ def import_users_csv(file: UploadFile = File(...), modo: str = Query("nuovi"), r
         u = User(
             email=email, full_name=full_name,
             hashed_password=hash_password(password),
-            role=role, is_external=is_external,
+            is_admin=is_admin, is_formazione=is_formazione, is_formatore=is_formatore, is_external=is_external,
             organizzazione_id=org.id if org else None,
             data_ingresso=data_ingresso,
             origine_credenziali="locale",
@@ -311,20 +406,20 @@ def import_users_csv(file: UploadFile = File(...), modo: str = Query("nuovi"), r
             righe.append({"riga": n, "email": email, "esito": "errore", "messaggio": "email già esistente"})
             continue
 
-        gruppi_non_trovati = []
-        if row.get("gruppi"):
-            group_ids = []
-            for nome in row["gruppi"].replace("|", ";").split(";"):
+        _assegna_ufficio(u.id, ufficio.id if ufficio else None, db)
+        mansioni_non_trovate = []
+        if row.get("mansioni") and not is_external:
+            mansione_ids = []
+            for nome in row["mansioni"].replace("|", ";").split(";"):
                 nome = nome.strip()
                 if not nome:
                     continue
-                g = gruppi_tutti.get(nome.lower())
-                if g:
-                    group_ids.append(str(g.id))
+                m = mansioni_tutte.get(nome.lower())
+                if m:
+                    mansione_ids.append(str(m.id))
                 else:
-                    gruppi_non_trovati.append(nome)
-            if group_ids:
-                _assign_groups(str(u.id), group_ids, db)
+                    mansioni_non_trovate.append(nome)
+            _assegna_mansioni(u.id, mansione_ids, db)
 
         link = crea_link_invito(db, u)
         db.flush()
@@ -333,8 +428,8 @@ def import_users_csv(file: UploadFile = File(...), modo: str = Query("nuovi"), r
             dopo_il_commit(db, invia_invito, email, full_name, link)  # il link, mai la password; parte solo a commit riuscito
         creati += 1
         messaggio = "creato"
-        if gruppi_non_trovati:
-            messaggio += f" (gruppi non trovati: {', '.join(gruppi_non_trovati)})"
+        if mansioni_non_trovate:
+            messaggio += f" (mansioni non trovate: {', '.join(mansioni_non_trovate)})"
         righe.append({
             "riga": n, "email": email, "esito": "creato", "messaggio": messaggio,
             "email_inviata": inviata, "password": None if inviata else password,
@@ -372,8 +467,8 @@ def _disattiva_utenti_csv(file: UploadFile, request: Request, db: Session, user)
         if not u.is_active:
             righe.append({"riga": n, "email": email, "esito": "ignorato", "messaggio": "già disattivato"})
             continue
-        if u.role == UserRole.admin_tecnico:
-            righe.append({"riga": n, "email": email, "esito": "errore", "messaggio": "Admin tecnico: non si disattiva da un elenco"})
+        if u.is_admin:
+            righe.append({"riga": n, "email": email, "esito": "errore", "messaggio": "Admin: non si disattiva da un elenco"})
             continue
         r = disattiva_utente(db, u)
         promossi_tutti.extend(r["promossi"])
@@ -393,7 +488,7 @@ def _disattiva_utenti_csv(file: UploadFile, request: Request, db: Session, user)
 
 def _solo_se_stesso_o_formazione(user: User, user_id: str):
     """La struttura dei responsabili non e' un elenco pubblico: la vede la persona per se' e la Formazione."""
-    if str(user.id) != str(user_id) and user.role not in (UserRole.admin_tecnico, UserRole.training_admin):
+    if str(user.id) != str(user_id) and not user.ha_poteri_formazione:
         raise HTTPException(403, "Non puoi consultare la struttura di un'altra persona")
 
 @router.get("/users/{user_id}/responsabili")
@@ -431,8 +526,8 @@ def update_user(user_id: str, data: UserUpdate, request: Request,
         if data.is_active is False:
             if str(u.id) == str(current.id):
                 raise HTTPException(400, "Non puoi disattivare il tuo stesso account")
-            if u.role == UserRole.admin_tecnico and db.query(User).filter(User.role == UserRole.admin_tecnico, User.is_active == True, User.id != u.id).count() == 0:  # noqa: E712
-                raise HTTPException(400, "È l'ultimo Admin tecnico attivo: non si può disattivare")
+            if u.is_admin and db.query(User).filter(User.is_admin == True, User.is_active == True, User.id != u.id).count() == 0:  # noqa: E712
+                raise HTTPException(400, "È l'ultimo Admin attivo: non si può disattivare")
             esito_disattivazione = disattiva_utente(db, u)  # chiude iscrizioni aperte, dispositivi, calendario e sessioni
             avvisi_disattivazione, promossi = esito_disattivazione["avvisi"], esito_disattivazione["promossi"]
         else:
@@ -447,18 +542,34 @@ def update_user(user_id: str, data: UserUpdate, request: Request,
         u.tentativi_falliti = 0
         u.bloccato_fino = None
         password_cambiata = True
-    if data.role is not None and data.role != u.role:
-        if u.role == UserRole.admin_tecnico:
+    if data.is_admin is not None and data.is_admin != u.is_admin:
+        if u.is_admin:
             if str(u.id) == str(current.id):
-                raise HTTPException(400, "Non puoi cambiare il tuo stesso ruolo")
-            if u.is_active and db.query(User).filter(User.role == UserRole.admin_tecnico, User.is_active == True, User.id != u.id).count() == 0:  # noqa: E712
-                raise HTTPException(400, "È l'ultimo Admin tecnico attivo: non si può cambiare il suo ruolo")
-        u.role = data.role
+                raise HTTPException(400, "Non puoi togliere a te stesso il permesso Admin")
+            if u.is_active and db.query(User).filter(User.is_admin == True, User.is_active == True, User.id != u.id).count() == 0:  # noqa: E712
+                raise HTTPException(400, "È l'ultimo Admin attivo: non si può togliere il suo permesso")
+        u.is_admin = data.is_admin
+    if data.is_formazione is not None: u.is_formazione = data.is_formazione
+    if data.is_formatore is not None: u.is_formatore = data.is_formatore
     if data.is_external is not None: u.is_external = data.is_external
     if data.organizzazione_id is not None: u.organizzazione_id = data.organizzazione_id or None
-    if u.is_external and not u.organizzazione_id:
-        raise HTTPException(400, "Un utente esterno deve avere un'organizzazione di riferimento")
-    if data.group_ids is not None: _assign_groups(user_id, data.group_ids, db)
+    # Le regole sul tipo di persona si controllano solo se la richiesta tocca la sua struttura
+    # (non per un semplice cambio di stato o password su una persona creata dall'accesso aziendale).
+    tocca_struttura = any(x is not None for x in (data.is_admin, data.is_formazione, data.is_external, data.organizzazione_id,
+                                                   data.ufficio_id, data.mansione_ids))
+    if tocca_struttura:
+        riga = db.query(UserGroup).filter(UserGroup.user_id == u.id).first()
+        ufficio_finale = (data.ufficio_id or None) if data.ufficio_id is not None else (str(riga.group_id) if riga else None)
+        mansioni_finali = data.mansione_ids if data.mansione_ids is not None else [
+            str(r.mansione_id) for r in db.query(UserMansione).filter(UserMansione.user_id == u.id).all()]
+        if u.is_external and data.is_external:     # passa a esterno: ufficio e mansioni cadono
+            ufficio_finale, mansioni_finali = None, []
+        # L'ufficio si pretende solo se la richiesta lo riguarda: chi arriva dall'accesso aziendale senza ufficio
+        # puo' intanto ricevere mansioni o la qualifica Formatore.
+        richiedi_ufficio = any(x is not None for x in (data.ufficio_id, data.is_external, data.is_admin))
+        _controlla_coerenza(u, ufficio_finale, mansioni_finali, richiedi_ufficio)
+        _assegna_ufficio(u.id, ufficio_finale, db)
+        _assegna_mansioni(u.id, mansioni_finali, db)
     if data.can_see_all is not None: u.can_see_all = data.can_see_all
     if data.data_ingresso is not None: u.data_ingresso = data.data_ingresso
     if data.origine_credenziali is not None: u.origine_credenziali = data.origine_credenziali

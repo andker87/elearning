@@ -7,13 +7,14 @@ from datetime import datetime, timedelta, timezone
 
 from dateutil.relativedelta import relativedelta
 from fastapi import HTTPException
+from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
 from ..models.corso import Corso
 from ..models.edizione import Edizione, StatoEdizione
 from ..models.iscrizione import Iscrizione, StatoIscrizione
 from ..models.notification import Notification
-from ..models.user import User, UserRole
+from ..models.user import User
 from . import audit as audit_svc
 from .iscrizioni import crea_iscrizione_con_capacita, posti_occupati
 from .notifiche import _crea_se_assente, _escalation_responsabili, invia_invito_calendario
@@ -74,7 +75,7 @@ def anteprima(db: Session, corso: Corso) -> dict:
 
 def _avvisa_formazione(db: Session, corso: Corso, quante: int, ora: datetime):
     settimana = ora.strftime("%Y-W%W")
-    for u in db.query(User).filter(User.is_active == True, User.role.in_([UserRole.admin_tecnico, UserRole.training_admin])).all():  # noqa: E712
+    for u in db.query(User).filter(User.is_active == True, or_(User.is_admin == True, User.is_formazione == True)).all():  # noqa: E712
         _crea_se_assente(db, u.id, "rinnovo_senza_sessione",
                          f"Rinnovo automatico di \"{corso.titolo}\": {quante} {'persona' if quante == 1 else 'persone'} da rinnovare ma nessuna sessione disponibile. Pianifica una sessione.",
                          dedup_key=f"rinnovo_senza_sessione:{corso.id}:{u.id}:{settimana}", link="/sessioni")

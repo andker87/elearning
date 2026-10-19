@@ -14,7 +14,7 @@ import Percorsi from "./pages/Percorsi";
 import Edizioni from "./pages/Edizioni";
 import EdizioneDetail from "./pages/EdizioneDetail";
 import Utenti from "./pages/Utenti";
-import Ruoli from "./pages/Ruoli";
+import Mansioni from "./pages/Mansioni";
 import Gruppi from "./pages/Gruppi";
 import Organizzazioni from "./pages/Organizzazioni";
 import MieCorsi from "./pages/MieCorsi";
@@ -96,7 +96,7 @@ export default function App() {
         <Route path="/sessioni" element={<RequireAuth><Shell><Edizioni /></Shell></RequireAuth>} />
         <Route path="/sessioni/:id" element={<RequireAuth><Shell><EdizioneDetail /></Shell></RequireAuth>} />
         <Route path="/utenti" element={<RequireAuth><Shell><Utenti /></Shell></RequireAuth>} />
-        <Route path="/ruoli" element={<RequireAuth><Shell><Ruoli /></Shell></RequireAuth>} />
+        <Route path="/mansioni" element={<RequireAuth><Shell><Mansioni /></Shell></RequireAuth>} />
         <Route path="/gruppi" element={<RequireAuth><Shell><Gruppi /></Shell></RequireAuth>} />
         <Route path="/societa-formazione-esterne" element={<RequireAuth><Shell><Organizzazioni /></Shell></RequireAuth>} />
         <Route path="/stato-piattaforma" element={<RequireAuth><Shell><StatoPiattaforma /></Shell></RequireAuth>} />

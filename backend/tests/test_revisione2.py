@@ -95,7 +95,7 @@ def test_disattivare_dal_modulo_fa_l_offboarding_completo(client, db, admin, aut
 
 def test_non_si_disattiva_se_stessi_ne_l_ultimo_admin(client, admin, auth, crea_utente):
     assert client.put(f"/api/auth/users/{admin.id}", headers=auth(admin), json={"is_active": False}).status_code == 400
-    altro = crea_utente("secondo.admin@test.it", ruolo=admin.role)
+    altro = crea_utente("secondo.admin@test.it", ruolo="admin")
     assert client.put(f"/api/auth/users/{altro.id}", headers=auth(admin), json={"is_active": False}).status_code == 200
     # ora ne resta uno solo: chi lo disattivasse (un altro admin non c'e') non puo' farlo
     assert client.put(f"/api/auth/users/{admin.id}", headers=auth(admin), json={"is_active": False}).status_code == 400

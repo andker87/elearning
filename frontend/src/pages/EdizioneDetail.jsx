@@ -33,7 +33,7 @@ export default function EdizioneDetail() {
       if (r.data.video_id) api.get(`/video/${r.data.video_id}`).then((rv) => setVideo(rv.data)).catch(falla("Impossibile caricare il video"));
       api.get(`/corsi/${r.data.corso_id}/test`).then((rt) => setTests(rt.data)).catch(falla("Impossibile caricare i test"));
       const puoComunicare = r.data.docenti?.some((d) => d.user_id === user?.id)
-        || user?.role === "admin_tecnico" || user?.role === "training_admin";
+        || user?.poteri_formazione;
       if (puoComunicare) api.get(`/edizioni/${id}/comunicazioni`).then((rc) => setComunicazioni(rc.data)).catch(falla("Impossibile caricare le comunicazioni"));
     }).catch(falla("Impossibile caricare la sessione"));
     api.get(`/edizioni/${id}/iscrizioni`).then((r) => setIscrizioni(r.data)).catch(falla("Impossibile caricare le iscrizioni"));
@@ -45,7 +45,7 @@ export default function EdizioneDetail() {
   }, [id]);
 
   const isDocente = edizione?.docenti?.some((d) => d.user_id === user?.id);
-  const isAdmin = user?.role === "admin_tecnico" || user?.role === "training_admin";
+  const isAdmin = !!user?.poteri_formazione;
   const nome = (uid) => utenti.find((u) => u.id === uid)?.full_name || uid;
   const miaIscrizione = iscrizioni.find((i) => i.user_id === user?.id && i.stato !== "annullato");
   const sottopostiNonIscritti = sottoposti.filter((s) => !iscrizioni.some((i) => i.user_id === s.id && i.stato !== "annullato"));
@@ -184,7 +184,7 @@ export default function EdizioneDetail() {
           <div className="row">
             <select value={selectedUser} onChange={(e) => setSelectedUser(e.target.value)}>
               <option value="">-- utente --</option>
-              {utenti.map((u) => <option key={u.id} value={u.id}>{u.full_name}{u.is_external ? " (esterno)" : ""}</option>)}
+              {utenti.map((u) => <option key={u.id} value={u.id}>{u.full_name}{u.is_external ? " (esterno)" : ""}{!u.is_formatore ? " - non Formatore" : ""}</option>)}
             </select>
             <button onClick={assegnaDocente}>Assegna come docente</button>
             <button className="secondary" onClick={iscrivi}>Iscrivi come discente</button>

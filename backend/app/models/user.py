@@ -1,16 +1,9 @@
-from sqlalchemy import event, Column, String, Boolean, Integer, DateTime, Enum as SAEnum, ForeignKey
+from sqlalchemy import event, Column, String, Boolean, Integer, DateTime, ForeignKey
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.sql import func
 import uuid, enum
 from ..database import Base
 from .tipi import TestoCifrato
-
-class UserRole(str, enum.Enum):
-    # Ruolo funzionale minimo, non negoziabile. La struttura organizzativa vera
-    # (reparti, sedi, chi-approva-cosa) vive nei Group liberi, non qui.
-    admin_tecnico  = "admin_tecnico"   # IT/dev, configura la piattaforma
-    training_admin = "training_admin" # ufficio formazione/HR, gestisce corsi/edizioni/iscrizioni
-    user           = "user"           # dipendente/discente/eventuale docente occasionale
 
 class User(Base):
     __tablename__ = "users"
@@ -19,7 +12,14 @@ class User(Base):
     email_idx = Column(String, unique=True, nullable=False, index=True)   # impronta dell'email (services/impronte.py), univoca senza badare alle maiuscole
     full_name = Column(TestoCifrato, nullable=False)      # cifrato: ordinamento e ricerca per nome si fanno nel programma
     hashed_password = Column(String, nullable=False)
-    role = Column(SAEnum(UserRole), default=UserRole.user, nullable=False)
+    # Permessi e qualifica (2.2.0): sostituiscono il ruolo unico. Senza nessuno dei tre si e' utente semplice.
+    #  - is_admin: configura la piattaforma (include i poteri della Formazione)
+    #  - is_formazione: gestisce corsi, edizioni, iscrizioni, attestati
+    #  - is_formatore: puo' essere scelto come docente (nessun potere in piu': i poteri su
+    #    un'edizione restano di chi vi e' assegnato). Gli esterni sono docenti per definizione.
+    is_admin      = Column(Boolean, nullable=False, default=False, server_default="false")
+    is_formazione = Column(Boolean, nullable=False, default=False, server_default="false")
+    is_formatore  = Column(Boolean, nullable=False, default=False, server_default="false")
     is_active = Column(Boolean, default=True)
 
     # Interno all'azienda vs esterno (docente/collaboratore di un ente terzo).
@@ -61,6 +61,15 @@ class User(Base):
     password_da_cambiare = Column(Boolean, nullable=False, default=False, server_default="false")
 
     created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+
+    @property
+    def ha_poteri_formazione(self) -> bool:
+        return bool(self.is_admin or self.is_formazione)
+
+    @property
+    def puo_essere_docente(self) -> bool:
+        return bool(self.is_external or self.is_formatore)
 
 
 @event.listens_for(User, "before_insert")

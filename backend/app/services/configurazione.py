@@ -17,6 +17,7 @@ from sqlalchemy.orm import Session
 from ..models.azienda import Azienda
 from ..models.corso import AzioneTestNonSuperato, Corso
 from ..models.etichetta import CorsoEtichetta, Etichetta, EtichettaFamiglia
+from ..models.mansione import Mansione
 from ..models.group import Group
 from ..models.organizzazione import Organizzazione
 from ..models.percorso import (MotivoObbligo, PercorsoFormativo, PercorsoStep, PercorsoStepPrerequisito,
@@ -27,14 +28,14 @@ from .percorsi_sync import sincronizza_assegnazioni
 from .impronte import impronta
 
 FORMATO = "elearning-configurazione"
-SCHEMA = 1
+SCHEMA = 2   # 2 (2.2.0): mansioni; i gruppi sono solo uffici. I file dello schema 1 si importano ancora (i gruppi non-ufficio diventano mansioni)
 
 CAMPI_AZIENDA = ["ragione_sociale", "partita_iva", "codice_fiscale", "indirizzo", "cap", "citta", "provincia", "nazione", "email", "pec",
                  "nome_piattaforma", "url_pubblico", "privacy_testo"]
 CAMPI_ORGANIZZAZIONE = ["tipo", "partita_iva", "accreditamento", "referente", "email", "telefono", "note"]
 CAMPI_CORSO = ["descrizione", "validita_mesi", "ha_test_finale", "giorni_scadenza_breve", "confronta_pre_post_test",
                "permetti_autoiscrizione", "richiedi_approvazione_responsabile", "rinnovo_automatico", "rinnovo_giorni_anticipo", "is_active"]
-ESCLUSI = ["utenti e ruoli di sistema", "iscrizioni, esiti e attestati", "video, immagini, loghi e icone", "template degli attestati",
+ESCLUSI = ["utenti, permessi, uffici e mansioni di ciascuno", "iscrizioni, esiti e attestati", "video, immagini, loghi e icone", "template degli attestati",
            "test e domande", "informativa privacy in PDF", "credenziali e chiavi (SMTP, SSO, Graph, notifiche push)"]
 
 
@@ -64,7 +65,8 @@ def esporta(db: Session) -> dict:
     for ce, e in db.query(CorsoEtichetta, Etichetta).join(Etichetta, Etichetta.id == CorsoEtichetta.etichetta_id).all():
         etichette_corso.setdefault(ce.corso_id, []).append({"famiglia": nome_famiglia.get(e.famiglia_id), "nome": e.nome})
 
-    liberi = sorted((g for g in gruppi if not g.is_system), key=lambda g: (_percorso_gruppo(g, per_id).count(" / "), _percorso_gruppo(g, per_id).lower()))
+    nome_mansione = {m.id: m.name for m in db.query(Mansione).all()}
+    liberi = sorted(gruppi, key=lambda g: (_percorso_gruppo(g, per_id).count(" / "), _percorso_gruppo(g, per_id).lower()))
     percorsi = []
     for p in db.query(PercorsoFormativo).order_by(PercorsoFormativo.nome).all():
         passi = sorted(p.steps, key=lambda s: s.ordine)
@@ -72,6 +74,7 @@ def esporta(db: Session) -> dict:
         percorsi.append({
             "nome": p.nome, "descrizione": p.descrizione, "motivo": p.motivo.value, "motivo_nota": p.motivo_nota,
             "trigger": p.trigger_tipo.value, "trigger_gruppo": _percorso_gruppo(per_id[p.trigger_gruppo_id], per_id) if p.trigger_gruppo_id in per_id else None,
+            "trigger_mansione": nome_mansione.get(p.trigger_mansione_id),
             "attivo": p.is_active,
             "passi": [{"corso": titolo_corso.get(s.corso_id), "ordine": s.ordine,
                        "richiede": [indice[r.richiede_step_id] for r in s.prerequisiti if indice.get(r.richiede_step_id)]} for s in passi],
@@ -81,8 +84,10 @@ def esporta(db: Session) -> dict:
         "non_incluso": ESCLUSI,
         "azienda": {c: getattr(a, c) for c in CAMPI_AZIENDA} if a else {},
         "gruppi": [{"percorso": _percorso_gruppo(g, per_id), "nome": g.name, "descrizione": g.description, "colore": g.color,
-                    "permessi": g.permissions or {}, "ordine": g.sort_order, "ufficio": bool(g.is_ufficio),
+                    "ordine": g.sort_order,
                     "responsabile": utenti.get(g.responsabile_id), "attivo": g.is_active} for g in liberi],
+        "mansioni": [{"nome": m.name, "descrizione": m.description, "colore": m.color, "attiva": m.is_active}
+                     for m in sorted(db.query(Mansione).all(), key=lambda m: m.name.casefold())],
         "etichette": [{"famiglia": f.nome, "descrizione": f.descrizione, "scelta_multipla": f.scelta_multipla, "obbligatoria": f.obbligatoria,
                        "ordine": f.ordine, "archiviata": f.archiviata,
                        "valori": [{"nome": e.nome, "esclusiva": e.esclusiva, "archiviata": e.archiviata, "ordine": e.ordine} for e in f.etichette]}
@@ -98,7 +103,7 @@ def esporta(db: Session) -> dict:
 
 class _Rapporto:
     def __init__(self):
-        self.sezioni = {n: {"creati": [], "aggiornati": [], "invariati": 0} for n in ("azienda", "etichette", "gruppi", "organizzazioni", "corsi", "percorsi")}
+        self.sezioni = {n: {"creati": [], "aggiornati": [], "invariati": 0} for n in ("azienda", "etichette", "gruppi", "mansioni", "organizzazioni", "corsi", "percorsi")}
         self.avvisi = []
 
     def creato(self, sezione, nome): self.sezioni[sezione]["creati"].append(nome)
@@ -138,10 +143,17 @@ def importa(db: Session, contenuto: dict, applica: bool) -> dict:
     try:
         _azienda(db, contenuto.get("azienda") or {}, rapporto)
         _etichette(db, contenuto.get("etichette") or [], rapporto)
-        _gruppi(db, contenuto.get("gruppi") or [], rapporto)
+        # File dello schema 1: i gruppi che non erano uffici ora sono mansioni (e i percorsi assegnati a loro seguono).
+        gruppi_file = contenuto.get("gruppi") or []
+        uffici_file = [d for d in gruppi_file if d.get("ufficio") is not False]
+        da_gruppi = [d for d in gruppi_file if d.get("ufficio") is False]
+        _gruppi(db, uffici_file, rapporto)
+        _mansioni(db, (contenuto.get("mansioni") or []) + [
+            {"nome": d["nome"], "descrizione": d.get("descrizione"), "colore": d.get("colore"), "attiva": d.get("attivo")} for d in da_gruppi], rapporto)
+        ex_gruppi = {_chiave(d["percorso"]): d["nome"] for d in da_gruppi}
         _organizzazioni(db, contenuto.get("organizzazioni") or [], rapporto)
         _corsi(db, contenuto.get("corsi") or [], rapporto)
-        _percorsi(db, contenuto.get("percorsi") or [], rapporto)
+        _percorsi(db, contenuto.get("percorsi") or [], rapporto, ex_gruppi)
         if applica:
             sincronizza_assegnazioni(db)
             db.commit()
@@ -212,12 +224,10 @@ def _gruppi(db, elenco, rapporto):
         percorso = d["percorso"]
         g = per_percorso.get(_chiave(percorso))
         valori = {}
-        for campo, chiave in (("description", "descrizione"), ("color", "colore"), ("permissions", "permessi"),
+        for campo, chiave in (("description", "descrizione"), ("color", "colore"),
                               ("sort_order", "ordine"), ("is_active", "attivo")):
             if d.get(chiave) is not None:  # un campo assente nel file non cancella quello esistente
                 valori[campo] = d[chiave]
-        if d.get("ufficio") is not None:
-            valori["is_ufficio"] = bool(d["ufficio"])
         responsabile = None
         if d.get("responsabile"):
             responsabile = db.query(User).filter(User.email_idx == impronta(d["responsabile"])).first()
@@ -230,17 +240,14 @@ def _gruppi(db, elenco, rapporto):
                 if not padre:
                     rapporto.avvisi.append(f"Gruppo «{percorso}» saltato: manca il gruppo sopra di lui.")
                     continue
-            g = Group(name=d["nome"], parent_id=padre.id if padre else None, is_system=False,
+            g = Group(name=d["nome"], parent_id=padre.id if padre else None, is_ufficio=True,
                       responsabile_id=responsabile.id if responsabile else None,
-                      **{"permissions": {}, "is_ufficio": False, "is_active": True, **valori})
+                      **{"is_active": True, **valori})
             db.add(g)
             db.flush()
             per_percorso[_chiave(percorso)] = g
             per_id[g.id] = g
             rapporto.creato("gruppi", percorso)
-            continue
-        if g.is_system:
-            rapporto.avvisi.append(f"Gruppo «{percorso}» è di sistema: non viene modificato dall'importazione.")
             continue
         cambiati = _imposta(g, valori, valori.keys())
         if responsabile and g.responsabile_id != responsabile.id:
@@ -250,6 +257,28 @@ def _gruppi(db, elenco, rapporto):
             rapporto.aggiornato("gruppi", percorso, cambiati)
         else:
             rapporto.invariato("gruppi")
+    db.flush()
+
+
+def _mansioni(db, elenco, rapporto):
+    esistenti = {_chiave(m.name): m for m in db.query(Mansione).all()}
+    for d in elenco:
+        valori = {}
+        for campo, chiave in (("description", "descrizione"), ("color", "colore"), ("is_active", "attiva")):
+            if d.get(chiave) is not None:
+                valori[campo] = d[chiave]
+        m = esistenti.get(_chiave(d["nome"]))
+        if m is None:
+            m = Mansione(name=d["nome"], **valori)
+            db.add(m)
+            esistenti[_chiave(m.name)] = m
+            rapporto.creato("mansioni", m.name)
+            continue
+        cambiati = _imposta(m, valori, valori.keys())
+        if cambiati:
+            rapporto.aggiornato("mansioni", m.name, cambiati)
+        else:
+            rapporto.invariato("mansioni")
     db.flush()
 
 
@@ -326,7 +355,9 @@ def _aggiungi_etichette_corso(db, corso, elenco, rapporto) -> list:
     return aggiunte
 
 
-def _percorsi(db, elenco, rapporto):
+def _percorsi(db, elenco, rapporto, ex_gruppi=None):
+    mansioni = {_chiave(m.name): m for m in db.query(Mansione).all()}
+    ex_gruppi = ex_gruppi or {}
     gruppi = db.query(Group).all()
     per_id = {g.id: g for g in gruppi}
     per_percorso = {_chiave(_percorso_gruppo(g, per_id)): g for g in gruppi}
@@ -339,11 +370,19 @@ def _percorsi(db, elenco, rapporto):
             rapporto.avvisi.append(f"Percorso «{d.get('nome')}» saltato: motivo o trigger non riconosciuti.")
             continue
         gruppo_trigger = per_percorso.get(_chiave(d["trigger_gruppo"])) if d.get("trigger_gruppo") else None
+        mansione_trigger = mansioni.get(_chiave(d["trigger_mansione"])) if d.get("trigger_mansione") else None
+        if trigger == TriggerAssegnazione.gruppo and not gruppo_trigger and d.get("trigger_gruppo") and _chiave(d["trigger_gruppo"]) in ex_gruppi:
+            trigger = TriggerAssegnazione.mansione      # file vecchio: il gruppo e' diventato una mansione
+            mansione_trigger = mansioni.get(_chiave(ex_gruppi[_chiave(d["trigger_gruppo"])]))
+        if trigger == TriggerAssegnazione.mansione and not mansione_trigger:
+            rapporto.avvisi.append(f"Percorso «{d['nome']}»: la mansione non esiste, l'assegnazione automatica non è attiva (trigger manuale).")
+            trigger = TriggerAssegnazione.manuale
         if trigger == TriggerAssegnazione.gruppo and not gruppo_trigger:
             rapporto.avvisi.append(f"Percorso «{d['nome']}»: il gruppo «{d.get('trigger_gruppo')}» non esiste, l'assegnazione automatica non è attiva (trigger manuale).")
             trigger = TriggerAssegnazione.manuale
         valori = {"descrizione": d.get("descrizione"), "motivo": motivo, "motivo_nota": d.get("motivo_nota"), "trigger_tipo": trigger,
                   "trigger_gruppo_id": gruppo_trigger.id if gruppo_trigger and trigger == TriggerAssegnazione.gruppo else None,
+                  "trigger_mansione_id": mansione_trigger.id if mansione_trigger and trigger == TriggerAssegnazione.mansione else None,
                   "is_active": d.get("attivo", True)}
         p = esistenti.get(_chiave(d["nome"]))
         nuovo = p is None

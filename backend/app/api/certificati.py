@@ -30,7 +30,7 @@ def scarica_pdf(certificato_id: str, db: Session = Depends(get_db), user=Depends
     if not c or not c.pdf_path:
         raise HTTPException(404)
     i = db.query(Iscrizione).filter(Iscrizione.id == c.iscrizione_id).first()
-    if str(i.user_id) != str(user.id) and user.role.value not in ("admin_tecnico", "training_admin"):
+    if str(i.user_id) != str(user.id) and not user.ha_poteri_formazione:
         raise HTTPException(403)
     if not os.path.exists(c.pdf_path):
         raise HTTPException(404)

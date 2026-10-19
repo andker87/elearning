@@ -54,8 +54,8 @@ def test_login_con_dati_cifrati_e_senza_badare_alle_maiuscole(chiave, client, cr
     assert client.post("/api/auth/login", json={"email": "lui@azienda.it", "password": "no"}).status_code == 401
 
 
-def test_due_utenti_con_la_stessa_email_scritta_diversamente_non_si_creano(chiave, client, admin, auth):
-    corpo = {"email": "x@azienda.it", "password": PASSWORD, "full_name": "X", "role": "user"}
+def test_due_utenti_con_la_stessa_email_scritta_diversamente_non_si_creano(chiave, client, admin, auth, crea_ufficio):
+    corpo = {"email": "x@azienda.it", "password": PASSWORD, "full_name": "X", "ufficio_id": str(crea_ufficio().id)}
     assert client.post("/api/auth/users", headers=auth(admin), json=corpo).status_code in (200, 201)
     assert client.post("/api/auth/users", headers=auth(admin), json={**corpo, "email": "X@AZIENDA.IT"}).status_code == 400
 
@@ -186,17 +186,18 @@ def test_corsa_sulla_stessa_email_scritta_diversamente_da_il_messaggio_e_non_un_
     crea_utente("mario@azienda.it")
     _finta_corsa(monkeypatch, auth_api)
     r = client.post("/api/auth/users", headers=auth(admin),
-                    json={"email": "MARIO@azienda.it", "full_name": "Doppione", "role": "user"})
+                    json={"email": "MARIO@azienda.it", "full_name": "Doppione", "is_admin": True})
     assert r.status_code == 400 and "già esistente" in r.json()["detail"]
     # la sessione resta utilizzabile
     assert client.get("/api/auth/users", headers=auth(admin)).status_code == 200
 
 
-def test_corsa_nell_importazione_csv_e_un_errore_di_riga_e_le_altre_righe_proseguono(client, admin, auth, crea_utente, monkeypatch):
+def test_corsa_nell_importazione_csv_e_un_errore_di_riga_e_le_altre_righe_proseguono(client, admin, auth, crea_utente, crea_ufficio, monkeypatch):
+    crea_ufficio("Produzione")
     from app.api import auth as auth_api
     crea_utente("mario@azienda.it")
     _finta_corsa(monkeypatch, auth_api)
-    csv = "email,full_name\nMARIO@azienda.it,Doppione\nluigi@azienda.it,Luigi\n"
+    csv = "email,full_name,ufficio\nMARIO@azienda.it,Doppione,Produzione\nluigi@azienda.it,Luigi,Produzione\n"
     r = client.post("/api/auth/users/import-csv", headers=auth(admin), files={"file": ("u.csv", csv, "text/csv")})
     assert r.status_code == 200, r.text
     esiti = {x["email"]: x for x in r.json()["righe"]}

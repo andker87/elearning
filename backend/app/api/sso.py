@@ -11,7 +11,7 @@ from sqlalchemy.orm import Session
 
 from ..config import settings
 from ..database import get_db
-from ..models.user import User, UserRole
+from ..models.user import User
 from ..services import audit as audit_svc
 from ..services import sso as sso_svc
 from ..services.auth import token_per_utente, hash_password
@@ -60,14 +60,14 @@ def _risolvi_utente(db: Session, request: Request, sub: str, email: str, claims:
         if u:
             if u.sso_subject and u.sso_subject != sub:
                 raise sso_svc.SsoErrore("identita_diversa", email)
-            if u.role == UserRole.admin_tecnico and not u.sso_subject:
+            if u.is_admin and not u.sso_subject:
                 # Il collegamento al primo accesso si fonda sull'email dichiarata dall'IdP: per
                 # l'account piu' potente non basta. L'Admin tecnico entra con la password.
                 raise sso_svc.SsoErrore("admin_non_collegabile", email)
             primo_collegamento = True
         elif settings.SSO_PROVISIONA_UTENTI:
             nome = claims.get("name") or email.split("@")[0]
-            u = User(email=email, full_name=str(nome)[:200], role=UserRole.user, is_external=False,
+            u = User(email=email, full_name=str(nome)[:200], is_external=False,
                      hashed_password=hash_password(secrets.token_urlsafe(32)), origine_credenziali="dominio")
             try:
                 with db.begin_nested():
@@ -80,7 +80,7 @@ def _risolvi_utente(db: Session, request: Request, sub: str, email: str, claims:
                     raise
                 if u.sso_subject and u.sso_subject != sub:
                     raise sso_svc.SsoErrore("identita_diversa", email)
-                if u.role == UserRole.admin_tecnico and not u.sso_subject:
+                if u.is_admin and not u.sso_subject:
                     raise sso_svc.SsoErrore("admin_non_collegabile", email)
             else:
                 sincronizza_assegnazioni(db)

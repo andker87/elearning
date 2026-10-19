@@ -74,7 +74,7 @@ Il backup è compito dell'infrastruttura, non della piattaforma. Servono:
 - i volumi **`uploads`** e **`videos`** (e `audit_export`, se usi l'esportazione dei log);
 - il file **`.env`** (contiene i segreti: conservalo a parte).
 
-La pagina *Impostazioni → Configurazione* esporta e reimporta solo le **impostazioni** (gruppi, corsi, percorsi, etichette, dati aziendali): serve a ricostruire una configurazione o a spostarla da un ambiente all'altro, non sostituisce il backup.
+La pagina *Impostazioni → Configurazione* esporta e reimporta solo le **impostazioni** (uffici, mansioni, corsi, percorsi, etichette, dati aziendali): serve a ricostruire una configurazione o a spostarla da un ambiente all'altro, non sostituisce il backup.
 
 ## Sviluppo e test
 ```bash

@@ -6,7 +6,7 @@ from datetime import datetime
 from ..database import get_db
 from ..models.edizione import Edizione, EdizioneDocente, ModalitaErogazione, ModalitaCheckin, ModalitaTeams, StatoEdizione, RuoloDocente
 from ..models.iscrizione import Iscrizione, StatoIscrizione
-from ..models.user import User, UserRole
+from ..models.user import User
 from ..models.corso import Corso
 from ..services.gerarchia import sottoposti_di
 from ..services.etichette import corsi_con_etichette, etichette_del_corso
@@ -182,6 +182,10 @@ def aggiungi_docente(edizione_id: str, data: DocenteIn, request: Request, db: Se
     if not e: raise HTTPException(404)
     esiste = db.query(EdizioneDocente).filter(EdizioneDocente.edizione_id == edizione_id, EdizioneDocente.user_id == data.user_id).first()
     if esiste: raise HTTPException(400, "Già docente su questa edizione")
+    docente = db.query(User).filter(User.id == data.user_id, User.is_active == True).first()  # noqa: E712
+    if not docente: raise HTTPException(404, "Persona non trovata")
+    if not docente.puo_essere_docente:
+        raise HTTPException(400, "Questa persona non è un Formatore: abilita la qualifica Formatore dalla sua scheda utente")
     db.add(EdizioneDocente(edizione_id=edizione_id, user_id=data.user_id, ruolo=data.ruolo))
     audit_svc.log_from_request(db, request, user, "ASSIGN_DOCENTE", entity_type="edizione", entity_id=str(e.id),
                                 entity_name=_nome_edizione(db, e), detail=f"docente: {_nome_utente(db, data.user_id)} ({data.ruolo.value})")
@@ -217,7 +221,7 @@ def list_iscrizioni(edizione_id: str, db: Session = Depends(get_db), user=Depend
 def iscrivi(edizione_id: str, user_ids: List[str], request: Request, db: Session = Depends(get_db), user=Depends(get_current_user)):
     e = db.query(Edizione).filter(Edizione.id == edizione_id).first()
     if not e: raise HTTPException(404)
-    e_formazione = user.role in (UserRole.admin_tecnico, UserRole.training_admin)
+    e_formazione = user.ha_poteri_formazione
     if e.stato in (StatoEdizione.chiusa, StatoEdizione.annullata):
         raise HTTPException(400, "La sessione è chiusa o annullata: non si iscrive più nessuno")
     if not e_formazione and e.stato == StatoEdizione.bozza:
@@ -261,7 +265,7 @@ def iscrivi(edizione_id: str, user_ids: List[str], request: Request, db: Session
 def annulla_iscrizione(edizione_id: str, iscrizione_id: str, request: Request, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
     i = db.query(Iscrizione).filter(Iscrizione.id == iscrizione_id, Iscrizione.edizione_id == edizione_id).first()
     if not i: raise HTTPException(404)
-    e_admin = user.role in (UserRole.admin_tecnico, UserRole.training_admin)
+    e_admin = user.ha_poteri_formazione
     e_se_stesso = str(i.user_id) == str(user.id)
     e_responsabile_suo = str(i.user_id) in {str(s.id) for s in sottoposti_di(db, user.id)}
     if not (e_admin or e_se_stesso or e_responsabile_suo):
@@ -293,7 +297,7 @@ class ComunicazioneIn(BaseModel):
     messaggio: str
 
 def _autorizzato_comunicazione(e: Edizione, user: User) -> bool:
-    return _is_docente(e, user) or user.role.value in ("admin_tecnico", "training_admin")
+    return _is_docente(e, user) or user.ha_poteri_formazione
 
 @router.post("/{edizione_id}/comunicazione")
 def invia_comunicazione(edizione_id: str, data: ComunicazioneIn, request: Request, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
