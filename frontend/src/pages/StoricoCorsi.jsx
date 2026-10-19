@@ -31,7 +31,7 @@ export default function StoricoCorsi() {
                   {i.aggiornamento_contenuto === "richiesto" && <span className="badge red">da aggiornare</span>}
                   {i.aggiornamento_contenuto === "disponibile" && <span className="badge gray">aggiornamento disponibile</span>}
                 </td>
-                <td><Link to={`/sessioni/${i.edizione_id}`}>Apri</Link></td>
+                <td><Link to={`/sessioni/${i.edizione_id}?segui=1`}>Apri</Link></td>
               </tr>
             ))}
           </tbody>

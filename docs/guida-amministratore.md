@@ -8,7 +8,7 @@ Per chi configura e fa funzionare la piattaforma (permesso **Admin**) e per chi 
 3. **Impostazioni → Piattaforma**: nome, **URL pubblico** (indispensabile per i link nelle email) e icona dell'app.
 4. **Impostazioni → Informativa privacy**: testo e/o PDF; ogni utente la legge da *Impostazioni utente → Privacy*. Nessuna accettazione al login.
 5. **Uffici**: crea la struttura (uffici e sottouffici). Ogni ufficio ha un **responsabile**; la gerarchia dei sottouffici determina chi approva e chi vede le richieste. **Mansioni**: crea le categorie trasversali (per esempio preposto, addetto antincendio) per assegnare percorsi in blocco.
-6. **Etichette dei corsi**: controlla le famiglie iniziali (Tematica, Riferimento normativo, Ambito, Obbligo), aggiungi i clienti nell'Ambito, decidi quali famiglie sono obbligatorie.
+6. **Etichette dei corsi**: il sistema non ne propone di già pronte, le definisci tu. Crea le *famiglie* che ti servono (per esempio tematica, riferimento normativo, ambito, obbligo), aggiungi le loro etichette e decidi quali famiglie sono obbligatorie per ogni corso. Poi assegna le etichette ai corsi dalla pagina Corsi (che ha anche il collegamento alla gestione delle etichette).
 7. **Utenti**: crea o importa le persone (vedi sotto).
 8. **Corsi**, **Template attestati**, **Percorsi formativi**, **Sessioni**.
 9. **Impostazioni → Stato piattaforma**: verifica posta, accesso aziendale, spazio e job notturni.

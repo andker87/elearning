@@ -230,7 +230,9 @@ tbody tr:hover td { background: var(--bg3); }
 
 /* ── Video player ── */
 .video-layout { display: flex; gap: 1.2rem; align-items: flex-start; }
-.video-main { flex: 1; min-width: 0; }
+/* Anteprima compatta: il video non occupa mai tutta la pagina (larghezza e altezza contenute, proporzioni sempre rispettate) */
+.video-main { flex: 0 1 560px; min-width: 0; max-width: 560px; }
+.video-main video { display: block; width: 100%; max-height: min(52vh, 340px); object-fit: contain; background: #000; }
 .video-chapters { width: 260px; flex-shrink: 0; }
 .video-chapters ul { list-style: none; margin: 0; padding: 0; }
 .video-chapters li { padding: .55rem .7rem; border-radius: var(--radius); font-size: .82rem; cursor: pointer; color: var(--text2); }
@@ -242,6 +244,7 @@ tbody tr:hover td { background: var(--bg3); }
   .sidebar-resize-handle { display: none; }
   .main { padding: 1.2rem; }
   .row, .video-layout { flex-direction: column; }
+  .video-main { flex-basis: auto; max-width: 100%; }
   .video-chapters { width: 100%; }
 }
 

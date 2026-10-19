@@ -878,6 +878,7 @@ Obiettivo: superare controlli di sicurezza (SAST, analisi delle dipendenze) e pr
 Obiettivo: separare chi è una persona (anagrafica), che cosa fa nella formazione (ruoli come tag) e dove sta (gruppi = uffici). Tre passi, ciascuno una release:
 - [x] **2.1.0 Pagina Utenti a schede** — schede Elenco / Nuovo utente / Importa CSV; elenco con ricerca, filtri, ordinamento sulle intestazioni e paginazione; tolto «Esporta» dai Gruppi.
 - [x] **2.2.0 Permessi, uffici e mansioni** — il ruolo unico diventa tre interruttori (Admin, Formazione, Docente) che si sommano; i gruppi sono solo uffici (uno per persona, obbligatorio per gli interni non Admin); mansioni come etichette trasversali (assegnazione percorsi e filtri); docenti scelti solo tra Docenti ed esterni; esterni mai iscritti come discenti; pagina Ruoli e gruppi di sistema eliminati; progetto in `docs/progetto-ruoli-mansioni.md`.
+- [x] **2.4.0 Etichette libere, corsi a schede, player compatto** — nessuna famiglia di etichette preimpostata (si parte da zero); pagina Corsi a schede con modulo di modifica sotto la riga; player video compatto; nella pagina della sessione chi la gestisce vede il video collegato con un'anteprima a richiesta, non il player. Segue la 2.4.1 con la sezione Video a schede.
 - [x] **2.3.4 Ruoli a colpo d'occhio** — capsule colorate per i ruoli nell'elenco utenti (Admin, Formazione, Docente, Esterno, Utente) con legenda; «Formatore» rinominato «Docente» ovunque; file `.coderabbit.yaml` che spegne l'avviso sulle docstring.
 - [x] **2.3.3 Importazione da Excel con controllo prima** — file .xlsx oltre al CSV, anteprima con riepilogo per persona e conferma, uffici/mansioni mancanti non scartano la riga (persona creata senza, con avviso), modelli Excel e CSV generati dal sistema, filtro «Senza ufficio».
 - [x] **2.3.2 Selettore colore e modifica sotto la riga** — selettore colore leggibile con esadecimale e colori pronti; modulo di modifica sotto la riga (uffici, mansioni, utenti); spiegazione di cosa fa il CSV con uffici e mansioni inesistenti.
@@ -895,7 +896,7 @@ mescolano dimensioni diverse. Soluzione: etichette in **famiglie**.
   estrazioni e sui corsi che le avevano, non si assegnano piu'), si eliminano solo se mai
   usate, si **uniscono** (doppioni). Un'etichetta "esclusiva" (es. Trasversale) fa
   comparire un avviso, non un blocco, se scelta con altre della stessa famiglia.
-- [x] Famiglie iniziali: Tematica, Riferimento normativo (il filtro degli audit), Ambito
+- [x] (dalla 2.4.0 non più predefinite: si definiscono da zero) Famiglie iniziali: Tematica, Riferimento normativo (il filtro degli audit), Ambito
   (Trasversale / clienti), Obbligo (legge, cliente, policy interna, facoltativo; scelta
   singola). Il vecchio campo Categoria e' migrato in Tematica.
 - [x] **Decisione del committente**: l'obbligo e' una proprieta' del corso, il percorso e'

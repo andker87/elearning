@@ -91,10 +91,10 @@ def _job_genera_notifiche():
     esegui_tracciato("notifiche_giornaliere", genera_notifiche)
 
 def _ensure_etichette():
-    from .services.etichette import crea_famiglie_iniziali
+    from .services.etichette import converti_categorie_in_tematica
     db = SessionLocal()
     try:
-        crea_famiglie_iniziali(db)
+        converti_categorie_in_tematica(db)
     finally:
         db.close()
 

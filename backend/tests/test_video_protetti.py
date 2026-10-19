@@ -123,3 +123,14 @@ def test_indirizzo_valido_di_video_cancellato_da_404(client):
     tok = jwt.encode({"typ": "video", "vid": vid, "k": "file", "exp": datetime.now(timezone.utc) + timedelta(hours=1)},
                      settings.SECRET_KEY, algorithm="HS256")
     assert client.get(f"/api/video/{vid}/file?t={tok}").status_code == 404
+
+
+def test_un_docente_della_sessione_vede_il_video_e_ne_ha_l_accesso_chi_non_c_entra_no(client, db, auth, utente, crea_utente, edizione_video, video_pronto):
+    from app.models.edizione import EdizioneDocente
+    docente = crea_utente("docente@test.it", is_formatore=True)
+    db.add(EdizioneDocente(edizione_id=edizione_video.id, user_id=docente.id)); db.commit()
+    assert client.get(f"/api/video/{video_pronto.id}", headers=auth(docente)).status_code == 200          # per l'anteprima dalla pagina della sessione
+    assert client.get(f"/api/video/{video_pronto.id}/accesso", headers=auth(docente)).status_code == 200
+    estraneo = crea_utente("estraneo@test.it", is_formatore=True)                                          # docente, ma non di questa sessione
+    assert client.get(f"/api/video/{video_pronto.id}", headers=auth(estraneo)).status_code == 404
+    assert client.get(f"/api/video/{video_pronto.id}/accesso", headers=auth(utente)).status_code == 404   # e neanche chi non c'entra

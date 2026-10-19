@@ -80,7 +80,8 @@ def list_edizioni(corso_id: Optional[str] = None, mie_come_docente: bool = False
 
 @router.get("/mie/iscrizioni")
 def mie_iscrizioni(db: Session = Depends(get_db), user=Depends(get_current_user)):
-    rows = db.query(Iscrizione).filter(Iscrizione.user_id == user.id).all()
+    # Le iscrizioni annullate non sono piu' mie: non compaiono in «I miei corsi» ne' nello storico (restano nel registro attivita')
+    rows = db.query(Iscrizione).filter(Iscrizione.user_id == user.id, Iscrizione.stato != StatoIscrizione.annullato).all()
     out = []
     for i in rows:
         e = db.query(Edizione).filter(Edizione.id == i.edizione_id).first()

@@ -5,28 +5,59 @@ import zipfile
 from app.models.corso import Corso
 from app.models.etichetta import CorsoEtichetta, Etichetta, EtichettaFamiglia
 from app.models.iscrizione import StatoIscrizione as S
-from app.services.etichette import crea_famiglie_iniziali
+from app.services.etichette import converti_categorie_in_tematica
 
 
 def ids(*etichette):
     return [str(e.id) for e in etichette]
 
 
-def test_famiglie_iniziali_e_migrazione_della_categoria(db, crea_corso):
+def test_il_sistema_non_crea_nessuna_famiglia_di_etichette(db, crea_corso):
+    converti_categorie_in_tematica(db)
+    assert db.query(EtichettaFamiglia).count() == 0 and db.query(Etichetta).count() == 0     # ognuno definisce le sue
+    crea_corso("Senza categoria")
+    converti_categorie_in_tematica(db)
+    assert db.query(EtichettaFamiglia).count() == 0
+
+
+def test_chi_arriva_dal_vecchio_campo_categoria_trova_solo_la_tematica(db, crea_corso):
     vecchio = crea_corso("Antincendio", categoria="  sicurezza   sul lavoro ")
     altro = crea_corso("Excel", categoria="Informatica")
-    crea_famiglie_iniziali(db)
-    nomi = [f.nome for f in db.query(EtichettaFamiglia).order_by(EtichettaFamiglia.ordine).all()]
-    assert nomi == ["Tematica", "Riferimento normativo", "Ambito", "Obbligo"]
-    obbligo = db.query(EtichettaFamiglia).filter(EtichettaFamiglia.nome == "Obbligo").one()
-    assert obbligo.scelta_multipla is False
-    trasversale = db.query(Etichetta).filter(Etichetta.nome == "Trasversale").one()
-    assert trasversale.esclusiva
-    # le vecchie categorie diventano Tematiche, senza doppioni di grafia
+    converti_categorie_in_tematica(db)
+    assert [f.nome for f in db.query(EtichettaFamiglia).all()] == ["Tematica"]                # nient'altro: niente norme, ambiti, obblighi preimpostati
     da_corso = lambda c: {e.nome for e in db.query(Etichetta).join(CorsoEtichetta, CorsoEtichetta.etichetta_id == Etichetta.id).filter(CorsoEtichetta.corso_id == c.id)}
-    assert da_corso(vecchio) == {"Sicurezza sul lavoro"} and da_corso(altro) == {"Informatica"}
-    crea_famiglie_iniziali(db)  # una seconda volta non fa nulla
-    assert db.query(EtichettaFamiglia).count() == 4
+    assert da_corso(vecchio) == {"sicurezza sul lavoro"} and da_corso(altro) == {"Informatica"}
+    converti_categorie_in_tematica(db)  # una seconda volta non fa nulla
+    assert db.query(EtichettaFamiglia).count() == 1 and db.query(Etichetta).count() == 2
+    db.refresh(vecchio); db.refresh(altro)
+    assert vecchio.categoria is None and altro.categoria is None                              # convertita: il vecchio campo si svuota
+
+
+def test_la_conversione_funziona_anche_se_esistono_gia_altre_famiglie(db, crea_corso):
+    altra = EtichettaFamiglia(nome="Norma", scelta_multipla=True, ordine=0)
+    db.add(altra); db.flush()
+    db.add(Etichetta(famiglia_id=altra.id, nome="GDPR", ordine=0)); db.commit()
+    c = crea_corso("Vecchio", categoria="Sicurezza")
+    converti_categorie_in_tematica(db)
+    nomi = {f.nome for f in db.query(EtichettaFamiglia).all()}
+    assert nomi == {"Norma", "Tematica"}                                                       # l'altra famiglia resta com'e'
+    assert {e.nome for e in db.query(Etichetta).join(CorsoEtichetta, CorsoEtichetta.etichetta_id == Etichetta.id).filter(CorsoEtichetta.corso_id == c.id)} == {"Sicurezza"}
+    assert db.query(Etichetta).filter(Etichetta.famiglia_id == altra.id).count() == 1
+    # chi toglie poi l'etichetta dal corso non se la ritrova al riavvio
+    db.query(CorsoEtichetta).filter(CorsoEtichetta.corso_id == c.id).delete(); db.commit()
+    converti_categorie_in_tematica(db)
+    assert db.query(CorsoEtichetta).filter(CorsoEtichetta.corso_id == c.id).count() == 0
+
+
+def test_se_la_tematica_esiste_gia_si_riusa_e_non_si_duplicano_i_collegamenti(db, crea_corso):
+    t = EtichettaFamiglia(nome="tematica", scelta_multipla=True, ordine=0)
+    db.add(t); db.flush()
+    e = Etichetta(famiglia_id=t.id, nome="Antincendio", ordine=0); db.add(e); db.flush()
+    c = crea_corso("Corso", categoria="  antincendio ")
+    db.add(CorsoEtichetta(corso_id=c.id, etichetta_id=e.id)); db.commit()                      # gia' collegato (da una conversione precedente)
+    converti_categorie_in_tematica(db)
+    assert db.query(EtichettaFamiglia).count() == 1 and db.query(Etichetta).count() == 1 and db.query(CorsoEtichetta).count() == 1
+    db.refresh(c); assert c.categoria is None
 
 
 def test_corso_con_etichette_e_regole(client, db, formazione, auth, famiglie):

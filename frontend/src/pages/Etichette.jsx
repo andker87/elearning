@@ -93,6 +93,12 @@ export default function Etichette() {
         <p>Classificano i corsi per famiglia (di che cosa parlano, quale norma soddisfano, per chi valgono, perché sono obbligatori). Servono a filtrare registro, matrice e pacchetto per l'ispezione: ad esempio tutto ciò che riguarda il D.Lgs 81/08 per un audit ISO 45001.</p></div></div>
       {errore && <div className="error-msg">{errore}</div>}
       {famiglie.map((f) => <Famiglia key={f.id} f={f} onCambiato={carica} setErrore={setErrore} />)}
+      {famiglie.length === 0 && (
+        <div className="card card-muted">
+          <h3 style={{ marginTop: 0 }}>Nessuna famiglia ancora</h3>
+          <p style={{ margin: 0 }}>Il sistema non ne propone di già pronte: le definisci tu. Una famiglia è una «dimensione» con cui classificare i corsi, per esempio <em>tematica</em>, <em>riferimento normativo</em>, <em>ambito</em> o <em>obbligo</em>, ma anche qualunque altra ti serva. Crea la prima qui sotto, poi aggiungi le sue etichette (i valori che si possono scegliere) e assegnale ai corsi dalla pagina Corsi.</p>
+        </div>
+      )}
       <form className="card" onSubmit={creaFamiglia}>
         <h3>Nuova famiglia</h3>
         <div className="row">

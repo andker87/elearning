@@ -18,7 +18,7 @@ export default function MieCorsi() {
   }, []);
 
   const now = new Date();
-  const prossime = iscrizioni.filter((i) => i.edizione_stato !== "chiusa" && i.edizione_data_inizio && new Date(i.edizione_data_inizio) >= now);
+  const prossime = iscrizioni.filter((i) => (i.stato === "iscritto" || i.stato === "in_lista_attesa") && i.edizione_stato !== "chiusa" && i.edizione_data_inizio && new Date(i.edizione_data_inizio) >= now);
   const percorsiInCorso = percorsi.filter((p) => !p.completato);
 
   const inScadenza = iscrizioni
@@ -50,10 +50,10 @@ export default function MieCorsi() {
         {prossime.map((i) => (
           <div key={i.id} className="flex-between" style={{ padding: "10px 0", borderBottom: "1px solid var(--border)" }}>
             <div>
-              <strong>{i.corso_titolo}</strong>
+              <strong>{i.corso_titolo}</strong>{i.stato === "in_lista_attesa" && <span className="badge yellow" style={{ marginLeft: 8 }}>in lista d'attesa</span>}
               <div className="text-muted" style={{ fontSize: 13 }}>{new Date(i.edizione_data_inizio).toLocaleString("it-IT")} · {i.edizione_modalita}</div>
             </div>
-            <Link to={`/sessioni/${i.edizione_id}`}>Apri</Link>
+            <Link to={`/sessioni/${i.edizione_id}?segui=1`}>Apri</Link>
           </div>
         ))}
       </div>
