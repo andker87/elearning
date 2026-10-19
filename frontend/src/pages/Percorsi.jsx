@@ -119,7 +119,7 @@ export default function Percorsi() {
                 <label>Mansione</label>
                 <select required value={form.triggerMansioneId} onChange={(e) => setForm({ ...form, triggerMansioneId: e.target.value })}>
                   <option value="">-- seleziona --</option>
-                  {mansioni.filter((m) => m.is_active).map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}
+                  {mansioni.filter((m) => m.is_active || m.id === form.triggerMansioneId).map((m) => <option key={m.id} value={m.id}>{m.name}{m.is_active ? "" : " (non attiva)"}</option>)}
                 </select>
               </div>
             )}

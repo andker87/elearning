@@ -414,22 +414,22 @@ def import_users_csv(file: UploadFile = File(...), modo: str = Query("nuovi"), r
         mansioni_non_trovate = []
         if row.get("mansioni") and not is_external:
             mansione_ids = []
-            for nome in row["mansioni"].replace("|", ";").split(";"):
-                nome = nome.strip()
-                if not nome:
+            for nome_mansione in row["mansioni"].replace("|", ";").split(";"):
+                nome_mansione = nome_mansione.strip()
+                if not nome_mansione:
                     continue
-                m = mansioni_tutte.get(nome.lower())
+                m = mansioni_tutte.get(nome_mansione.lower())
                 if m:
                     mansione_ids.append(str(m.id))
                 else:
-                    mansioni_non_trovate.append(nome)
+                    mansioni_non_trovate.append(nome_mansione)
             _assegna_mansioni(u.id, mansione_ids, db)
 
         link = crea_link_invito(db, u)
         db.flush()
         inviata = bool(link)
         if link:
-            dopo_il_commit(db, invia_invito, email, f"{nome} {cognome}", link)  # il link, mai la password; parte solo a commit riuscito
+            dopo_il_commit(db, invia_invito, email, u.full_name, link)  # il link, mai la password; parte solo a commit riuscito
         creati += 1
         messaggio = "creato"
         if mansioni_non_trovate:

@@ -9,6 +9,7 @@ from app.models.mansione import Mansione, UserMansione
 from app.models.organizzazione import Organizzazione
 from app.models.percorso import PercorsoAssegnazione, PercorsoFormativo, TriggerAssegnazione
 from app.models.user import User
+from app.services import entra_sync as entra
 from app.services.impronte import impronta
 
 from conftest import PASSWORD
@@ -265,3 +266,45 @@ def test_i_modelli_csv_scaricabili_si_importano_cosi_come_sono(client, auth, adm
     cessati = "﻿email\r\nmario.rossi@azienda.it\r\n"
     r = client.post("/api/auth/users/import-csv?modo=cessati", headers=auth(admin), files={"file": ("modello-cessati.csv", cessati.encode("utf-8"), "text/csv")}).json()
     assert [x["esito"] for x in r["righe"]] == ["disattivato"]
+
+
+# --- correzioni dalla review ----------------------------------------------------------------------
+
+def test_csv_l_invito_parte_con_il_nome_della_persona_non_con_una_mansione(client, auth, admin, db, crea_ufficio, monkeypatch):
+    from test_inviti import canale
+    inviate = canale(db, monkeypatch)
+    crea_ufficio("Produzione")
+    client.post("/api/mansioni", headers=auth(admin), json={"name": "Preposto"})
+    r = csv(client, auth, admin, "email,nome,cognome,ufficio,mansioni\nmario@az.it,Mario,Rossi,Produzione,Preposto;\n").json()
+    assert [x["esito"] for x in r["righe"]] == ["creato"]
+    assert len(inviate) == 1 and "Ciao Mario Rossi," in inviate[0][2] and "Preposto" not in inviate[0][2]
+
+
+def test_entra_non_annulla_una_correzione_fatta_a_mano_quando_c_e_solo_il_nome_visualizzato(db, crea_utente):
+    crea_utente("a@az.it", nome="Maria Grazia", cognome="Rossi")        # divisa a mano: il nome intero non e' cambiato
+    membro = {"email": "a@az.it", "indirizzi": ["a@az.it"], "nome": "Maria Grazia Rossi", "given": "", "cognome": "", "attivo": True, "assunto_il": None}
+    assert entra.calcola_piano(db, [membro])["aggiorna"] == []
+    membro["nome"] = "Maria Grazia Bianchi"                             # cambiato davvero in Entra: si aggiorna (con la divisione semplice)
+    piano = entra.calcola_piano(db, [membro])
+    assert [x["email"] for x in piano["aggiorna"]] == ["a@az.it"] and piano["aggiorna"][0]["a"] == "Maria Grazia Bianchi"
+
+
+def test_non_si_elimina_un_ufficio_usato_da_un_percorso(client, auth, admin, db, crea_ufficio):
+    g = crea_ufficio("Usato")
+    p = PercorsoFormativo(nome="Per ufficio", trigger_tipo=TriggerAssegnazione.gruppo, trigger_gruppo_id=g.id)
+    db.add(p); db.commit()
+    r = client.delete(f"/api/groups/{g.id}", headers=auth(admin))
+    assert r.status_code == 400 and "percorso" in r.json()["detail"]
+    p.trigger_tipo, p.trigger_gruppo_id = TriggerAssegnazione.manuale, None
+    db.commit()
+    assert client.delete(f"/api/groups/{g.id}", headers=auth(admin)).status_code == 200
+
+
+def test_un_file_vecchio_con_un_gruppo_che_ora_e_un_ufficio_omonimo_avvisa(client, auth, admin, crea_ufficio):
+    crea_ufficio("Antincendio")                                          # qui esiste un ufficio con lo stesso nome del vecchio gruppo
+    vecchio = {"formato": "elearning-configurazione", "schema": 1,
+               "gruppi": [{"percorso": "Antincendio", "nome": "Antincendio", "ufficio": False}],
+               "percorsi": [{"nome": "Corso fuoco", "motivo": "legge", "trigger": "gruppo", "trigger_gruppo": "Antincendio", "passi": []}]}
+    r = client.post("/api/admin/configurazione/import", headers=auth(admin), json={"contenuto": vecchio, "applica": False})
+    assert r.status_code == 200
+    assert any("stesso nome" in a for a in r.json()["avvisi"]), r.json()["avvisi"]

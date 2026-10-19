@@ -3,7 +3,9 @@ from sqlalchemy.orm import Session
 from pydantic import BaseModel
 from typing import Optional
 from ..database import get_db
+from ..models.fabbisogno import FabbisognoCampagnaInvito, FabbisognoRichiesta
 from ..models.group import Group, UserGroup
+from ..models.percorso import PercorsoFormativo
 from ..services import audit as audit_svc
 from .deps import require_admin_tecnico, get_current_user
 
@@ -77,6 +79,11 @@ def delete_group(group_id: str, request: Request, db: Session = Depends(get_db),
     if not g: raise HTTPException(404)
     if db.query(UserGroup).filter(UserGroup.group_id == g.id).first():
         raise HTTPException(400, "L'ufficio ha ancora persone: spostale in un altro ufficio prima di eliminarlo")
+    if (db.query(PercorsoFormativo.id).filter(PercorsoFormativo.trigger_gruppo_id == g.id).first()
+            or db.query(FabbisognoCampagnaInvito.id).filter(FabbisognoCampagnaInvito.ufficio_id == g.id).first()
+            or db.query(FabbisognoRichiesta.id).filter((FabbisognoRichiesta.ufficio_origine_id == g.id)
+                                                        | (FabbisognoRichiesta.ufficio_in_revisione_presso_id == g.id)).first()):
+        raise HTTPException(400, "L'ufficio è ancora usato da un percorso (assegnazione automatica) o dal fabbisogno formativo: non si può eliminare")
     db.query(Group).filter(Group.parent_id == group_id).update({"parent_id": None})
     audit_svc.log_from_request(db, request, user, "DELETE", entity_type="group", entity_id=str(g.id), entity_name=g.name)
     db.delete(g); db.commit()

@@ -374,6 +374,8 @@ def _percorsi(db, elenco, rapporto, ex_gruppi=None):
         if trigger == TriggerAssegnazione.gruppo and not gruppo_trigger and d.get("trigger_gruppo") and _chiave(d["trigger_gruppo"]) in ex_gruppi:
             trigger = TriggerAssegnazione.mansione      # file vecchio: il gruppo e' diventato una mansione
             mansione_trigger = mansioni.get(_chiave(ex_gruppi[_chiave(d["trigger_gruppo"])]))
+        if trigger == TriggerAssegnazione.gruppo and gruppo_trigger and d.get("trigger_gruppo") and _chiave(d["trigger_gruppo"]) in ex_gruppi:
+            rapporto.avvisi.append(f"Percorso «{d['nome']}»: il file indicava un gruppo che non era un ufficio («{d['trigger_gruppo']}»), ma qui esiste un ufficio con lo stesso nome ed è quello usato: controlla che sia giusto.")
         if trigger == TriggerAssegnazione.mansione and not mansione_trigger:
             rapporto.avvisi.append(f"Percorso «{d['nome']}»: la mansione non esiste, l'assegnazione automatica non è attiva (trigger manuale).")
             trigger = TriggerAssegnazione.manuale

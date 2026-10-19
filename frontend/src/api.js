@@ -28,7 +28,7 @@ api.interceptors.response.use(
 export async function allineaProfilo() {
   if (!localStorage.getItem("token")) return;
   try {
-    const r = await api.get("/auth/me");
+    const r = await api.get("/auth/me", { timeout: 5000 });   // se il server non risponde, parte comunque la pagina
     localStorage.setItem("user", JSON.stringify(r.data));
   } catch (e) { /* offline o server in avvio: si resta con il profilo salvato */ }
 }

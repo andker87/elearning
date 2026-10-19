@@ -107,9 +107,15 @@ def calcola_piano(db: Session, membri: list) -> dict:
                 continue
             elif not u.is_active:
                 piano["riattiva"].append({"email": u.email, "nome": u.full_name})
-            elif (m["nome"] or (m.get("given") and m.get("cognome"))) and _nome_membro(m) != (u.nome, u.cognome):
-                nome_n, cognome_n = _nome_membro(m)
-                piano["aggiorna"].append({"email": u.email, "da": u.full_name, "a": f"{nome_n} {cognome_n}".strip(), "nome_n": nome_n, "cognome_n": cognome_n})
+            else:
+                separati = bool(m.get("given") and m.get("cognome"))
+                # Con nome e cognome separati si confrontano quelli. Con il solo nome visualizzato si confronta col nome intero
+                # salvato: la divisione si usa solo se quel testo e' cambiato davvero, cosi' una correzione fatta a mano
+                # (per esempio «Maria Grazia» / «Rossi») non viene annullata a ogni giro.
+                cambiato = (_nome_membro(m) != (u.nome, u.cognome)) if separati else bool(m["nome"] and m["nome"] != u.full_name)
+                if cambiato:
+                    nome_n, cognome_n = _nome_membro(m)
+                    piano["aggiorna"].append({"email": u.email, "da": u.full_name, "a": f"{nome_n} {cognome_n}".strip(), "nome_n": nome_n, "cognome_n": cognome_n})
 
     # Uscite: account disabilitato in Entra, oppure non piu' nel gruppo (solo per i domini del gruppo).
     candidati = [u for u in piattaforma.values() if u.is_active and not u.is_external and u.email.lower().split("@")[-1] in domini]

@@ -116,6 +116,7 @@ export default function Utenti() {
   const [erroreCrea, setErroreCrea] = useState(null);
 
   function load() { api.get("/auth/users").then((r) => setList(r.data)); }
+  useEffect(() => { if (modifica?.id) document.getElementById("u-form-modifica")?.scrollIntoView({ block: "nearest", behavior: "smooth" }); }, [modifica?.id]);
   useEffect(() => {
     load();
     api.get("/organizzazioni").then((r) => setOrgs(r.data));
@@ -254,7 +255,8 @@ export default function Utenti() {
           e opzionalmente <code>password</code>, <code>admin</code>, <code>formazione</code>, <code>formatore</code> (sì/no),
           <code>mansioni</code> (nomi separati da <code>;</code> o <code>|</code>), <code>is_external</code>,
           <code>organizzazione</code> (ragione sociale esatta, per gli esterni), <code>data_ingresso</code> (AAAA-MM-GG).
-          Se non indicata, la password viene generata automaticamente: se l'invio email è configurato (pagina Azienda) l'utente riceve un link per scegliere la sua password (non la password stessa), altrimenti la password temporanea compare nel risultato qui sotto.
+          <br /><strong>Uffici e mansioni vanno creati prima</strong>: il file non li crea. Se l'ufficio scritto non esiste la riga viene scartata (errore) e la persona non viene creata; se una mansione non esiste la persona viene creata senza quella mansione e la riga è segnalata con «creato, con avvisi».
+          <br />Se non indicata, la password viene generata automaticamente: se l'invio email è configurato (pagina Azienda) l'utente riceve un link per scegliere la sua password (non la password stessa), altrimenti la password temporanea compare nel risultato qui sotto.
           <br />Per <strong>disattivare</strong> utenti in blocco (es. cessati) scegli «Disattiva cessati»: basta la colonna <code>email</code> e ogni riga disattiva l'account corrispondente, senza toccarne lo storico formativo. Gli Admin non si disattivano da qui.
         </p>
         <p style={{ fontSize: 13 }}>
@@ -291,7 +293,7 @@ export default function Utenti() {
                   {csvRisultato.righe.map((r) => (
                     <tr key={r.riga}>
                       <td>{r.riga}</td><td>{r.email}</td>
-                      <td><span className={`badge ${r.esito === "creato" || r.esito === "disattivato" ? "green" : r.esito === "ignorato" ? "gray" : "red"}`}>{r.esito}</span></td>
+                      <td><span className={`badge ${r.esito === "creato" && r.messaggio !== "creato" ? "yellow" : r.esito === "creato" || r.esito === "disattivato" ? "green" : r.esito === "ignorato" ? "gray" : "red"}`}>{r.esito === "creato" && r.messaggio !== "creato" ? "creato, con avvisi" : r.esito}</span></td>
                       <td>{r.messaggio}</td>
                       <td>{r.password ? <code>{r.password}</code> : (r.email_inviata ? "invito in invio per email" : "-")}</td>
                     </tr>
@@ -303,21 +305,6 @@ export default function Utenti() {
         )}
       </div>}
       {scheda === "elenco" && <>
-        {modifica && (
-          <div className="card">
-            <h3>Modifica {modifica.nome}</h3>
-            <form onSubmit={salvaModifica}>
-              <div className="row">
-                <div className="field"><label>Nome</label><input required value={modifica.valori.nome} onChange={(e) => setModifica({ ...modifica, valori: { ...modifica.valori, nome: e.target.value } })} /></div>
-                <div className="field"><label>Cognome</label><input required value={modifica.valori.cognome} onChange={(e) => setModifica({ ...modifica, valori: { ...modifica.valori, cognome: e.target.value } })} /></div>
-              </div>
-              <CampiPersona valori={modifica.valori} set={(v) => setModifica({ ...modifica, valori: v })} uffici={uffici} mansioni={mansioniAttive} orgs={orgs} />
-              {erroreModifica && <div className="error-msg">{erroreModifica}</div>}
-              <button type="submit">Salva</button>{" "}
-              <button type="button" className="secondary" onClick={() => setModifica(null)}>Annulla</button>
-            </form>
-          </div>
-        )}
         <div className="card">
           <div className="row">
             <div className="field"><label htmlFor="u-cerca">Cerca</label><input id="u-cerca" placeholder="nome, cognome o email" value={filtro.testo} onChange={(e) => cambiaFiltro("testo", e.target.value)} /></div>
@@ -364,7 +351,8 @@ export default function Utenti() {
             </tr></thead>
             <tbody>
               {inPagina.map((u) => (
-                <tr key={u.id}>
+                <React.Fragment key={u.id}>
+                <tr>
                   <td>{u.cognome}</td><td>{u.nome}</td><td>{u.email}</td>
                   <td>{etichette(u).map((t) => <span key={t} className="badge" style={{ marginRight: 4 }}>{t}</span>)}{etichette(u).length === 0 && "—"}</td>
                   <td>{u.ufficio ? (percorsoDi[u.ufficio.id] || u.ufficio.name) : "—"}</td>
@@ -376,6 +364,24 @@ export default function Utenti() {
                     <button className="secondary btn-sm" onClick={() => toggleActive(u)}>{u.is_active ? "Disabilita" : "Riattiva"}</button>
                   </td>
                 </tr>
+                {modifica?.id === u.id && (
+                  <tr>
+                    <td colSpan={9} style={{ background: "var(--bg3)" }}>
+            <form id="u-form-modifica" onSubmit={salvaModifica}>
+              <h4 style={{ margin: "8px 0" }}>Modifica {modifica.nome}</h4>
+              <div className="row">
+                <div className="field"><label>Nome</label><input required value={modifica.valori.nome} onChange={(e) => setModifica({ ...modifica, valori: { ...modifica.valori, nome: e.target.value } })} /></div>
+                <div className="field"><label>Cognome</label><input required value={modifica.valori.cognome} onChange={(e) => setModifica({ ...modifica, valori: { ...modifica.valori, cognome: e.target.value } })} /></div>
+              </div>
+              <CampiPersona valori={modifica.valori} set={(v) => setModifica({ ...modifica, valori: v })} uffici={uffici} mansioni={mansioniAttive} orgs={orgs} />
+              {erroreModifica && <div className="error-msg">{erroreModifica}</div>}
+              <button type="submit">Salva</button>{" "}
+              <button type="button" className="secondary" onClick={() => setModifica(null)}>Annulla</button>
+            </form>
+                    </td>
+                  </tr>
+                )}
+                </React.Fragment>
               ))}
               {inPagina.length === 0 && <tr><td colSpan={9} className="text-muted">Nessun utente corrisponde ai filtri.</td></tr>}
             </tbody>

@@ -1,6 +1,6 @@
 # Progetto: persone, permessi, uffici e mansioni
 
-Documento di progetto per la release 2.2.0. Nessun codice scritto: serve a decidere prima, sulla carta, cosa cambia.
+Documento di progetto per la release 2.2.0, scritto prima di sviluppare per decidere sulla carta cosa cambia. La release è stata poi realizzata come descritto (con la variante che l'elenco di chi ha una mansione si ottiene filtrando in Utenti); il documento resta come motivazione delle scelte.
 
 ## 1. Il modello in una pagina
 

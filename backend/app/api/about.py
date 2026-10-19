@@ -17,6 +17,12 @@ PACCHETTI = ["fastapi", "uvicorn", "sqlalchemy", "pydantic", "pyjwt", "httpx", "
              "reportlab", "openpyxl", "pywebpush", "psycopg2-binary"]
 
 CHANGELOG = [
+    {"version": "2.3.2", "date": "2026-10", "label": "Selettore colore e modifica sotto la riga", "changes": [
+        "Colore di uffici e mansioni: quadrato ben visibile che apre il selettore del browser, codice esadecimale (#RRGGBB) da scrivere o incollare, colori pronti e anteprima dell'etichetta; le mansioni ora hanno il colore anche in modifica",
+        "Uffici, mansioni e utenti: il modulo di modifica si apre subito sotto la riga della voce che si sta modificando, senza dover tornare in cima alla pagina",
+        "Importa da CSV: la pagina spiega che uffici e mansioni vanno creati prima; una persona creata senza una mansione inesistente è segnalata come «creato, con avvisi»",
+        "Corretto: l'invito email dell'importazione CSV partiva con il nome sbagliato per chi aveva delle mansioni; la sincronizzazione da Entra non annulla più una correzione di nome fatta a mano quando Entra manda solo il nome visualizzato; un ufficio usato da un percorso o dal fabbisogno non si elimina più per errore",
+    ]},
     {"version": "2.3.1", "date": "2026-10", "label": "Uffici più facili da gestire", "changes": [
         "Uffici: la modifica permette di cambiare nome, descrizione, colore, responsabile, stato e posizione nella gerarchia (sottoufficio di un altro ufficio, oppure di primo livello); non si può spostare un ufficio sotto uno dei suoi sottouffici",
         "Gli uffici sono sempre in ordine alfabetico a ogni livello e scritti con il percorso intero (per esempio «Produzione / Linea 2») in tutte le tendine e nell'albero, così la gerarchia si legge anche nelle organizzazioni complesse",

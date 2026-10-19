@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import api, { erroreDi } from "../api";
+import SelettoreColore from "../components/SelettoreColore";
 
 // Le mansioni sono etichette trasversali (preposto, addetto antincendio...): una persona può averne più d'una,
 // servono ad assegnare percorsi in blocco e a filtrare gli elenchi. Non danno permessi.
@@ -12,6 +13,7 @@ export default function Mansioni() {
 
   function load() { api.get("/mansioni").then((r) => setList(r.data)); }
   useEffect(load, []);
+  useEffect(() => { if (editId) document.getElementById("m-form-modifica")?.scrollIntoView({ block: "nearest", behavior: "smooth" }); }, [editId]);
 
   async function submit(e) {
     e.preventDefault();
@@ -49,7 +51,7 @@ export default function Mansioni() {
         <form onSubmit={submit}>
           <div className="row">
             <div className="field"><label>Nome</label><input required value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} /></div>
-            <div className="field"><label>Colore</label><input type="color" value={form.color} onChange={(e) => setForm({ ...form, color: e.target.value })} /></div>
+            <div className="field"><label>Colore</label><SelettoreColore valore={form.color} anteprima={form.name} onChange={(c) => setForm({ ...form, color: c })} /></div>
           </div>
           <div className="field"><label>Descrizione</label><input value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} /></div>
           <button type="submit">Crea</button>
@@ -60,31 +62,35 @@ export default function Mansioni() {
           <thead><tr><th>Nome</th><th>Descrizione</th><th>Persone</th><th>Stato</th><th></th></tr></thead>
           <tbody>
             {list.map((m) => (
-              <tr key={m.id}>
-                {editId === m.id ? (
-                  <>
-                    <td><input aria-label="Nome" value={editForm.name} onChange={(e) => setEditForm({ ...editForm, name: e.target.value })} /></td>
-                    <td><input aria-label="Descrizione" value={editForm.description} onChange={(e) => setEditForm({ ...editForm, description: e.target.value })} /></td>
-                    <td>{m.persone}</td>
-                    <td><label><input type="checkbox" style={{ width: "auto", marginRight: 6 }} checked={editForm.is_active} onChange={(e) => setEditForm({ ...editForm, is_active: e.target.checked })} />attiva</label></td>
-                    <td>
-                      <button className="btn-sm" onClick={() => salva(m.id)}>Salva</button>{" "}
-                      <button className="secondary btn-sm" onClick={() => setEditId(null)}>Annulla</button>
+              <React.Fragment key={m.id}>
+                <tr>
+                  <td><span className="badge" style={{ background: m.color, color: "#fff" }}>{m.name}</span></td>
+                  <td>{m.description}</td>
+                  <td>{m.persone}</td>
+                  <td>{m.is_active ? <span className="badge green">attiva</span> : <span className="badge gray">non attiva</span>}</td>
+                  <td>
+                    <button className="btn-sm" onClick={() => { setErrore(null); setEditId(m.id); setEditForm({ name: m.name, description: m.description || "", color: m.color || "#5a6b8a", is_active: m.is_active }); }}>Modifica</button>{" "}
+                    <button className="danger btn-sm" onClick={() => elimina(m)}>Elimina</button>
+                  </td>
+                </tr>
+                {editId === m.id && (
+                  <tr>
+                    <td colSpan={5} style={{ background: "var(--bg3)" }}>
+                      <form id="m-form-modifica" onSubmit={(e) => { e.preventDefault(); salva(m.id); }}>
+                        <h4 style={{ margin: "8px 0" }}>Modifica «{m.name}»</h4>
+                        <div className="row">
+                          <div className="field"><label htmlFor="m-nome">Nome</label><input id="m-nome" required autoFocus value={editForm.name} onChange={(e) => setEditForm({ ...editForm, name: e.target.value })} /></div>
+                          <div className="field"><label htmlFor="m-colore">Colore</label><SelettoreColore id="m-colore" valore={editForm.color} anteprima={editForm.name} onChange={(c) => setEditForm((f) => ({ ...f, color: c }))} /></div>
+                        </div>
+                        <div className="field"><label htmlFor="m-descr">Descrizione</label><input id="m-descr" value={editForm.description} onChange={(e) => setEditForm({ ...editForm, description: e.target.value })} /></div>
+                        <div className="field"><label><input type="checkbox" style={{ width: "auto", marginRight: 6 }} checked={editForm.is_active} onChange={(e) => setEditForm({ ...editForm, is_active: e.target.checked })} />Attiva</label></div>
+                        <button type="submit">Salva</button>{" "}
+                        <button type="button" className="secondary" onClick={() => setEditId(null)}>Annulla</button>
+                      </form>
                     </td>
-                  </>
-                ) : (
-                  <>
-                    <td><span className="badge" style={{ background: m.color, color: "#fff" }}>{m.name}</span></td>
-                    <td>{m.description}</td>
-                    <td>{m.persone}</td>
-                    <td>{m.is_active ? <span className="badge green">attiva</span> : <span className="badge gray">non attiva</span>}</td>
-                    <td>
-                      <button className="btn-sm" onClick={() => { setEditId(m.id); setEditForm({ name: m.name, description: m.description || "", color: m.color, is_active: m.is_active }); }}>Modifica</button>{" "}
-                      <button className="danger btn-sm" onClick={() => elimina(m)}>Elimina</button>
-                    </td>
-                  </>
+                  </tr>
                 )}
-              </tr>
+              </React.Fragment>
             ))}
             {list.length === 0 && <tr><td colSpan={5} className="empty-state">Nessuna mansione ancora creata.</td></tr>}
           </tbody>

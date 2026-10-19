@@ -241,3 +241,16 @@ Provati con test (creazione utente e CSV, corsa simulata). SSO ed Entra: modific
 | Stato | File | Rilievo |
 |---|---|---|
 | FATTO 2.1.0 | pages/Utenti.jsx | il numero di pagina non era annunciato dai lettori di schermo quando cambia: aggiunto `aria-live="polite"` all'indicatore di pagina e, per lo stesso motivo, al conteggio dei risultati |
+
+## PR #23 (2.2.0 - 2.3.1: permessi, uffici, mansioni, nome e cognome)
+
+| Stato | File | Rilievo |
+|---|---|---|
+| FATTO 2.3.2 | api/auth.py | importazione CSV: la variabile del ciclo sulle mansioni sovrascriveva `nome`, e l'invito email partiva a «Preposto Rossi» invece di «Mario Rossi». Variabile rinominata e invito con il nome intero salvato; test con l'invio attivo |
+| FATTO 2.3.2 | api/groups.py | eliminare un ufficio usato da un percorso (assegnazione automatica) o dal fabbisogno dava errore del database (500): ora risposta 400 con il motivo |
+| FATTO 2.3.2 | services/entra_sync.py | con il solo nome visualizzato la sincronizzazione confrontava la divisione del nome con nome e cognome salvati, e a ogni giro annullava una correzione fatta a mano: ora confronta con il nome intero salvato e divide solo se è cambiato |
+| FATTO 2.3.2 | frontend/src/api.js | la richiesta del profilo all'avvio non aveva un limite di tempo: con il server che non risponde la pagina restava bianca. Limite di 5 secondi |
+| FATTO 2.3.2 | pages/Percorsi.jsx | modificando un percorso assegnato a una mansione non più attiva la tendina non la offriva e il modulo non si poteva salvare: la mansione scelta resta tra le opzioni («non attiva») |
+| FATTO 2.3.2 | services/configurazione.py (nota) | importando un file vecchio il cui gruppo non-ufficio ha lo stesso nome di un ufficio esistente, il percorso usa l'ufficio senza dirlo: aggiunto un avviso |
+| FATTO 2.3.2 | docs/guida-amministratore.md (nota) | la guida non citava l'assegnazione dei percorsi a ufficio e mansione: aggiornata |
+| FATTO 2.3.2 | docs/progetto-ruoli-mansioni.md (nota) | la frase «nessun codice scritto» era superata: il documento ora dice che la release è stata realizzata |
