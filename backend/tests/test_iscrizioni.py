@@ -65,3 +65,8 @@ def test_un_iscrizione_annullata_sparisce_da_i_miei_corsi(client, db, auth, admi
     assert mie() == []                                                    # annullata: non e' piu' mia
     assert iscrivi(client, auth, admin, ed, admin).status_code == 200     # e se mi iscrivo di nuovo, ricompare (una sola volta)
     assert [x["stato"] for x in mie()] == ["iscritto"]
+    # le iscrizioni in un altro stato restano visibili: l'esclusione riguarda solo quelle annullate
+    attesa = crea_edizione(crea_corso("In attesa"), stato=SE.pianificata, posti_max=1, lista_attesa_abilitata=True)
+    fatto = crea_edizione(crea_corso("Gia' fatto"), stato=SE.chiusa)
+    db.add_all([Iscrizione(edizione_id=attesa.id, user_id=admin.id, stato=S.in_lista_attesa), Iscrizione(edizione_id=fatto.id, user_id=admin.id, stato=S.completato)]); db.commit()
+    assert {x["corso_titolo"]: x["stato"] for x in mie()} == {"Corso per errore": "iscritto", "In attesa": "in_lista_attesa", "Gia' fatto": "completato"}
