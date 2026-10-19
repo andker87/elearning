@@ -42,6 +42,7 @@ function CampiPersona({ valori, set, uffici, mansioni, orgs, nuovo }) {
             <option value="">-- seleziona --</option>
             {orgs.map((o) => <option key={o.id} value={o.id}>{o.ragione_sociale}</option>)}
           </select>
+          <div style={{ margin: "6px 0" }}><span className="text-muted" style={{ fontSize: 12, marginRight: 6 }}>Ruoli:</span><Capsula ruolo="docente" /> <Capsula ruolo="esterno" /></div>
           <span className="text-muted" style={{ fontSize: 12 }}>Un esterno è un docente: può essere assegnato alle edizioni, non segue corsi e non ha ufficio né mansioni.</span>
         </div>
       ) : (

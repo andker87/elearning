@@ -265,4 +265,13 @@ Provati con test (creazione utente e CSV, corsa simulata). SSO ed Entra: modific
 | FATTO 2.3.3 | pages/Utenti.jsx | durante l'importazione la finestra si poteva chiudere (Annulla, Esc, clic fuori) dando l'impressione di aver annullato: ora è bloccata finché la richiesta non finisce |
 | FATTO 2.3.3 | api/auth.py, services/import_utenti.py | la conferma rielaborava il file senza agganciarsi a quanto visto nel controllo (rilievo maggiore): il controllo restituisce un'impronta del risultato (riga, email, esito, avvisi), la conferma la rimanda e, se il risultato è cambiato, l'importazione si ferma con 409 senza fare nulla |
 
-| CHIUSO 2.3.4 | (riepilogo, controllo «Docstring Coverage») | avviso non legato al codice: copertura delle docstring al 22% contro una soglia dell'80% (comparso anche sulle PR #20 e #22). Valutato e non adottato: per raggiungerla servirebbe una descrizione formale per ogni funzione, anche di una riga, senza migliorare sicurezza o correttezza; nel progetto si commenta dove serve spiegare il perché. Aggiunto `.coderabbit.yaml` che spegne il controllo (chiave `reviews.pre_merge_checks.docstrings.mode: off`, non verificata sul servizio: se l'avviso ricompare va corretta) |
+| CHIUSO 2.3.4 | (riepilogo, controllo «Docstring Coverage») | avviso non legato al codice: copertura delle docstring al 22% contro una soglia dell'80% (comparso anche sulle PR #20 e #22). Valutato e non adottato: per raggiungerla servirebbe una descrizione formale per ogni funzione, anche di una riga, senza migliorare sicurezza o correttezza; nel progetto si commenta dove serve spiegare il perché. Aggiunto `.coderabbit.yaml` che spegne il controllo (chiave `reviews.pre_merge_checks.docstrings.mode: off`): verificato sulla review della PR #25, dove l'avviso non compare più |
+
+## PR #25 (2.3.4, ruoli a capsule e «Docente»)
+
+| Stato | File | Rilievo |
+|---|---|---|
+| FATTO 2.3.4 | api/about.py | nella voce storica 2.2.0 la colonna del CSV era stata rinominata «docente» dalla sostituzione globale: ripristinata «formatore» (nome di allora) con l'indicazione che dalla 2.3.4 si chiama docente |
+| FATTO 2.3.4 | docs/guida-amministratore.md | la guida diceva «filtra per permessi, tipo»: ora «ruoli» (il filtro Tipo non c'è più) |
+| FATTO 2.3.4 | docs/progetto-ruoli-mansioni.md | la sostituzione globale aveva trasformato `is_formatore` (nome vero nel codice) in `is_docente` in due righe: ripristinato, con la nota che in app si chiama «Docente» |
+| FATTO 2.3.4 | pages/Utenti.jsx | il modulo di modifica di un utente esterno non mostrava le capsule dei ruoli: ora mostra «Docente» ed «Esterno» |

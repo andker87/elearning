@@ -35,7 +35,7 @@ Regole:
 ## 3. Cosa cambia
 
 ### 3.1 Utenti
-- Il ruolo unico diventa tre interruttori: `is_admin`, `is_formazione`, `is_docente`.
+- Il ruolo unico diventa tre interruttori: `is_admin`, `is_formazione`, `is_formatore` (nell'app la qualifica si chiama «Docente»).
 - Nel codice i controlli diventano due funzioni sole («ha poteri di formazione», «è admin»), così non ci sono più 36 confronti sparsi.
 - Il permesso **Admin** continua a includere i poteri della Formazione (come oggi, per non rompere nulla). Il tag Formazione indica *chi fa parte* dell'ufficio formazione: compare negli elenchi e riceve gli avvisi dedicati.
 - Gli avvisi che oggi vanno a «Admin tecnici e Ufficio formazione» continuano ad andare a entrambi.
@@ -78,7 +78,7 @@ Regole:
 |---|---|
 | ruolo `admin_tecnico` | `is_admin` |
 | ruolo `training_admin` | `is_formazione` |
-| membro del gruppo di sistema «Formatori» **o** docente di almeno un'edizione | `is_docente` |
+| membro del gruppo di sistema «Formatori» **o** docente di almeno un'edizione | `is_formatore` (in app «Docente») |
 | gruppi di sistema (Admin, Ufficio Formazione, Formatori, Utenti) | eliminati, con le loro iscrizioni |
 | gruppo libero con «È un ufficio» | resta ufficio |
 | gruppo libero senza «È un ufficio» | diventa mansione; i membri ricevono la mansione |

@@ -52,7 +52,7 @@ CHANGELOG = [
         "Gli uffici sono la sola struttura organizzativa: albero di uffici e sottouffici con responsabile, un solo ufficio per persona (obbligatorio per gli interni, tranne gli Admin). I quattro gruppi di sistema, che non facevano nulla, e la pagina Ruoli sono stati tolti",
         "Nuove mansioni: etichette trasversali agli uffici (per esempio preposto, addetto antincendio), anche più d'una per persona, senza permessi; servono ad assegnare un percorso in blocco e a filtrare l'elenco utenti",
         "Come docente di un'edizione si possono scegliere solo i Docenti e gli utenti esterni (un esterno è un docente di una società terza: non ha ufficio né mansioni e non si iscrive ai corsi)",
-        "L'importazione CSV usa le colonne ufficio, mansioni, admin, formazione, docente al posto di role e gruppi; la configurazione esportata include le mansioni e i file vecchi si importano ancora",
+        "L'importazione CSV usa le colonne ufficio, mansioni, admin, formazione, formatore al posto di role e gruppi (dalla 2.3.4 la colonna si chiama docente); la configurazione esportata include le mansioni e i file vecchi si importano ancora",
         "Chi aggiorna: la migrazione trasforma i dati esistenti (ruoli in permessi, gruppi liberi che non erano uffici in mansioni, chi era docente o nel vecchio gruppo «Formatori» diventa Docente); chi era in più uffici resta nel primo e la migrazione lo scrive nel log. Il profilo si rilegge dal server a ogni avvio, quindi il menu si aggiorna senza rifare l'accesso",
     ]},
     {"version": "2.1.0", "date": "2026-10", "label": "Pagina Utenti a schede", "changes": [
