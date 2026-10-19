@@ -17,6 +17,10 @@ PACCHETTI = ["fastapi", "uvicorn", "sqlalchemy", "pydantic", "pyjwt", "httpx", "
              "reportlab", "openpyxl", "pywebpush", "psycopg2-binary"]
 
 CHANGELOG = [
+    {"version": "2.3.4", "date": "2026-10", "label": "Ruoli a colpo d'occhio", "changes": [
+        "Elenco utenti: i ruoli sono capsule colorate con lo stesso colore e lo stesso nome ovunque (Admin, Formazione, Docente, Esterno; Utente per chi non ha permessi). Passando il mouse si legge cosa può fare, c'è una legenda sopra la tabella e le stesse capsule compaiono nel modulo di modifica. La colonna Tipo è assorbita da Esterno e il filtro Permessi diventa Ruoli",
+        "La qualifica «Formatore» si chiama ora «Docente» in tutta la piattaforma (etichette, messaggi, guide, colonna «docente» del CSV, menu); la vecchia colonna «formatore» nei file si accetta ancora. Nell'esportazione utenti la colonna Permessi diventa Ruoli",
+    ]},
     {"version": "2.3.3", "date": "2026-10", "label": "Importazione da Excel con controllo prima", "changes": [
         "Importa da Excel (.xlsx) oltre che da CSV: il tipo di file si riconosce dal contenuto (un Excel salvato con estensione .csv funziona), si legge il foglio «Utenti», i CSV salvati da Excel in codifica Windows si leggono, il vecchio .xls e i file rotti ricevono un messaggio che spiega cosa fare",
         "Prima di importare il file viene controllato: una finestra mostra il riepilogo per persona (chi verrà creato, con quali avvisi, quali righe verranno scartate) e solo con «Importa comunque» si crea qualcosa; nel controllo non si crea niente e non parte nessuna email. Vale anche per «Disattiva cessati»",
@@ -44,12 +48,12 @@ CHANGELOG = [
         "Chi aggiorna: le persone esistenti sono divise con una regola semplice (la prima parola è il nome, il resto il cognome, per esempio «Maria Grazia Rossi» diventa Maria / Grazia Rossi): vanno controllate e corrette dalla scheda utente. Dove si scrive ancora il nome intero (certificati, notifiche) resta «Nome Cognome»",
     ]},
     {"version": "2.2.0", "date": "2026-10", "label": "Permessi, uffici e mansioni", "changes": [
-        "Il ruolo unico dell'utente è sostituito da permessi che si sommano (Admin, Formazione) e dalla qualifica Formatore; senza nessuno dei tre si è utenti semplici. Si assegnano dalla scheda di ciascun utente (nuovo pulsante Modifica nell'elenco)",
+        "Il ruolo unico dell'utente è sostituito da permessi che si sommano (Admin, Formazione) e dalla qualifica Docente; senza nessuno dei tre si è utenti semplici. Si assegnano dalla scheda di ciascun utente (nuovo pulsante Modifica nell'elenco)",
         "Gli uffici sono la sola struttura organizzativa: albero di uffici e sottouffici con responsabile, un solo ufficio per persona (obbligatorio per gli interni, tranne gli Admin). I quattro gruppi di sistema, che non facevano nulla, e la pagina Ruoli sono stati tolti",
         "Nuove mansioni: etichette trasversali agli uffici (per esempio preposto, addetto antincendio), anche più d'una per persona, senza permessi; servono ad assegnare un percorso in blocco e a filtrare l'elenco utenti",
-        "Come docente di un'edizione si possono scegliere solo i Formatori e gli utenti esterni (un esterno è un docente di una società terza: non ha ufficio né mansioni e non si iscrive ai corsi)",
-        "L'importazione CSV usa le colonne ufficio, mansioni, admin, formazione, formatore al posto di role e gruppi; la configurazione esportata include le mansioni e i file vecchi si importano ancora",
-        "Chi aggiorna: la migrazione trasforma i dati esistenti (ruoli in permessi, gruppi liberi che non erano uffici in mansioni, chi era docente o nel gruppo Formatori diventa Formatore); chi era in più uffici resta nel primo e la migrazione lo scrive nel log. Il profilo si rilegge dal server a ogni avvio, quindi il menu si aggiorna senza rifare l'accesso",
+        "Come docente di un'edizione si possono scegliere solo i Docenti e gli utenti esterni (un esterno è un docente di una società terza: non ha ufficio né mansioni e non si iscrive ai corsi)",
+        "L'importazione CSV usa le colonne ufficio, mansioni, admin, formazione, docente al posto di role e gruppi; la configurazione esportata include le mansioni e i file vecchi si importano ancora",
+        "Chi aggiorna: la migrazione trasforma i dati esistenti (ruoli in permessi, gruppi liberi che non erano uffici in mansioni, chi era docente o nel vecchio gruppo «Formatori» diventa Docente); chi era in più uffici resta nel primo e la migrazione lo scrive nel log. Il profilo si rilegge dal server a ogni avvio, quindi il menu si aggiorna senza rifare l'accesso",
     ]},
     {"version": "2.1.0", "date": "2026-10", "label": "Pagina Utenti a schede", "changes": [
         "La pagina Utenti è divisa in tre schede: Elenco, Nuovo utente, Importa da CSV, così non diventa lunghissima con molti utenti",
@@ -146,14 +150,14 @@ CHANGELOG = [
         "Reset password: la richiesta manuale si rifiuta per account disattivati o con credenziali aziendali; il link non si può riscattare due volte in parallelo",
         "Doppioni impossibili anche con richieste in parallelo: una persona per sessione, un gradimento per iscrizione, un invito per ufficio e campagna, una persona per richiesta di corso; l'ultimo posto di una sessione non si assegna due volte. Le campagne chiuse non accettano più deleghe né risposte",
         "Sincronizzazione Entra: si applica solo il piano visto in anteprima (se cambia nel frattempo bisogna rifare l'anteprima) e non si possono disattivare tutti gli utenti in ambito in un colpo solo",
-        "Test: il formatore gestisce il test solo con una sessione pianificata o in corso. Importazione configurazione: un ufficio nullo nel file non cancella quello esistente. Offboarding: i posti liberati non contano chi era in lista d'attesa",
+        "Test: il docente gestisce il test solo con una sessione pianificata o in corso. Importazione configurazione: un ufficio nullo nel file non cancella quello esistente. Offboarding: i posti liberati non contano chi era in lista d'attesa",
     ]},
     {"version": "1.8.3", "date": "2026-10", "label": "Correzioni dalla quarta revisione del codice", "changes": [
         "Utenti: non si può più cambiare il ruolo di sé stessi né dell'ultimo Admin tecnico attivo (la piattaforma non resta senza amministratori)",
         "Auto-iscrizione: possibile solo in sessioni pianificate o in corso, anche all'approvazione del responsabile",
         "Password dimenticata e inviti da import CSV: le email partono in sottofondo e solo a salvataggio riuscito (nessuna differenza di tempi tra account esistenti e no, nessun link morto)",
         "Esportazioni CSV/Excel: i testi che iniziano con = + - @ vengono neutralizzati (niente formule iniettate da nomi o commenti)",
-        "Test: il formatore gestisce il test solo finché ha una sessione del corso ancora aperta e può vedere le risposte corrette",
+        "Test: il docente gestisce il test solo finché ha una sessione del corso ancora aperta e può vedere le risposte corrette",
         "Sincronizzazione Entra: il freno di sicurezza non permette di disattivare più della metà degli utenti in ambito (minimo 2), anche su installazioni piccole",
         "Importazione configurazione: i gruppi di sistema non si toccano e i campi assenti nel file non cancellano quelli esistenti",
         "Accesso: un login sbagliato mostra il messaggio d'errore invece di ricaricare la pagina",
@@ -162,7 +166,7 @@ CHANGELOG = [
         "Gruppi e uffici: non si può più creare un giro nella gerarchia (un ufficio sotto un suo sotto-ufficio), e le visite della gerarchia non si bloccano nemmeno con dati incoerenti",
         "Iscrizioni: oltre la capienza le persone in più vengono segnalate invece di far fallire tutta l'iscrizione, e non si supera mai il numero di posti; niente iscrizioni in sessioni chiuse o annullate (né in bozza per i responsabili); più posti o lista d'attesa attivata fanno salire subito chi aspetta, che riceve l'invito calendario anche dopo la disattivazione di un collega",
         "Sessioni: pianificare due volte non rimanda gli inviti e una sessione chiusa non torna pianificata",
-        "Test: il formatore che modifica un test vede e conserva le risposte corrette; salvare un test con risposte non dà più errore",
+        "Test: il docente che modifica un test vede e conserva le risposte corrette; salvare un test con risposte non dà più errore",
         "Email e notifiche push partono in sottofondo dopo il salvataggio: una richiesta con centinaia di notifiche non si blocca, e niente invii per operazioni annullate",
         "CF-Connecting-IP si usa solo se dichiarato che davanti c'è Cloudflare (PROXY_CLOUDFLARE); logo verificato al caricamento e icona dell'app sempre disponibile",
     ]},

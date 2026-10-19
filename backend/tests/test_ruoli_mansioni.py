@@ -114,7 +114,7 @@ def test_come_docente_si_assegnano_solo_formatori_ed_esterni(client, auth, admin
     formatore = crea_utente("fo@test.it", is_formatore=True)
     esterno = crea_utente("es@test.it", is_external=True, organizzazione_id=org.id)
     r = client.post(f"/api/edizioni/{ed.id}/docenti", headers=auth(admin), json={"user_id": str(semplice.id)})
-    assert r.status_code == 400 and "Formatore" in r.json()["detail"]
+    assert r.status_code == 400 and "Docente" in r.json()["detail"]
     assert client.post(f"/api/edizioni/{ed.id}/docenti", headers=auth(admin), json={"user_id": str(formatore.id)}).status_code == 200
     assert client.post(f"/api/edizioni/{ed.id}/docenti", headers=auth(admin), json={"user_id": str(esterno.id)}).status_code == 200
     assert db.query(EdizioneDocente).filter(EdizioneDocente.edizione_id == ed.id).count() == 2
@@ -124,7 +124,7 @@ def test_l_elenco_dei_possibili_docenti(client, auth, admin, crea_utente, org):
     crea_utente("s@test.it"); crea_utente("fo@test.it", is_formatore=True)
     crea_utente("es@test.it", is_external=True, organizzazione_id=org.id)
     tutti = {u["email"] for u in client.get("/api/auth/users/simple", headers=auth(admin)).json()}
-    docenti = {u["email"] for u in client.get("/api/auth/users/simple?formatori=true", headers=auth(admin)).json()}
+    docenti = {u["email"] for u in client.get("/api/auth/users/simple?docenti=true", headers=auth(admin)).json()}
     assert {"s@test.it", "fo@test.it", "es@test.it"} <= tutti
     assert docenti == {"fo@test.it", "es@test.it"}
 
@@ -188,7 +188,7 @@ def test_csv_con_ufficio_mansioni_e_permessi(client, auth, admin, db, crea_uffic
     db.add(figlio); db.commit()
     client.post("/api/mansioni", headers=auth(admin), json={"name": "Preposto"})
     r = csv(client, auth, admin,
-            "email,nome,cognome,ufficio,mansioni,formatore,formazione\n"
+            "email,nome,cognome,ufficio,mansioni,docente,formazione\n"
             "a@az.it,A,A,Produzione / Linea 2,Preposto;Inesistente,sì,\n"
             "b@az.it,B,B,,,,\n"
             "c@az.it,C,C,Magazzino,,,\n"
@@ -244,9 +244,9 @@ def test_l_esportazione_degli_utenti_ha_permessi_ufficio_e_mansioni(client, auth
     db.add(UserGroup(user_id=u.id, group_id=crea_ufficio("Produzione").id)); db.commit()
     testo = client.get("/api/auth/users/export?formato=csv", headers=auth(admin)).content.decode("utf-8-sig")
     intestazione = testo.splitlines()[0]
-    assert "Permessi" in intestazione and "Ufficio" in intestazione and "Mansioni" in intestazione and "Ruolo" not in intestazione
+    assert "Ruoli" in intestazione and "Permessi" not in intestazione and "Ufficio" in intestazione and "Mansioni" in intestazione and "Ruolo" not in intestazione
     riga = [r for r in testo.splitlines() if "e@test.it" in r][0]
-    assert "Formazione; Formatore" in riga and "Produzione" in riga
+    assert "Formazione; Docente" in riga and "Produzione" in riga
 
 
 def test_un_esterno_non_si_iscrive_come_discente(client, auth, admin, crea_utente, crea_corso, crea_edizione, org):
@@ -261,7 +261,7 @@ def test_i_modelli_csv_scaricabili_si_importano_cosi_come_sono(client, auth, adm
     """Stesso contenuto dei modelli che la pagina Utenti fa scaricare (separatore «;», BOM, riga di esempio)."""
     crea_ufficio("Alfa")
     client.post("/api/mansioni", headers=auth(admin), json={"name": "Preposto"})
-    nuovi = "﻿email;nome;cognome;ufficio;mansioni;admin;formazione;formatore;is_external;organizzazione;data_ingresso;password\r\n" \
+    nuovi = "﻿email;nome;cognome;ufficio;mansioni;admin;formazione;docente;is_external;organizzazione;data_ingresso;password\r\n" \
             "mario.rossi@azienda.it;Mario;Rossi;Alfa;Preposto;no;no;no;no;;2026-01-15;\r\n"
     r = csv(client, auth, admin, nuovi.encode("utf-8")).json()
     assert [x["esito"] for x in r["righe"]] == ["creato"], r
@@ -312,3 +312,10 @@ def test_un_file_vecchio_con_un_gruppo_che_ora_e_un_ufficio_omonimo_avvisa(clien
     r = client.post("/api/admin/configurazione/import", headers=auth(admin), json={"contenuto": vecchio, "applica": False})
     assert r.status_code == 200
     assert any("stesso nome" in a for a in r.json()["avvisi"]), r.json()["avvisi"]
+
+
+def test_il_testo_dei_ruoli_nell_esportazione(db, crea_utente, org):
+    from app.services.persone import permessi_testo
+    assert permessi_testo(crea_utente("u1@t.it")) == "Utente"
+    assert permessi_testo(crea_utente("u2@t.it", is_admin=True, is_formatore=True)) == "Admin; Docente"
+    assert permessi_testo(crea_utente("u3@t.it", is_external=True, organizzazione_id=org.id)) == "Docente; Esterno"

@@ -1,0 +1,5 @@
+# Configurazione di CodeRabbit (https://docs.coderabbit.ai/getting-started/yaml-configuration)
+reviews:
+  pre_merge_checks:
+    docstrings:
+      mode: "off"   # la soglia sulle docstring non si adotta: si commenta dove serve spiegare il perche', non per percentuale

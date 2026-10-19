@@ -185,7 +185,7 @@ def aggiungi_docente(edizione_id: str, data: DocenteIn, request: Request, db: Se
     docente = db.query(User).filter(User.id == data.user_id, User.is_active == True).first()  # noqa: E712
     if not docente: raise HTTPException(404, "Persona non trovata")
     if not docente.puo_essere_docente:
-        raise HTTPException(400, "Questa persona non è un Formatore: abilita la qualifica Formatore dalla sua scheda utente")
+        raise HTTPException(400, "Questa persona non è abilitata come Docente: abilita la qualifica Docente dalla sua scheda utente")
     db.add(EdizioneDocente(edizione_id=edizione_id, user_id=data.user_id, ruolo=data.ruolo))
     audit_svc.log_from_request(db, request, user, "ASSIGN_DOCENTE", entity_type="edizione", entity_id=str(e.id),
                                 entity_name=_nome_edizione(db, e), detail=f"docente: {_nome_utente(db, data.user_id)} ({data.ruolo.value})")

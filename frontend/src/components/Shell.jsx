@@ -43,7 +43,7 @@ function buildSections(user, haSottoposti, uffici) {
     ]},
   ];
   if (user?.is_docente) {
-    sections.push({ label: "Formatore", links: [
+    sections.push({ label: "Docente", links: [
       { to: "/mie-sessioni", label: "Le mie sessioni", icon: "🧑‍🏫" },
     ]});
   }

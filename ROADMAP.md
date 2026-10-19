@@ -32,7 +32,7 @@ mano che si converge sulle priorità. Ultimo aggiornamento: 2026-10-13 (dopo sin
 - **Compliance/reportistica**: registro formazione, versionamento corsi,
   template attestati drag-and-drop, Dashboard Ufficio Formazione, Dashboard KPI,
   export CSV/Excel/PDF, gerarchia uffici/responsabili.
-- **Dashboard per persona**: Utente (i miei corsi / storico), Formatore (le mie
+- **Dashboard per persona**: Utente (i miei corsi / storico), Docente (le mie
   sessioni), Responsabile (risorse, richieste corso, fabbisogno), Ufficio Training
   (dashboard, sessioni/corsi/video/percorsi/registro/template), Amministrazione
   (utenti/ruoli/gruppi/società esterne/azienda/stato piattaforma/audit log).
@@ -70,7 +70,7 @@ gamification.
 ## Decisioni di dettaglio prese — SPEDITE
 
 - [x] **Test di apprendimento**: creazione riservata a Ufficio Formazione/Admin
-  o a un Formatore che ha effettivamente insegnato quel corso (docente di
+  o a un Docente che ha effettivamente insegnato quel corso (docente di
   almeno un'edizione) — mai generati dall'assistente. La reportistica per-
   docente resta una query derivata (`TentativoTest` → `Iscrizione` →
   `Edizione` → `EdizioneDocente`, nessun campo duplicato), costruita quando
@@ -845,7 +845,7 @@ deciso, la sospensione a tempo di un account: chiunque conosca un'email puo' sos
 
 Dieci segnalazioni, nove corrette e una chiarita: giri nella gerarchia dei gruppi (controllo al
 salvataggio + visite protette); CF-Connecting-IP creduto da qualsiasi proxy fidato (ora solo con
-`PROXY_CLOUDFLARE=true`); formatori che perdevano le risposte corrette salvando un test (e il
+`PROXY_CLOUDFLARE=true`); docenti che perdevano le risposte corrette salvando un test (e il
 salvataggio di un test con opzioni andava in errore: trovato scrivendo il test); pianifica senza
 controlli sullo stato e con inviti doppi; email/push sincroni e prima del commit (ora in
 sottofondo e solo dopo il commit); logo non verificato e icona che poteva andare in errore;
@@ -856,7 +856,7 @@ non si salva piu' per scelta (l'obbligo e' del corso), il frontend non lo manda 
 
 
 ### Z4. Quarta revisione del codice (14/10/2026, v1.8.3)
-Otto correzioni su dieci segnalazioni verificate: ruolo dell'ultimo Admin tecnico, auto-iscrizione in sessioni non aperte, invii email in sottofondo (reset password, inviti CSV), formule CSV/Excel, test del formatore, freno Entra su installazioni piccole, importazione configurazione (gruppi di sistema, campi assenti), messaggio di login errato. Il blocco account dopo 5 tentativi resta (temporaneo, risposta uniforme, avviso agli Admin tecnici): è il compromesso accettato.
+Otto correzioni su dieci segnalazioni verificate: ruolo dell'ultimo Admin tecnico, auto-iscrizione in sessioni non aperte, invii email in sottofondo (reset password, inviti CSV), formule CSV/Excel, test del docente, freno Entra su installazioni piccole, importazione configurazione (gruppi di sistema, campi assenti), messaggio di login errato. Il blocco account dopo 5 tentativi resta (temporaneo, risposta uniforme, avviso agli Admin tecnici): è il compromesso accettato.
 
 
 ### Z5. Rilievi di CodeRabbit sulla cronologia pubblica (v1.8.4 e seguenti)
@@ -877,7 +877,8 @@ Obiettivo: superare controlli di sicurezza (SAST, analisi delle dipendenze) e pr
 ### Z7. Utenti, ruoli e gruppi (dopo la 2.0.0)
 Obiettivo: separare chi è una persona (anagrafica), che cosa fa nella formazione (ruoli come tag) e dove sta (gruppi = uffici). Tre passi, ciascuno una release:
 - [x] **2.1.0 Pagina Utenti a schede** — schede Elenco / Nuovo utente / Importa CSV; elenco con ricerca, filtri, ordinamento sulle intestazioni e paginazione; tolto «Esporta» dai Gruppi.
-- [x] **2.2.0 Permessi, uffici e mansioni** — il ruolo unico diventa tre interruttori (Admin, Formazione, Formatore) che si sommano; i gruppi sono solo uffici (uno per persona, obbligatorio per gli interni non Admin); mansioni come etichette trasversali (assegnazione percorsi e filtri); docenti scelti solo tra Formatori ed esterni; esterni mai iscritti come discenti; pagina Ruoli e gruppi di sistema eliminati; progetto in `docs/progetto-ruoli-mansioni.md`.
+- [x] **2.2.0 Permessi, uffici e mansioni** — il ruolo unico diventa tre interruttori (Admin, Formazione, Docente) che si sommano; i gruppi sono solo uffici (uno per persona, obbligatorio per gli interni non Admin); mansioni come etichette trasversali (assegnazione percorsi e filtri); docenti scelti solo tra Docenti ed esterni; esterni mai iscritti come discenti; pagina Ruoli e gruppi di sistema eliminati; progetto in `docs/progetto-ruoli-mansioni.md`.
+- [x] **2.3.4 Ruoli a colpo d'occhio** — capsule colorate per i ruoli nell'elenco utenti (Admin, Formazione, Docente, Esterno, Utente) con legenda; «Formatore» rinominato «Docente» ovunque; file `.coderabbit.yaml` che spegne l'avviso sulle docstring.
 - [x] **2.3.3 Importazione da Excel con controllo prima** — file .xlsx oltre al CSV, anteprima con riepilogo per persona e conferma, uffici/mansioni mancanti non scartano la riga (persona creata senza, con avviso), modelli Excel e CSV generati dal sistema, filtro «Senza ufficio».
 - [x] **2.3.2 Selettore colore e modifica sotto la riga** — selettore colore leggibile con esadecimale e colori pronti; modulo di modifica sotto la riga (uffici, mansioni, utenti); spiegazione di cosa fa il CSV con uffici e mansioni inesistenti.
 - [x] **2.3.1 Uffici più facili da gestire** — modifica completa degli uffici (colore, gerarchia, stato), elenchi in ordine alfabetico con percorso intero, modelli CSV scaricabili; corretto il filtro uffici di 5 pagine.

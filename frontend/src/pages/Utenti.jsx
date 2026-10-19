@@ -3,22 +3,13 @@ import api, { downloadFile, erroreDi } from "../api";
 import ExportButton from "../components/ExportButton";
 import { elencoUffici } from "../uffici";
 import Finestra from "../components/Finestra";
+import { Capsula, Capsule, LegendaRuoli, RUOLI, ruoliDi } from "../components/Capsule";
 import { REQUISITI_PASSWORD } from "../passwordPolicy";
 
 const SCHEDE = [{ id: "elenco", label: "Elenco" }, { id: "nuovo", label: "Nuovo utente" }, { id: "csv", label: "Importa da Excel o CSV" }];
 const PER_PAGINA = [25, 50, 100];
-const PERMESSI = { admin: "Admin", formazione: "Formazione", formatore: "Formatore", nessuno: "Nessuno (utente semplice)" };
 const VUOTO = { nome: "", cognome: "", email: "", password: "", is_admin: false, is_formazione: false, is_formatore: false, is_external: false,
   organizzazione_id: "", ufficio_id: "", mansione_ids: [], origine_credenziali: "locale" };
-
-// I permessi di una persona in parole: un esterno è Formatore per definizione.
-function etichette(u) {
-  const v = [];
-  if (u.is_admin) v.push("Admin");
-  if (u.is_formazione) v.push("Formazione");
-  if (u.is_formatore) v.push("Formatore");
-  return v;
-}
 
 // Riepilogo delle righe con problemi, scaricabile (CSV con «;» e BOM: Excel lo apre in colonne).
 function scaricaRiepilogo(risultato) {
@@ -63,13 +54,13 @@ function CampiPersona({ valori, set, uffici, mansioni, orgs, nuovo }) {
             </select>
           </div>
           <div className="field">
-            <label>Permessi e qualifica</label>
+            <label>Ruoli</label>
             <div>
-              <label style={{ marginRight: 16 }}><input type="checkbox" style={{ width: "auto", marginRight: 6 }} checked={valori.is_admin} onChange={(e) => set({ ...valori, is_admin: e.target.checked })} />Admin</label>
-              <label style={{ marginRight: 16 }}><input type="checkbox" style={{ width: "auto", marginRight: 6 }} checked={valori.is_formazione} onChange={(e) => set({ ...valori, is_formazione: e.target.checked })} />Formazione</label>
-              <label><input type="checkbox" style={{ width: "auto", marginRight: 6 }} checked={valori.is_formatore} onChange={(e) => set({ ...valori, is_formatore: e.target.checked })} />Formatore (può essere scelto come docente)</label>
+              <label style={{ display: "block", margin: "4px 0" }}><input type="checkbox" style={{ width: "auto", marginRight: 6 }} checked={valori.is_admin} onChange={(e) => set({ ...valori, is_admin: e.target.checked })} /><Capsula ruolo="admin" /> <span className="text-muted" style={{ fontSize: 12 }}>{RUOLI.admin.tip}</span></label>
+              <label style={{ display: "block", margin: "4px 0" }}><input type="checkbox" style={{ width: "auto", marginRight: 6 }} checked={valori.is_formazione} onChange={(e) => set({ ...valori, is_formazione: e.target.checked })} /><Capsula ruolo="formazione" /> <span className="text-muted" style={{ fontSize: 12 }}>{RUOLI.formazione.tip}</span></label>
+              <label style={{ display: "block", margin: "4px 0" }}><input type="checkbox" style={{ width: "auto", marginRight: 6 }} checked={valori.is_formatore} onChange={(e) => set({ ...valori, is_formatore: e.target.checked })} /><Capsula ruolo="docente" /> <span className="text-muted" style={{ fontSize: 12 }}>{RUOLI.docente.tip}</span></label>
             </div>
-            <span className="text-muted" style={{ fontSize: 12 }}>Senza nessuna spunta è un utente semplice. Admin configura la piattaforma e ha anche i poteri della Formazione; Formazione gestisce corsi, edizioni, iscrizioni e attestati.</span>
+            <span className="text-muted" style={{ fontSize: 12 }}>Senza nessuna spunta è un utente semplice (capsula «Utente»).</span>
           </div>
           {mansioni.length > 0 && (
             <div className="field">
@@ -99,7 +90,7 @@ function CampiPersona({ valori, set, uffici, mansioni, orgs, nuovo }) {
 
 export default function Utenti() {
   const [scheda, setScheda] = useState("elenco");
-  const [filtro, setFiltro] = useState({ testo: "", permesso: "", tipo: "", stato: "", ufficio: "", mansione: "" });
+  const [filtro, setFiltro] = useState({ testo: "", ruolo: "", stato: "", ufficio: "", mansione: "" });
   const [ordine, setOrdine] = useState({ col: "cognome", verso: 1 });
   const [pagina, setPagina] = useState(0);
   const [perPagina, setPerPagina] = useState(25);
@@ -135,10 +126,9 @@ export default function Utenti() {
     { id: "cognome", label: "Cognome", valore: (u) => u.cognome || "" },
     { id: "nome", label: "Nome", valore: (u) => u.nome || "" },
     { id: "email", label: "Email", valore: (u) => u.email || "" },
-    { id: "permessi", label: "Permessi", valore: (u) => etichette(u).join(", ") },
+    { id: "ruoli", label: "Ruoli", valore: (u) => ruoliDi(u).map((r) => RUOLI[r].label).join(", ") },
     { id: "ufficio", label: "Ufficio", valore: (u) => (u.ufficio ? percorsoDi[u.ufficio.id] || u.ufficio.name : "") },
     { id: "mansioni", label: "Mansioni", valore: (u) => (u.mansioni || []).map((m) => m.name).sort().join(", ") },
-    { id: "tipo", label: "Tipo", valore: (u) => (u.is_external ? "esterno" : "interno") },
     { id: "stato", label: "Stato", valore: (u) => (u.is_active ? "attivo" : "disabilitato") },
   ];
 
@@ -223,8 +213,7 @@ export default function Utenti() {
   const colOrdine = COLONNE.find((c) => c.id === ordine.col) || COLONNE[0];
   const visibili = list
     .filter((u) => (!cerca || `${u.nome} ${u.cognome} ${u.email}`.toLowerCase().includes(cerca))
-      && (!filtro.permesso || (filtro.permesso === "nessuno" ? etichette(u).length === 0 : etichette(u).includes(PERMESSI[filtro.permesso])))
-      && (!filtro.tipo || (filtro.tipo === "esterno") === !!u.is_external)
+      && (!filtro.ruolo || ruoliDi(u).includes(filtro.ruolo))
       && (!filtro.stato || (filtro.stato === "attivo") === !!u.is_active)
       && (!filtro.ufficio || (filtro.ufficio === "__nessuno__" ? !u.ufficio && !u.is_external : u.ufficio?.id === filtro.ufficio))
       && (!filtro.mansione || (u.mansioni || []).some((m) => m.id === filtro.mansione)))
@@ -271,7 +260,7 @@ export default function Utenti() {
         <p className="text-muted" style={{ fontSize: 13 }}>
           Puoi caricare un file <strong>Excel (.xlsx)</strong> o un <strong>CSV</strong>. Parti da un modello: ha le colonne giuste, e nel modello Excel i fogli «Uffici» e «Mansioni» elencano i nomi validi (la colonna Ufficio ha anche un menu a tendina).
           Colonne (maiuscole/minuscole indifferenti): <code>email</code>, <code>nome</code>, <code>cognome</code>, <code>ufficio</code> (nome, o percorso intero come <code>Produzione / Linea 2</code> se il nome si ripete),
-          e opzionalmente <code>mansioni</code> (separate da <code>;</code>), <code>admin</code>, <code>formazione</code>, <code>formatore</code>, <code>is_external</code> (sì/no), <code>organizzazione</code> (per gli esterni), <code>data_ingresso</code> (AAAA-MM-GG), <code>password</code>.
+          e opzionalmente <code>mansioni</code> (separate da <code>;</code>), <code>admin</code>, <code>formazione</code>, <code>docente</code>, <code>is_external</code> (sì/no), <code>organizzazione</code> (per gli esterni), <code>data_ingresso</code> (AAAA-MM-GG), <code>password</code>.
         </p>
         <p className="text-muted" style={{ fontSize: 13 }}>
           <strong>Prima di importare il file viene controllato</strong> e vedi un riepilogo per persona: solo se confermi si crea qualcosa. Uffici e mansioni non vengono mai creati dal file: se un nome non esiste (o l'ufficio è vuoto) la persona viene creata <em>senza</em> quell'ufficio o quella mansione e te lo diciamo nel riepilogo. Le righe inutilizzabili (email, nome o cognome mancanti, email già presente, esterno senza organizzazione...) vengono scartate.
@@ -373,10 +362,10 @@ export default function Utenti() {
         <div className="card">
           <div className="row">
             <div className="field"><label htmlFor="u-cerca">Cerca</label><input id="u-cerca" placeholder="nome, cognome o email" value={filtro.testo} onChange={(e) => cambiaFiltro("testo", e.target.value)} /></div>
-            <div className="field"><label htmlFor="u-permesso">Permessi</label>
-              <select id="u-permesso" value={filtro.permesso} onChange={(e) => cambiaFiltro("permesso", e.target.value)}>
+            <div className="field"><label htmlFor="u-ruolo">Ruoli</label>
+              <select id="u-ruolo" value={filtro.ruolo} onChange={(e) => cambiaFiltro("ruolo", e.target.value)}>
                 <option value="">Tutti</option>
-                {Object.entries(PERMESSI).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+                {Object.entries(RUOLI).map(([k, v]) => <option key={k} value={k}>{v.label}{k === "utente" ? " (senza permessi)" : ""}</option>)}
               </select></div>
             <div className="field"><label htmlFor="u-ufficio">Ufficio</label>
               <select id="u-ufficio" value={filtro.ufficio} onChange={(e) => cambiaFiltro("ufficio", e.target.value)}>
@@ -389,10 +378,6 @@ export default function Utenti() {
                 <option value="">Tutte</option>
                 {mansioni.map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}
               </select></div>
-            <div className="field"><label htmlFor="u-tipo">Tipo</label>
-              <select id="u-tipo" value={filtro.tipo} onChange={(e) => cambiaFiltro("tipo", e.target.value)}>
-                <option value="">Tutti</option><option value="interno">Interno</option><option value="esterno">Esterno</option>
-              </select></div>
             <div className="field"><label htmlFor="u-stato">Stato</label>
               <select id="u-stato" value={filtro.stato} onChange={(e) => cambiaFiltro("stato", e.target.value)}>
                 <option value="">Tutti</option><option value="attivo">Attivo</option><option value="disabilitato">Disabilitato</option>
@@ -403,6 +388,7 @@ export default function Utenti() {
             <ExportButton path="/auth/users/export" filename="utenti" />
           </div>
         </div>
+        <LegendaRuoli />
         <div className="table-wrap">
           <table>
             <thead><tr>
@@ -420,10 +406,9 @@ export default function Utenti() {
                 <React.Fragment key={u.id}>
                 <tr>
                   <td>{u.cognome}</td><td>{u.nome}</td><td>{u.email}</td>
-                  <td>{etichette(u).map((t) => <span key={t} className="badge" style={{ marginRight: 4 }}>{t}</span>)}{etichette(u).length === 0 && "—"}</td>
+                  <td><Capsule utente={u} /></td>
                   <td>{u.ufficio ? (percorsoDi[u.ufficio.id] || u.ufficio.name) : "—"}</td>
                   <td>{(u.mansioni || []).map((m) => <span key={m.id} className="badge" style={{ background: m.color, color: "#fff", marginRight: 4 }}>{m.name}</span>)}{(u.mansioni || []).length === 0 && "—"}</td>
-                  <td>{u.is_external ? "esterno" : "interno"}</td>
                   <td>{u.is_active ? <span className="badge green">attivo</span> : <span className="badge red">disabilitato</span>}</td>
                   <td>
                     <button className="secondary btn-sm" onClick={() => apriModifica(u)}>Modifica</button>{" "}
@@ -432,7 +417,7 @@ export default function Utenti() {
                 </tr>
                 {modifica?.id === u.id && (
                   <tr>
-                    <td colSpan={9} style={{ background: "var(--bg3)" }}>
+                    <td colSpan={8} style={{ background: "var(--bg3)" }}>
             <form id="u-form-modifica" onSubmit={salvaModifica}>
               <h4 style={{ margin: "8px 0" }}>Modifica {modifica.nome}</h4>
               <div className="row">
@@ -449,7 +434,7 @@ export default function Utenti() {
                 )}
                 </React.Fragment>
               ))}
-              {inPagina.length === 0 && <tr><td colSpan={9} className="text-muted">Nessun utente corrisponde ai filtri.</td></tr>}
+              {inPagina.length === 0 && <tr><td colSpan={8} className="text-muted">Nessun utente corrisponde ai filtri.</td></tr>}
             </tbody>
           </table>
         </div>
