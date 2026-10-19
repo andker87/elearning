@@ -10,6 +10,9 @@ class AzioneTestNonSuperato(str, enum.Enum):
     rifai_test              = "rifai_test"               # deve ripetere solo il test, finché non lo supera
     rifai_corso             = "rifai_corso"               # il corso risulta non completato, va rifatto da zero
 
+MODI_ISCRIZIONE_RESPONSABILI = ("solo_formazione", "diretta", "su_richiesta")
+
+
 class Corso(Base):
     """Definizione del corso, indipendente da come/quando viene erogato.
     La modalità di erogazione vive nella singola Edizione."""
@@ -21,6 +24,9 @@ class Corso(Base):
     # Se valorizzato, il corso richiede un rinnovo periodico (refresh) ogni N mesi.
     validita_mesi = Column(Integer, nullable=True)
     durata_minuti = Column(Integer, nullable=True)   # quanto dura il corso; le sessioni la ereditano (services/durata.py)
+    # Chi puo' iscrivere: solo la Formazione (corso «chiuso», predefinito), i responsabili direttamente, oppure i responsabili
+    # su richiesta approvata dalla Formazione. L'auto-iscrizione del dipendente e' un'impostazione a parte.
+    iscrizione_responsabili = Column(String, nullable=False, default="solo_formazione", server_default="solo_formazione")
 
     # Non tutti i corsi hanno un test finale: la policy sotto ha senso solo se attivo.
     ha_test_finale = Column(Boolean, nullable=False, default=False)

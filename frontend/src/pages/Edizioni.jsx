@@ -4,28 +4,13 @@ import api, { erroreDi } from "../api";
 import { FiltroEtichette, ChipEtichette } from "../components/Etichette";
 import CampoDurata from "../components/CampoDurata";
 import { formattaDurata } from "../durata";
+import { MODALITA, STATI, quando, dove } from "../sessioni";
 
 const SCHEDE = [{ id: "elenco", label: "Elenco sessioni" }, { id: "nuova", label: "Nuova sessione" }];
-const MODALITA = { presenza: "Presenza", ibrida: "Ibrida", remoto: "Remoto", video: "Video", esterna: "Esterna" };
-const STATI = { bozza: ["gray", "Bozza"], pianificata: ["blue", "Pianificata"], in_corso: ["yellow", "In corso"], chiusa: ["green", "Chiusa"], annullata: ["red", "Annullata"] };
 const PER_PAGINA = [25, 50, 100];
 const VUOTO = { corso_id: "", modalita: "presenza", checkin_mode: "discente_validato", luogo: "", ente_erogatore: "", posti_max: "", lista_attesa_abilitata: false,
   data_inizio: "", data_fine: "", video_id: "", durata_minuti: null };
 
-// «21/10/2026, 03:10 – 12:10» (stesso giorno) oppure «21/10/2026 03:10 → 22/10/2026 12:10»
-function quando(e) {
-  if (!e.data_inizio) return "—";
-  const i = new Date(e.data_inizio), f = e.data_fine ? new Date(e.data_fine) : null;
-  const giorno = (d) => d.toLocaleDateString("it-IT"), ora = (d) => d.toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" });
-  if (!f) return `${giorno(i)}, ${ora(i)}`;
-  return giorno(i) === giorno(f) ? `${giorno(i)}, ${ora(i)} – ${ora(f)}` : `${giorno(i)} ${ora(i)} → ${giorno(f)} ${ora(f)}`;
-}
-function dove(e) {
-  if (e.modalita === "video") return "Video";
-  if (e.modalita === "remoto") return "Online";
-  if (e.modalita === "ibrida") return e.luogo ? `${e.luogo} + online` : "In sede + online";
-  return e.luogo || (e.modalita === "esterna" && e.ente_erogatore) || "—";
-}
 const toLocalInput = (d) => { const p = (n) => String(n).padStart(2, "0"); return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`; };
 
 export default function Edizioni() {

@@ -20,7 +20,8 @@ import Organizzazioni from "./pages/Organizzazioni";
 import MieCorsi from "./pages/MieCorsi";
 import StoricoCorsi from "./pages/StoricoCorsi";
 import MieEdizioni from "./pages/MieEdizioni";
-import SessioniResponsabile from "./pages/SessioniResponsabile";
+import IlMioTeam from "./pages/IlMioTeam";
+import RichiesteIscrizione from "./pages/RichiesteIscrizione";
 import RichiestaCorso from "./pages/RichiestaCorso";
 import RichiesteCorsoAdmin from "./pages/RichiesteCorsoAdmin";
 import Fabbisogno from "./pages/Fabbisogno";
@@ -80,7 +81,8 @@ export default function App() {
         <Route path="/storico-corsi" element={<RequireAuth><Shell><StoricoCorsi /></Shell></RequireAuth>} />
         <Route path="/impostazioni" element={<RequireAuth><Shell><ImpostazioniUtente /></Shell></RequireAuth>} />
         <Route path="/mie-sessioni" element={<RequireAuth><Shell><MieEdizioni /></Shell></RequireAuth>} />
-        <Route path="/risorse" element={<RequireAuth><Shell><SessioniResponsabile /></Shell></RequireAuth>} />
+        <Route path="/risorse" element={<RequireAuth><Shell><IlMioTeam /></Shell></RequireAuth>} />
+        <Route path="/richieste-iscrizione" element={<RequireAuth><Shell><RichiesteIscrizione /></Shell></RequireAuth>} />
         <Route path="/richiesta-corso" element={<RequireAuth><Shell><RichiestaCorso /></Shell></RequireAuth>} />
         <Route path="/richieste-corso-admin" element={<RequireAuth><Shell><RichiesteCorsoAdmin /></Shell></RequireAuth>} />
         <Route path="/fabbisogno" element={<RequireAuth><Shell><Fabbisogno /></Shell></RequireAuth>} />

@@ -70,6 +70,7 @@ def _serialize(e: Edizione, db: Session):
     return {
         "id": str(e.id), "corso_id": str(e.corso_id), "corso_titolo": corso.titolo if corso else None,
         "corso_permetti_autoiscrizione": corso.permetti_autoiscrizione if corso else False,
+        "corso_iscrizione_responsabili": corso.iscrizione_responsabili if corso else "solo_formazione",
         "corso_etichette": [{"id": str(x.id), "nome": x.nome, "famiglia": x.famiglia.nome} for x in etichette_del_corso(db, e.corso_id)],
         "modalita": e.modalita, "stato": e.stato,
         "data_inizio": e.data_inizio, "data_fine": e.data_fine, "luogo": e.luogo,
@@ -253,6 +254,12 @@ def iscrivi(edizione_id: str, user_ids: List[str], request: Request, db: Session
         # Non Ufficio Formazione: può iscrivere solo i propri sottoposti (gerarchia
         # uffici, sezione L), mai altri - stessa autorizzazione derivata, nessun
         # campo "posso iscrivere" da mantenere a parte.
+        corso = db.query(Corso).filter(Corso.id == e.corso_id).first()
+        modo = corso.iscrizione_responsabili if corso else "solo_formazione"
+        if modo == "solo_formazione":
+            raise HTTPException(403, "A questo corso iscrive solo la Formazione")
+        if modo == "su_richiesta":
+            raise HTTPException(403, "A questo corso non si iscrive direttamente: chiedi l'iscrizione alla Formazione (dalla pagina «Il mio team»)")
         sottoposti_ids = {str(s.id) for s in sottoposti_di(db, user.id)}
         non_autorizzati = [uid for uid in user_ids if uid not in sottoposti_ids]
         if non_autorizzati:
