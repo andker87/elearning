@@ -1,6 +1,5 @@
 import React, { useEffect, useState } from "react";
 import api from "../api";
-import ExportButton from "../components/ExportButton";
 
 export default function Gruppi() {
   const [list, setList] = useState([]);
@@ -93,7 +92,6 @@ export default function Gruppi() {
           <h2>Gruppi</h2>
           <p>Struttura libera con sottogruppi, per modellare reparti/team reali e assegnare corsi in blocco (es. un percorso con trigger "gruppo"). Un gruppo marcato come "Ufficio" ha un responsabile: la gerarchia dei responsabili si deriva da qui.</p>
         </div>
-        <ExportButton path="/admin/gruppi-export" filename="gruppi" />
       </div>
       <div className="card">
         <h3>Nuovo gruppo</h3>
