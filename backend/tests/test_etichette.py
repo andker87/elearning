@@ -5,28 +5,30 @@ import zipfile
 from app.models.corso import Corso
 from app.models.etichetta import CorsoEtichetta, Etichetta, EtichettaFamiglia
 from app.models.iscrizione import StatoIscrizione as S
-from app.services.etichette import crea_famiglie_iniziali
+from app.services.etichette import converti_categorie_in_tematica
 
 
 def ids(*etichette):
     return [str(e.id) for e in etichette]
 
 
-def test_famiglie_iniziali_e_migrazione_della_categoria(db, crea_corso):
+def test_il_sistema_non_crea_nessuna_famiglia_di_etichette(db, crea_corso):
+    converti_categorie_in_tematica(db)
+    assert db.query(EtichettaFamiglia).count() == 0 and db.query(Etichetta).count() == 0     # ognuno definisce le sue
+    crea_corso("Senza categoria")
+    converti_categorie_in_tematica(db)
+    assert db.query(EtichettaFamiglia).count() == 0
+
+
+def test_chi_arriva_dal_vecchio_campo_categoria_trova_solo_la_tematica(db, crea_corso):
     vecchio = crea_corso("Antincendio", categoria="  sicurezza   sul lavoro ")
     altro = crea_corso("Excel", categoria="Informatica")
-    crea_famiglie_iniziali(db)
-    nomi = [f.nome for f in db.query(EtichettaFamiglia).order_by(EtichettaFamiglia.ordine).all()]
-    assert nomi == ["Tematica", "Riferimento normativo", "Ambito", "Obbligo"]
-    obbligo = db.query(EtichettaFamiglia).filter(EtichettaFamiglia.nome == "Obbligo").one()
-    assert obbligo.scelta_multipla is False
-    trasversale = db.query(Etichetta).filter(Etichetta.nome == "Trasversale").one()
-    assert trasversale.esclusiva
-    # le vecchie categorie diventano Tematiche, senza doppioni di grafia
+    converti_categorie_in_tematica(db)
+    assert [f.nome for f in db.query(EtichettaFamiglia).all()] == ["Tematica"]                # nient'altro: niente norme, ambiti, obblighi preimpostati
     da_corso = lambda c: {e.nome for e in db.query(Etichetta).join(CorsoEtichetta, CorsoEtichetta.etichetta_id == Etichetta.id).filter(CorsoEtichetta.corso_id == c.id)}
-    assert da_corso(vecchio) == {"Sicurezza sul lavoro"} and da_corso(altro) == {"Informatica"}
-    crea_famiglie_iniziali(db)  # una seconda volta non fa nulla
-    assert db.query(EtichettaFamiglia).count() == 4
+    assert da_corso(vecchio) == {"sicurezza sul lavoro"} and da_corso(altro) == {"Informatica"}
+    converti_categorie_in_tematica(db)  # una seconda volta non fa nulla
+    assert db.query(EtichettaFamiglia).count() == 1 and db.query(Etichetta).count() == 2
 
 
 def test_corso_con_etichette_e_regole(client, db, formazione, auth, famiglie):

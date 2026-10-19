@@ -1,5 +1,4 @@
-"""Etichette dei corsi: famiglie predefinite, regole di scelta e filtri riusati da
-registro, matrice e pacchetto ispezione."""
+"""Etichette dei corsi: regole di scelta e filtri riusati da registro, matrice e pacchetto ispezione."""
 from typing import Iterable, Optional
 from uuid import UUID
 
@@ -8,18 +7,6 @@ from sqlalchemy.orm import Session
 
 from ..models.corso import Corso
 from ..models.etichetta import CorsoEtichetta, Etichetta, EtichettaFamiglia
-
-# Punto di partenza alla prima installazione: la Formazione rinomina, aggiunge, archivia.
-FAMIGLIE_INIZIALI = [
-    ("Tematica", "Di che cosa parla il corso.", True, [
-        ("Sicurezza sul lavoro", False), ("Cybersecurity", False), ("Privacy e protezione dei dati", False), ("Qualità", False)]),
-    ("Riferimento normativo", "La norma o lo standard che il corso soddisfa: è il filtro che serve negli audit.", True, [
-        ("D.Lgs 81/08", False), ("GDPR", False), ("ISO 9001", False), ("ISO 27001", False), ("ISO 45001", False)]),
-    ("Ambito", "Per chi vale il corso: trasversale a tutta l'azienda o specifico per un cliente.", True, [("Trasversale", True)]),
-    ("Obbligo", "Perché il corso va fatto.", False, [
-        ("Obbligo di legge", False), ("Richiesto da un cliente", False), ("Policy interna", False), ("Facoltativo", False)]),
-]
-
 
 def _uuid_validi(ids) -> list:
     """Identificativi non UUID non devono arrivare al database (darebbero errore 500)."""
@@ -34,26 +21,22 @@ def _uuid_validi(ids) -> list:
     return risultato
 
 
-def crea_famiglie_iniziali(db: Session):
-    """Solo se non esiste ancora nessuna famiglia. I vecchi testi del campo Categoria
-    diventano etichette della Tematica, assegnate ai rispettivi corsi."""
+def converti_categorie_in_tematica(db: Session):
+    """Nessuna famiglia di etichette e' predefinita: ognuno definisce le sue (pagina Etichette dei corsi).
+    Resta solo la conversione per chi arriva da una versione che aveva il vecchio campo Categoria: se non
+    esiste ancora nessuna famiglia e dei corsi hanno una categoria, nasce la famiglia «Tematica» con quei
+    testi come etichette (senza doppioni di grafia), assegnate ai rispettivi corsi."""
     if db.query(EtichettaFamiglia).count():
         return
-    tematica = None
-    for n, (nome, descr, multipla, valori) in enumerate(FAMIGLIE_INIZIALI):
-        f = EtichettaFamiglia(nome=nome, descrizione=descr, scelta_multipla=multipla, ordine=n)
-        db.add(f)
-        db.flush()
-        for m, (valore, esclusiva) in enumerate(valori):
-            db.add(Etichetta(famiglia_id=f.id, nome=valore, ordine=m, esclusiva=esclusiva))
-        if nome == "Tematica":
-            tematica = f
+    corsi = [c for c in db.query(Corso).filter(Corso.categoria.isnot(None)).all() if " ".join((c.categoria or "").split())]
+    if not corsi:
+        return
+    tematica = EtichettaFamiglia(nome="Tematica", descrizione="Di che cosa parla il corso (dal vecchio campo Categoria).", scelta_multipla=True, ordine=0)
+    db.add(tematica)
     db.flush()
-    esistenti = {e.nome.lower(): e for e in db.query(Etichetta).filter(Etichetta.famiglia_id == tematica.id).all()}
-    for c in db.query(Corso).filter(Corso.categoria.isnot(None)).all():
+    esistenti = {}
+    for c in corsi:
         testo = " ".join((c.categoria or "").split())[:80]  # il nome dell'etichetta e' di 80 caratteri: si confronta il nome troncato
-        if not testo:
-            continue
         e = esistenti.get(testo.lower())
         if not e:
             e = Etichetta(famiglia_id=tematica.id, nome=testo, ordine=len(esistenti))

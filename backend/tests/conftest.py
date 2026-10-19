@@ -198,12 +198,24 @@ def crea_ufficio(db):
     return _crea
 
 
+FAMIGLIE_DI_PROVA = [
+    ("Tematica", True, [("Sicurezza sul lavoro", False), ("Cybersecurity", False), ("Privacy e protezione dei dati", False), ("Qualità", False)]),
+    ("Riferimento normativo", True, [("D.Lgs 81/08", False), ("GDPR", False), ("ISO 9001", False), ("ISO 27001", False), ("ISO 45001", False)]),
+    ("Ambito", True, [("Trasversale", True)]),
+    ("Obbligo", False, [("Obbligo di legge", False), ("Richiesto da un cliente", False), ("Policy interna", False), ("Facoltativo", False)]),
+]
+
+
 @pytest.fixture
 def famiglie(db):
-    """Le famiglie iniziali, come dopo la prima installazione."""
-    from app.services.etichette import crea_famiglie_iniziali
+    """Famiglie di prova (il sistema non ne crea: le definisce chi lo usa)."""
     from app.models.etichetta import Etichetta, EtichettaFamiglia
-    crea_famiglie_iniziali(db)
+    for n, (nome, multipla, valori) in enumerate(FAMIGLIE_DI_PROVA):
+        f = EtichettaFamiglia(nome=nome, scelta_multipla=multipla, ordine=n)
+        db.add(f); db.flush()
+        for m, (valore, esclusiva) in enumerate(valori):
+            db.add(Etichetta(famiglia_id=f.id, nome=valore, ordine=m, esclusiva=esclusiva))
+    db.commit()
 
     def etichetta(famiglia, nome):
         return (db.query(Etichetta).join(EtichettaFamiglia, EtichettaFamiglia.id == Etichetta.famiglia_id)

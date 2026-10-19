@@ -53,7 +53,7 @@ export default function MieCorsi() {
               <strong>{i.corso_titolo}</strong>
               <div className="text-muted" style={{ fontSize: 13 }}>{new Date(i.edizione_data_inizio).toLocaleString("it-IT")} · {i.edizione_modalita}</div>
             </div>
-            <Link to={`/sessioni/${i.edizione_id}`}>Apri</Link>
+            <Link to={`/sessioni/${i.edizione_id}?segui=1`}>Apri</Link>
           </div>
         ))}
       </div>

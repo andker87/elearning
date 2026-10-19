@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { useParams } from "react-router-dom";
+import { useLocation, useNavigate, useParams } from "react-router-dom";
 import api, { downloadFile, erroreDi } from "../api";
 import VideoPlayer from "../components/VideoPlayer";
 import TestPlayer from "../components/TestPlayer";
@@ -7,6 +7,9 @@ import Gradimento from "../components/Gradimento";
 
 export default function EdizioneDetail() {
   const { id } = useParams();
+  const navigate = useNavigate();
+  const segui = new URLSearchParams(useLocation().search).get("segui") === "1";   // si arriva da «I miei corsi»: si sta seguendo il corso
+  const [anteprimaVideo, setAnteprimaVideo] = useState(false);
   const [edizione, setEdizione] = useState(null);
   const [iscrizioni, setIscrizioni] = useState([]);
   const [utenti, setUtenti] = useState([]);
@@ -46,6 +49,7 @@ export default function EdizioneDetail() {
 
   const isDocente = edizione?.docenti?.some((d) => d.user_id === user?.id);
   const isAdmin = !!user?.poteri_formazione;
+  const puoGestire = isAdmin || !!isDocente;       // chi gestisce la sessione non la sta seguendo
   const nome = (uid) => utenti.find((u) => u.id === uid)?.full_name || uid;
   const miaIscrizione = iscrizioni.find((i) => i.user_id === user?.id && i.stato !== "annullato");
   const sottopostiNonIscritti = sottoposti.filter((s) => !iscrizioni.some((i) => i.user_id === s.id && i.stato !== "annullato"));
@@ -218,12 +222,34 @@ export default function EdizioneDetail() {
         </div>
       )}
 
-      {edizione.modalita === "video" && video && video.stato === "pronto" && (
+      {edizione.modalita === "video" && video && (puoGestire && !(miaIscrizione && segui) ? (
+        // Chi gestisce la sessione non la sta seguendo: vede il video collegato e, se vuole, un'anteprima. Il player vero parte per chi segue il corso.
+        <div className="card">
+          <h3>Video collegato</h3>
+          <p style={{ margin: "0 0 .5rem" }}>
+            <strong>{video.titolo}</strong>{" "}
+            <span className={`badge ${video.stato === "pronto" ? "green" : video.stato === "errore" ? "red" : "yellow"}`}>{video.stato}</span>
+            {video.durata_secondi ? <span className="text-muted"> · durata {Math.floor(video.durata_secondi / 60)}:{String(video.durata_secondi % 60).padStart(2, "0")}</span> : null}
+          </p>
+          {video.stato === "pronto" && (
+            <>
+              <button type="button" className="secondary btn-sm" onClick={() => setAnteprimaVideo(!anteprimaVideo)}>{anteprimaVideo ? "Chiudi l'anteprima" : "Anteprima del video"}</button>
+              {miaIscrizione && <>{" "}<button type="button" className="secondary btn-sm" onClick={() => navigate(`/sessioni/${id}?segui=1`)}>Segui il video come discente</button></>}
+              {anteprimaVideo && (
+                <div style={{ marginTop: 10 }}>
+                  <VideoPlayer video={video} />
+                  <p className="text-muted" style={{ fontSize: 12, margin: "6px 0 0" }}>Anteprima per chi gestisce la sessione: non conta come visione e non registra nessun avanzamento.</p>
+                </div>
+              )}
+            </>
+          )}
+        </div>
+      ) : video.stato === "pronto" && (
         <div className="card">
           <h3>Video</h3>
           {miaIscrizione ? <VideoPlayer video={video} iscrizioneId={miaIscrizione.id} /> : <p className="text-muted">Non sei iscritto a questa sessione.</p>}
         </div>
-      )}
+      ))}
 
       <div className="table-wrap" style={{ marginBottom: "1.1rem" }}>
         <table>
