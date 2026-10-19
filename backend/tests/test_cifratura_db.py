@@ -30,13 +30,13 @@ def grezzo(sql, **p):
 
 def test_i_dati_personali_sono_cifrati_nel_database_e_in_chiaro_nel_programma(chiave, db, crea_utente):
     u = crea_utente("mario.rossi@azienda.it", full_name="Mario Rossi")
-    riga = grezzo("SELECT email, full_name, email_idx FROM users WHERE id = :i", i=u.id)[0]
-    assert riga[0].startswith("enc:v1:") and riga[1].startswith("enc:v1:")
-    assert "mario" not in riga[0].lower() and "rossi" not in riga[1].lower() and "mario" not in riga[2]
+    riga = grezzo("SELECT email, nome, cognome, email_idx FROM users WHERE id = :i", i=u.id)[0]
+    assert riga[0].startswith("enc:v1:") and riga[1].startswith("enc:v1:") and riga[2].startswith("enc:v1:")
+    assert "mario" not in riga[0].lower() and "mario" not in riga[1].lower() and "rossi" not in riga[2].lower() and "mario" not in riga[3]
     db.expire_all()
     letto = db.get(User, u.id)
-    assert letto.email == "mario.rossi@azienda.it" and letto.full_name == "Mario Rossi"
-    assert riga[2] == impronta("MARIO.ROSSI@azienda.it ")      # senza maiuscole e spazi ai lati
+    assert letto.email == "mario.rossi@azienda.it" and letto.full_name == "Mario Rossi" and (letto.nome, letto.cognome) == ("Mario", "Rossi")
+    assert riga[3] == impronta("MARIO.ROSSI@azienda.it ")      # senza maiuscole e spazi ai lati
 
 
 def test_senza_chiave_i_dati_restano_in_chiaro_ma_si_cercano_uguale(db, crea_utente, monkeypatch):
@@ -55,23 +55,23 @@ def test_login_con_dati_cifrati_e_senza_badare_alle_maiuscole(chiave, client, cr
 
 
 def test_due_utenti_con_la_stessa_email_scritta_diversamente_non_si_creano(chiave, client, admin, auth, crea_ufficio):
-    corpo = {"email": "x@azienda.it", "password": PASSWORD, "full_name": "X", "ufficio_id": str(crea_ufficio().id)}
+    corpo = {"email": "x@azienda.it", "password": PASSWORD, "nome": "X", "cognome": "Y", "ufficio_id": str(crea_ufficio().id)}
     assert client.post("/api/auth/users", headers=auth(admin), json=corpo).status_code in (200, 201)
     assert client.post("/api/auth/users", headers=auth(admin), json={**corpo, "email": "X@AZIENDA.IT"}).status_code == 400
 
 
 def test_elenco_utenti_ordinato_per_nome_nel_programma(chiave, client, admin, auth, crea_utente):
-    for n in ("Zeno", "anna", "Mario"):
-        crea_utente(f"{n.lower()}@azienda.it", full_name=n)
-    nomi = [u["full_name"] for u in client.get("/api/auth/users", headers=auth(admin)).json()]
-    assert nomi == sorted(nomi, key=str.casefold)
+    for nome, cognome in (("Zeno", "Neri"), ("anna", "Bianchi"), ("Mario", "Rossi")):
+        crea_utente(f"{nome.lower()}@azienda.it", nome=nome, cognome=cognome)
+    cognomi = [u["cognome"] for u in client.get("/api/auth/users", headers=auth(admin)).json()]
+    assert cognomi == sorted(cognomi, key=str.casefold)          # ordine di cognome, nel programma dopo la decifrazione
 
 
 def test_un_confronto_scritto_per_sbagliato_sulla_colonna_cifrata_da_errore(chiave, db):
     with pytest.raises(TypeError):
         db.query(User).filter(User.email == "x@azienda.it").all()
     with pytest.raises(TypeError):
-        db.query(User).filter(User.full_name.ilike("%a%")).all()
+        db.query(User).filter(User.nome.ilike("%a%")).all()
     assert db.query(User).filter(User.email.isnot(None)).count() == 0     # il confronto con NULL e' ammesso
 
 
@@ -109,7 +109,7 @@ def test_cifra_decifra_e_ruota_i_dati_gia_presenti(db, crea_utente, monkeypatch)
     u = crea_utente("vecchio@azienda.it", full_name="Vecchio Utente")
     db.add(AuditLog(action="PROVA", user_email="vecchio@azienda.it", ip_address="203.0.113.5", detail="dettaglio"))
     db.commit()
-    assert ops.riepilogo_dati_personali(db)["cifrato"] == 0 and ops.riepilogo_dati_personali(db)["chiaro"] == 5   # nome ed email dell'utente, email IP e dettaglio del registro
+    assert ops.riepilogo_dati_personali(db)["cifrato"] == 0 and ops.riepilogo_dati_personali(db)["chiaro"] == 6   # nome, cognome ed email dell'utente, email IP e dettaglio del registro
 
     prima = c.genera_chiave()
     monkeypatch.setattr(settings, "CHIAVE_CIFRATURA", prima)
@@ -133,7 +133,7 @@ def test_cifra_decifra_e_ruota_i_dati_gia_presenti(db, crea_utente, monkeypatch)
     assert grezzo("SELECT email_idx FROM users WHERE id = :i", i=u.id)[0][0] == impronta_prima
 
     ops.converti_db(db, "decifra")
-    assert grezzo("SELECT email, full_name FROM users WHERE id = :i", i=u.id)[0] == ("vecchio@azienda.it", "Vecchio Utente")
+    assert grezzo("SELECT email, nome, cognome FROM users WHERE id = :i", i=u.id)[0] == ("vecchio@azienda.it", "Vecchio", "Utente")
     assert ops.riepilogo_dati_personali(db)["cifrato"] == 0
 
 
@@ -186,7 +186,7 @@ def test_corsa_sulla_stessa_email_scritta_diversamente_da_il_messaggio_e_non_un_
     crea_utente("mario@azienda.it")
     _finta_corsa(monkeypatch, auth_api)
     r = client.post("/api/auth/users", headers=auth(admin),
-                    json={"email": "MARIO@azienda.it", "full_name": "Doppione", "is_admin": True})
+                    json={"email": "MARIO@azienda.it", "nome": "Doppione", "cognome": "D", "is_admin": True})
     assert r.status_code == 400 and "già esistente" in r.json()["detail"]
     # la sessione resta utilizzabile
     assert client.get("/api/auth/users", headers=auth(admin)).status_code == 200
@@ -197,7 +197,7 @@ def test_corsa_nell_importazione_csv_e_un_errore_di_riga_e_le_altre_righe_proseg
     from app.api import auth as auth_api
     crea_utente("mario@azienda.it")
     _finta_corsa(monkeypatch, auth_api)
-    csv = "email,full_name,ufficio\nMARIO@azienda.it,Doppione,Produzione\nluigi@azienda.it,Luigi,Produzione\n"
+    csv = "email,nome,cognome,ufficio\nMARIO@azienda.it,Doppione,D,Produzione\nluigi@azienda.it,Luigi,L,Produzione\n"
     r = client.post("/api/auth/users/import-csv", headers=auth(admin), files={"file": ("u.csv", csv, "text/csv")})
     assert r.status_code == 200, r.text
     esiti = {x["email"]: x for x in r.json()["righe"]}

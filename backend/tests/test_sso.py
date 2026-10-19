@@ -184,6 +184,16 @@ def test_provisioning_crea_l_utente_solo_se_abilitato(client, db, sso, monkeypat
     assert not u.is_admin and not u.is_formazione and u.origine_credenziali == "dominio" and u.full_name == "Nuovo Utente" and u.sso_subject == "nuovo"
 
 
+def test_provisioning_prende_nome_e_cognome_dai_dati_dell_azienda(client, db, sso, monkeypatch):
+    monkeypatch.setattr(settings, "SSO_PROVISIONA_UTENTI", True)
+    assert accedi(client, sso, {"sub": "a", "email": "a@test.it", "name": "Anna Maria De Luca", "given_name": "Anna Maria", "family_name": "De Luca"})[0] == "OK"
+    assert accedi(client, sso, {"sub": "b", "email": "b@test.it", "name": "Bruno Verdi"})[0] == "OK"          # solo il nome intero: si divide
+    assert accedi(client, sso, {"sub": "c", "email": "carla.neri@test.it"})[0] == "OK"                        # niente nome: si parte dall'email
+    nomi = {u.email: (u.nome, u.cognome) for u in db.query(User).all()}
+    assert nomi["a@test.it"] == ("Anna Maria", "De Luca") and nomi["b@test.it"] == ("Bruno", "Verdi")
+    assert nomi["carla.neri@test.it"] == ("carla.neri", "")
+
+
 def test_audit_di_accessi_e_rifiuti(client, db, sso, crea_utente):
     crea_utente("ok@test.it")
     accedi(client, sso, {"sub": "s", "email": "ok@test.it"})

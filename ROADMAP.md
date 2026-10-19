@@ -878,7 +878,7 @@ Obiettivo: superare controlli di sicurezza (SAST, analisi delle dipendenze) e pr
 Obiettivo: separare chi è una persona (anagrafica), che cosa fa nella formazione (ruoli come tag) e dove sta (gruppi = uffici). Tre passi, ciascuno una release:
 - [x] **2.1.0 Pagina Utenti a schede** — schede Elenco / Nuovo utente / Importa CSV; elenco con ricerca, filtri, ordinamento sulle intestazioni e paginazione; tolto «Esporta» dai Gruppi.
 - [x] **2.2.0 Permessi, uffici e mansioni** — il ruolo unico diventa tre interruttori (Admin, Formazione, Formatore) che si sommano; i gruppi sono solo uffici (uno per persona, obbligatorio per gli interni non Admin); mansioni come etichette trasversali (assegnazione percorsi e filtri); docenti scelti solo tra Formatori ed esterni; esterni mai iscritti come discenti; pagina Ruoli e gruppi di sistema eliminati; progetto in `docs/progetto-ruoli-mansioni.md`.
-- [ ] **2.3.0 Nome e Cognome** — due campi separati, mostrati e ordinabili; import CSV con `nome` e `cognome`; accesso aziendale ed Entra prendono nome e cognome dai dati dell'azienda.
+- [x] **2.3.0 Nome e Cognome** — due campi separati (cifrati), mostrati e ordinabili (cognome, poi nome); import CSV con `nome` e `cognome`; accesso aziendale ed Entra usano nome e cognome dell'azienda, altrimenti dividono il nome intero (la regola è approssimata: i dati esistenti vanno controllati).
 
 ### Y. Etichette dei corsi — SPEDITO (14/10/2026, v1.7.0)
 

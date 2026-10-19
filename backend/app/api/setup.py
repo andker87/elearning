@@ -9,7 +9,8 @@ from ..services.password_policy import password_valida, REQUISITI_PASSWORD
 router = APIRouter(prefix="/api/setup", tags=["setup"])
 
 class SetupInit(BaseModel):
-    full_name: str
+    nome: str
+    cognome: str
     email: EmailStr
     password: str
 
@@ -27,7 +28,8 @@ def setup_init(data: SetupInit, db: Session = Depends(get_db)):
 
     user = User(
         email=data.email,
-        full_name=data.full_name,
+        nome=data.nome.strip(),
+        cognome=data.cognome.strip(),
         hashed_password=hash_password(data.password),
         is_admin=True,
         is_active=True,

@@ -4,13 +4,15 @@ from sqlalchemy.sql import func
 import uuid, enum
 from ..database import Base
 from .tipi import TestoCifrato
+from ..services.persone import dividi_nome
 
 class User(Base):
     __tablename__ = "users"
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     email = Column(TestoCifrato, nullable=False)          # cifrato: si cerca con email_idx
     email_idx = Column(String, unique=True, nullable=False, index=True)   # impronta dell'email (services/impronte.py), univoca senza badare alle maiuscole
-    full_name = Column(TestoCifrato, nullable=False)      # cifrato: ordinamento e ricerca per nome si fanno nel programma
+    nome = Column(TestoCifrato, nullable=False)           # cifrati: ordinamento e ricerca per nome si fanno nel programma
+    cognome = Column(TestoCifrato, nullable=False)
     hashed_password = Column(String, nullable=False)
     # Permessi e qualifica (2.2.0): sostituiscono il ruolo unico. Senza nessuno dei tre si e' utente semplice.
     #  - is_admin: configura la piattaforma (include i poteri della Formazione)
@@ -62,6 +64,20 @@ class User(Base):
 
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
+
+    @property
+    def full_name(self) -> str:
+        """Nome e cognome per esteso («Mario Rossi»): e' quello che si mostra ovunque."""
+        return " ".join(p for p in (self.nome, self.cognome) if p)
+
+    @full_name.setter
+    def full_name(self, valore):
+        self.nome, self.cognome = dividi_nome(valore)
+
+    @property
+    def chiave_ordine(self) -> tuple:
+        """Cognome poi nome, senza badare alle maiuscole: l'ordine degli elenchi."""
+        return ((self.cognome or "").casefold(), (self.nome or "").casefold())
 
     @property
     def ha_poteri_formazione(self) -> bool:

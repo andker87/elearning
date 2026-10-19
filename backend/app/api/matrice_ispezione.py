@@ -59,7 +59,7 @@ def _persone(db: Session, ufficio_id: Optional[str], user_id: Optional[str] = No
         return [u]
     if ufficio_id:
         return [p for p in persone_ufficio_e_sottouffici(db, ufficio_id) if p.is_active]
-    return sorted(db.query(User).filter(User.is_active == True, User.is_external == False).all(), key=lambda u: (u.full_name or "").casefold())  # noqa: E712
+    return sorted(db.query(User).filter(User.is_active == True, User.is_external == False).all(), key=lambda u: u.chiave_ordine)  # noqa: E712
 
 
 def costruisci_matrice(db: Session, ufficio_id: Optional[str], solo_obbligatori: bool = True, etichette: Optional[list] = None) -> dict:

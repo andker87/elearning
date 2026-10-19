@@ -6,7 +6,7 @@ import { REQUISITI_PASSWORD } from "../passwordPolicy";
 const SCHEDE = [{ id: "elenco", label: "Elenco" }, { id: "nuovo", label: "Nuovo utente" }, { id: "csv", label: "Importa da CSV" }];
 const PER_PAGINA = [25, 50, 100];
 const PERMESSI = { admin: "Admin", formazione: "Formazione", formatore: "Formatore", nessuno: "Nessuno (utente semplice)" };
-const VUOTO = { full_name: "", email: "", password: "", is_admin: false, is_formazione: false, is_formatore: false, is_external: false,
+const VUOTO = { nome: "", cognome: "", email: "", password: "", is_admin: false, is_formazione: false, is_formatore: false, is_external: false,
   organizzazione_id: "", ufficio_id: "", mansione_ids: [], origine_credenziali: "locale" };
 
 // I permessi di una persona in parole: un esterno è Formatore per definizione.
@@ -95,7 +95,7 @@ function CampiPersona({ valori, set, uffici, mansioni, orgs, nuovo }) {
 export default function Utenti() {
   const [scheda, setScheda] = useState("elenco");
   const [filtro, setFiltro] = useState({ testo: "", permesso: "", tipo: "", stato: "", ufficio: "", mansione: "" });
-  const [ordine, setOrdine] = useState({ col: "full_name", verso: 1 });
+  const [ordine, setOrdine] = useState({ col: "cognome", verso: 1 });
   const [pagina, setPagina] = useState(0);
   const [perPagina, setPerPagina] = useState(25);
   const [list, setList] = useState([]);
@@ -125,7 +125,8 @@ export default function Utenti() {
   const mansioniAttive = mansioni.filter((m) => m.is_active);
 
   const COLONNE = [
-    { id: "full_name", label: "Nome", valore: (u) => u.full_name || "" },
+    { id: "cognome", label: "Cognome", valore: (u) => u.cognome || "" },
+    { id: "nome", label: "Nome", valore: (u) => u.nome || "" },
     { id: "email", label: "Email", valore: (u) => u.email || "" },
     { id: "permessi", label: "Permessi", valore: (u) => etichette(u).join(", ") },
     { id: "ufficio", label: "Ufficio", valore: (u) => (u.ufficio ? percorsoUfficio(perId[u.ufficio.id] || u.ufficio, perId) : "") },
@@ -135,7 +136,7 @@ export default function Utenti() {
   ];
 
   function payload(v) {
-    return { full_name: v.full_name, is_admin: v.is_admin, is_formazione: v.is_formazione, is_formatore: v.is_formatore,
+    return { nome: v.nome, cognome: v.cognome, is_admin: v.is_admin, is_formazione: v.is_formazione, is_formatore: v.is_formatore,
       is_external: v.is_external, organizzazione_id: v.is_external ? v.organizzazione_id : "",
       ufficio_id: v.is_external ? "" : v.ufficio_id, mansione_ids: v.is_external ? [] : v.mansione_ids, origine_credenziali: v.origine_credenziali };
   }
@@ -154,7 +155,7 @@ export default function Utenti() {
   function apriModifica(u) {
     setErroreModifica(null);
     setModifica({ id: u.id, nome: u.full_name, valori: {
-      full_name: u.full_name, is_admin: u.is_admin, is_formazione: u.is_formazione, is_formatore: u.is_formatore && !u.is_external,
+      nome: u.nome, cognome: u.cognome, is_admin: u.is_admin, is_formazione: u.is_formazione, is_formatore: u.is_formatore && !u.is_external,
       is_external: u.is_external, organizzazione_id: u.organizzazione_id || "", ufficio_id: u.ufficio?.id || "",
       mansione_ids: (u.mansioni || []).map((m) => m.id), origine_credenziali: u.origine_credenziali || "locale" } });
   }
@@ -198,7 +199,7 @@ export default function Utenti() {
   const cerca = filtro.testo.trim().toLowerCase();
   const colOrdine = COLONNE.find((c) => c.id === ordine.col) || COLONNE[0];
   const visibili = list
-    .filter((u) => (!cerca || `${u.full_name} ${u.email}`.toLowerCase().includes(cerca))
+    .filter((u) => (!cerca || `${u.nome} ${u.cognome} ${u.email}`.toLowerCase().includes(cerca))
       && (!filtro.permesso || (filtro.permesso === "nessuno" ? etichette(u).length === 0 : etichette(u).includes(PERMESSI[filtro.permesso])))
       && (!filtro.tipo || (filtro.tipo === "esterno") === !!u.is_external)
       && (!filtro.stato || (filtro.stato === "attivo") === !!u.is_active)
@@ -219,9 +220,10 @@ export default function Utenti() {
         <h3>Nuovo utente</h3>
         <form onSubmit={submit}>
           <div className="row">
-            <div className="field"><label>Nome e cognome</label><input required value={form.full_name} onChange={(e) => setForm({ ...form, full_name: e.target.value })} /></div>
-            <div className="field"><label>Email</label><input required type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} /></div>
+            <div className="field"><label>Nome</label><input required value={form.nome} onChange={(e) => setForm({ ...form, nome: e.target.value })} /></div>
+            <div className="field"><label>Cognome</label><input required value={form.cognome} onChange={(e) => setForm({ ...form, cognome: e.target.value })} /></div>
           </div>
+          <div className="field"><label>Email</label><input required type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} /></div>
           <div className="field"><label>Password iniziale (facoltativa)</label><input type="password" autoComplete="new-password" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} /><span className="text-muted" style={{ fontSize: 12 }}>Lasciala vuota: se l'invio email è attivo la persona riceve un link per scegliere la sua password, altrimenti te ne genero una temporanea. Se la scrivi tu: {REQUISITI_PASSWORD}; dovrà comunque cambiarla al primo accesso.</span></div>
           <CampiPersona valori={form} set={setForm} uffici={uffici} mansioni={mansioniAttive} orgs={orgs} nuovo />
           <button type="submit">Crea utente</button>
@@ -244,7 +246,7 @@ export default function Utenti() {
       {scheda === "csv" && <div className="card">
         <h3>Import massivo da CSV</h3>
         <p className="text-muted" style={{ fontSize: 13 }}>
-          Colonne attese (intestazione, maiuscole/minuscole indifferenti): <code>email</code>, <code>full_name</code> (o <code>nome</code>),
+          Colonne attese (intestazione, maiuscole/minuscole indifferenti): <code>email</code>, <code>nome</code>, <code>cognome</code>,
           <code>ufficio</code> (nome, o percorso intero come <code>Produzione / Linea 2</code> se il nome si ripete; obbligatorio per gli interni che non sono Admin),
           e opzionalmente <code>password</code>, <code>admin</code>, <code>formazione</code>, <code>formatore</code> (sì/no),
           <code>mansioni</code> (nomi separati da <code>;</code> o <code>|</code>), <code>is_external</code>,
@@ -296,7 +298,10 @@ export default function Utenti() {
           <div className="card">
             <h3>Modifica {modifica.nome}</h3>
             <form onSubmit={salvaModifica}>
-              <div className="field"><label>Nome e cognome</label><input required value={modifica.valori.full_name} onChange={(e) => setModifica({ ...modifica, valori: { ...modifica.valori, full_name: e.target.value } })} /></div>
+              <div className="row">
+                <div className="field"><label>Nome</label><input required value={modifica.valori.nome} onChange={(e) => setModifica({ ...modifica, valori: { ...modifica.valori, nome: e.target.value } })} /></div>
+                <div className="field"><label>Cognome</label><input required value={modifica.valori.cognome} onChange={(e) => setModifica({ ...modifica, valori: { ...modifica.valori, cognome: e.target.value } })} /></div>
+              </div>
               <CampiPersona valori={modifica.valori} set={(v) => setModifica({ ...modifica, valori: v })} uffici={uffici} mansioni={mansioniAttive} orgs={orgs} />
               {erroreModifica && <div className="error-msg">{erroreModifica}</div>}
               <button type="submit">Salva</button>{" "}
@@ -306,7 +311,7 @@ export default function Utenti() {
         )}
         <div className="card">
           <div className="row">
-            <div className="field"><label htmlFor="u-cerca">Cerca</label><input id="u-cerca" placeholder="nome o email" value={filtro.testo} onChange={(e) => cambiaFiltro("testo", e.target.value)} /></div>
+            <div className="field"><label htmlFor="u-cerca">Cerca</label><input id="u-cerca" placeholder="nome, cognome o email" value={filtro.testo} onChange={(e) => cambiaFiltro("testo", e.target.value)} /></div>
             <div className="field"><label htmlFor="u-permesso">Permessi</label>
               <select id="u-permesso" value={filtro.permesso} onChange={(e) => cambiaFiltro("permesso", e.target.value)}>
                 <option value="">Tutti</option>
@@ -351,7 +356,7 @@ export default function Utenti() {
             <tbody>
               {inPagina.map((u) => (
                 <tr key={u.id}>
-                  <td>{u.full_name}</td><td>{u.email}</td>
+                  <td>{u.cognome}</td><td>{u.nome}</td><td>{u.email}</td>
                   <td>{etichette(u).map((t) => <span key={t} className="badge" style={{ marginRight: 4 }}>{t}</span>)}{etichette(u).length === 0 && "—"}</td>
                   <td>{u.ufficio ? u.ufficio.name : "—"}</td>
                   <td>{(u.mansioni || []).map((m) => <span key={m.id} className="badge" style={{ background: m.color, color: "#fff", marginRight: 4 }}>{m.name}</span>)}{(u.mansioni || []).length === 0 && "—"}</td>
@@ -363,7 +368,7 @@ export default function Utenti() {
                   </td>
                 </tr>
               ))}
-              {inPagina.length === 0 && <tr><td colSpan={8} className="text-muted">Nessun utente corrisponde ai filtri.</td></tr>}
+              {inPagina.length === 0 && <tr><td colSpan={9} className="text-muted">Nessun utente corrisponde ai filtri.</td></tr>}
             </tbody>
           </table>
         </div>

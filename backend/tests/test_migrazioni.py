@@ -52,6 +52,7 @@ def test_un_database_precedente_alle_migrazioni_si_marca_e_si_aggiorna():
             c.execute(sa.text("ALTER TABLE users DROP COLUMN email_idx"))   # un database di allora non aveva ancora le impronte
             c.execute(sa.text("CREATE TYPE userrole AS ENUM ('admin_tecnico', 'training_admin', 'user')"))   # ne' i tre interruttori: c'era il ruolo
             c.execute(sa.text("ALTER TABLE users ADD COLUMN role userrole NOT NULL DEFAULT 'user', DROP COLUMN is_admin, DROP COLUMN is_formazione, DROP COLUMN is_formatore"))
+            c.execute(sa.text("ALTER TABLE users ADD COLUMN full_name text, DROP COLUMN nome, DROP COLUMN cognome"))   # ...e il nome era uno solo
             c.execute(sa.text("INSERT INTO users (id, email, full_name, hashed_password, role, is_external, origine_credenziali) VALUES (gen_random_uuid(), 'vecchio@test.it', 'Vecchio', 'x', 'admin_tecnico', false, 'locale')"))
         esegui_migrazioni()
         assert versione_corrente() == ultima_migrazione()
@@ -116,6 +117,10 @@ def test_0008_trasforma_ruoli_gruppi_e_mansioni_senza_perdere_dati(caplog):
             c.execute(sa.text("UPDATE users SET role = 'admin_tecnico' WHERE is_admin"))
             c.execute(sa.text("UPDATE users SET role = 'training_admin' WHERE is_formazione"))
             c.execute(sa.text("ALTER TABLE users DROP COLUMN is_admin, DROP COLUMN is_formazione, DROP COLUMN is_formatore"))
+            c.execute(sa.text("ALTER TABLE users ADD COLUMN full_name text"))      # prima il nome era uno solo
+            c.execute(sa.text("UPDATE users SET full_name = trim(nome || ' ' || cognome)"))
+            c.execute(sa.text("UPDATE users SET full_name = 'Maria Grazia Rossi' WHERE email = 'semplice@t.it'"))
+            c.execute(sa.text("ALTER TABLE users DROP COLUMN nome, DROP COLUMN cognome"))
             c.execute(sa.text("ALTER TABLE groups ADD COLUMN permissions json, ADD COLUMN is_system boolean"))
             c.execute(sa.text("UPDATE groups SET is_system = (name IN ('Admin', 'Ufficio Formazione', 'Formatori', 'Utenti'))"))
             c.execute(sa.text("UPDATE percorsi_formativi SET trigger_tipo = 'gruppo'"))
@@ -156,9 +161,34 @@ def test_0008_trasforma_ruoli_gruppi_e_mansioni_senza_perdere_dati(caplog):
         assert uffici == {"doppio@t.it": "Produzione", "semplice@t.it": "Produzione"}   # chi era in due uffici resta nel primo
         assert any("piu' uffici" in r.getMessage() for r in caplog.records)             # e la migrazione lo dice
         assert q("SELECT count(*) FROM users")[0][0] == 6                                # nessuna persona persa
+        assert q("SELECT nome, cognome FROM users WHERE email = 'semplice@t.it'")[0] == ("Maria", "Grazia Rossi")   # 0009: la prima parola e' il nome
+        assert q("SELECT nome, cognome FROM users WHERE email = 'adm@t.it'")[0] == ("adm@t.it", "")
         assert q("SELECT is_ufficio FROM groups WHERE name = 'Linea 2'")[0][0] is True
         assert q("SELECT parent_id FROM groups WHERE name = 'Linea 2'")[0][0] == ids["prod"]       # l'albero degli uffici resta
     finally:
         if s is not None:
             s.close()
+        ricrea_schema()
+
+
+def test_0009_con_la_cifratura_attiva_scrive_nome_e_cognome_cifrati(monkeypatch):
+    from app.config import settings
+    from app.services import cifratura as c
+    try:
+        ricrea_schema()
+        monkeypatch.setattr(settings, "CHIAVE_CIFRATURA", c.genera_chiave())
+        with engine.begin() as conn:    # un database della 2.2.x: il nome era uno solo, cifrato
+            conn.execute(sa.text("ALTER TABLE users ADD COLUMN full_name text"))
+            conn.execute(sa.text("INSERT INTO users (id, email, email_idx, full_name, nome, cognome, hashed_password, is_external, origine_credenziali) "
+                                 "VALUES (gen_random_uuid(), 'x@t.it', 'idx', :n, 'x', 'x', 'x', false, 'locale')"), {"n": c.cifra_testo("Maria Grazia Rossi")})
+            conn.execute(sa.text("ALTER TABLE users DROP COLUMN nome, DROP COLUMN cognome"))
+            conn.execute(sa.text("UPDATE alembic_version SET version_num = '0008'"))
+        esegui_migrazioni()
+        with engine.connect() as conn:
+            n, cg = conn.execute(sa.text("SELECT nome, cognome FROM users")).one()
+            assert not conn.execute(sa.text("SELECT 1 FROM information_schema.columns WHERE table_name = 'users' AND column_name = 'full_name'")).first()
+        assert n.startswith("enc:v1:") and cg.startswith("enc:v1:")                       # cifrati come il resto dei dati personali
+        assert (c.decifra_testo(n), c.decifra_testo(cg)) == ("Maria", "Grazia Rossi")
+    finally:
+        monkeypatch.undo()
         ricrea_schema()

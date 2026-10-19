@@ -150,13 +150,13 @@ def _docenti_nomi(db, edizione) -> str:
     if not edizione:
         return ""
     righe = (
-        db.query(User.full_name)
+        db.query(User)
         .join(EdizioneDocente, EdizioneDocente.user_id == User.id)
         .filter(EdizioneDocente.edizione_id == edizione.id)
         .order_by(EdizioneDocente.ruolo)  # titolare prima di co_docente (ordine alfabetico dei value)
         .all()
     )
-    return ", ".join(r[0] for r in righe)
+    return ", ".join(u.full_name for u in righe)
 
 def _template_per_corso(db, corso):
     from ..models.certificato_template import CertificatoTemplate

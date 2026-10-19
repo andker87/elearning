@@ -17,6 +17,7 @@ from ..services import sso as sso_svc
 from ..services.auth import token_per_utente, hash_password
 from ..services.percorsi_sync import sincronizza_assegnazioni
 from ..services.impronte import impronta
+from ..services.persone import dividi_nome
 
 router = APIRouter(prefix="/api/auth/sso", tags=["sso"])
 
@@ -51,6 +52,14 @@ def login(request: Request, db: Session = Depends(get_db)):
     return risposta
 
 
+def _nome_dai_dati(claims: dict, email: str) -> tuple:
+    """(nome, cognome) dai dati dell'azienda: given_name/family_name se ci sono, altrimenti il nome intero diviso, altrimenti l'email."""
+    nome, cognome = (str(claims.get("given_name") or "").strip()[:100], str(claims.get("family_name") or "").strip()[:100])
+    if nome and cognome:
+        return nome, cognome
+    return dividi_nome(str(claims.get("name") or email.split("@")[0]).strip()[:200])
+
+
 def _risolvi_utente(db: Session, request: Request, sub: str, email: str, claims: dict):
     """Ritorna (utente, evento_audit_dettaglio). Solleva SsoErrore se non ammesso."""
     u = db.query(User).filter(User.sso_subject == sub).first()
@@ -66,8 +75,8 @@ def _risolvi_utente(db: Session, request: Request, sub: str, email: str, claims:
                 raise sso_svc.SsoErrore("admin_non_collegabile", email)
             primo_collegamento = True
         elif settings.SSO_PROVISIONA_UTENTI:
-            nome = claims.get("name") or email.split("@")[0]
-            u = User(email=email, full_name=str(nome)[:200], is_external=False,
+            nome_u, cognome_u = _nome_dai_dati(claims, email)
+            u = User(email=email, nome=nome_u, cognome=cognome_u, is_external=False,
                      hashed_password=hash_password(secrets.token_urlsafe(32)), origine_credenziali="dominio")
             try:
                 with db.begin_nested():

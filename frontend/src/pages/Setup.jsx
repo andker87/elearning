@@ -4,7 +4,7 @@ import api, { erroreDi } from "../api";
 import { REQUISITI_PASSWORD } from "../passwordPolicy";
 
 export default function Setup() {
-  const [form, setForm] = useState({ full_name: "", email: "", password: "" });
+  const [form, setForm] = useState({ nome: "", cognome: "", email: "", password: "" });
   const [error, setError] = useState(null);
   const navigate = useNavigate();
 
@@ -28,9 +28,15 @@ export default function Setup() {
           utenti, organizzazioni e tutto il resto della piattaforma.
         </p>
         <form onSubmit={submit}>
-          <div className="field">
-            <label>Nome e cognome</label>
-            <input required value={form.full_name} onChange={(e) => setForm({ ...form, full_name: e.target.value })} />
+          <div className="row">
+            <div className="field">
+              <label>Nome</label>
+              <input required value={form.nome} onChange={(e) => setForm({ ...form, nome: e.target.value })} />
+            </div>
+            <div className="field">
+              <label>Cognome</label>
+              <input required value={form.cognome} onChange={(e) => setForm({ ...form, cognome: e.target.value })} />
+            </div>
           </div>
           <div className="field">
             <label>Email</label>

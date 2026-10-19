@@ -45,6 +45,6 @@ def test_utente_disattivato_non_entra_con_un_token_vecchio(client, db, utente, a
 
 
 def test_solo_admin_crea_utenti_e_modifica_ruoli(client, formazione, utente, auth):
-    corpo = {"email": "n@test.it", "full_name": "N", "password": "Password!Valida123"}
+    corpo = {"email": "n@test.it", "nome": "N", "cognome": "C", "password": "Password!Valida123"}
     assert client.post("/api/auth/users", headers=auth(formazione), json=corpo).status_code == 403
     assert client.put(f"/api/auth/users/{utente.id}", headers=auth(utente), json={"is_admin": True}).status_code == 403

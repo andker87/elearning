@@ -17,6 +17,12 @@ PACCHETTI = ["fastapi", "uvicorn", "sqlalchemy", "pydantic", "pyjwt", "httpx", "
              "reportlab", "openpyxl", "pywebpush", "psycopg2-binary"]
 
 CHANGELOG = [
+    {"version": "2.3.0", "date": "2026-10", "label": "Nome e cognome separati", "changes": [
+        "Nome e cognome sono due campi: si mostrano entrambi nell'elenco utenti e si usano per cercare e per ordinare (gli elenchi sono in ordine di cognome, poi nome); cifrati nel database come gli altri dati personali",
+        "L'importazione CSV usa le colonne nome e cognome al posto di full_name; la configurazione iniziale chiede i due campi",
+        "Accesso aziendale e sincronizzazione da Entra usano nome e cognome dell'azienda quando ci sono, altrimenti dividono il nome intero",
+        "Chi aggiorna: le persone esistenti sono divise con una regola semplice (la prima parola è il nome, il resto il cognome, per esempio «Maria Grazia Rossi» diventa Maria / Grazia Rossi): vanno controllate e corrette dalla scheda utente. Dove si scrive ancora il nome intero (certificati, notifiche) resta «Nome Cognome»",
+    ]},
     {"version": "2.2.0", "date": "2026-10", "label": "Permessi, uffici e mansioni", "changes": [
         "Il ruolo unico dell'utente è sostituito da permessi che si sommano (Admin, Formazione) e dalla qualifica Formatore; senza nessuno dei tre si è utenti semplici. Si assegnano dalla scheda di ciascun utente (nuovo pulsante Modifica nell'elenco)",
         "Gli uffici sono la sola struttura organizzativa: albero di uffici e sottouffici con responsabile, un solo ufficio per persona (obbligatorio per gli interni, tranne gli Admin). I quattro gruppi di sistema, che non facevano nulla, e la pagina Ruoli sono stati tolti",

@@ -63,10 +63,10 @@ def esporta_utenti(formato: str = "csv", pagina: str = "A4", db: Session = Depen
     mansioni = {}
     for uid, nome in db.query(UserMansione.user_id, Mansione.name).join(Mansione, Mansione.id == UserMansione.mansione_id).all():
         mansioni.setdefault(uid, []).append(nome)
-    colonne = ["Nome", "Email", "Permessi", "Stato", "Tipo", "Credenziali", "Data ingresso", "Ufficio", "Mansioni"]
-    righe = [[u.full_name, u.email, permessi_testo(u), "attivo" if u.is_active else "disattivato", "esterno" if u.is_external else "interno",
+    colonne = ["Cognome", "Nome", "Email", "Permessi", "Stato", "Tipo", "Credenziali", "Data ingresso", "Ufficio", "Mansioni"]
+    righe = [[u.cognome, u.nome, u.email, permessi_testo(u), "attivo" if u.is_active else "disattivato", "esterno" if u.is_external else "interno",
               "dominio" if u.origine_credenziali != "locale" else "locali", u.data_ingresso, uffici.get(u.id, ""), "; ".join(sorted(mansioni.get(u.id, [])))]
-             for u in sorted(db.query(User).all(), key=lambda u: (u.full_name or "").casefold())]   # il nome e' cifrato: si ordina qui
+             for u in sorted(db.query(User).all(), key=lambda u: u.chiave_ordine)]   # il nome e' cifrato: si ordina qui
     return esporta(formato, "utenti", "Utenti", colonne, righe, pagina)
 
 

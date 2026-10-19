@@ -33,7 +33,8 @@ class LoginRequest(BaseModel):
 
 class UserCreate(BaseModel):
     email: EmailStr
-    full_name: str
+    nome: str
+    cognome: str
     password: Optional[str] = None  # vuota: la sceglie la persona (link via email) o viene generata una temporanea
     is_admin: bool = False
     is_formazione: bool = False
@@ -50,7 +51,8 @@ class PasswordChange(BaseModel):
     new_password: str
 
 class UserUpdate(BaseModel):
-    full_name: Optional[str] = None
+    nome: Optional[str] = None
+    cognome: Optional[str] = None
     is_active: Optional[bool] = None
     password: Optional[str] = None
     is_admin: Optional[bool] = None
@@ -77,7 +79,7 @@ def _serialize_user(u: User, db: Session, uffici=None, mansioni=None, docenti=No
         mansioni = _mansioni_per_utente(db, [u.id])
     g = uffici.get(u.id)
     return {
-        "id": str(u.id), "email": u.email, "full_name": u.full_name,
+        "id": str(u.id), "email": u.email, "nome": u.nome, "cognome": u.cognome, "full_name": u.full_name,
         "is_admin": bool(u.is_admin), "is_formazione": bool(u.is_formazione),
         "is_formatore": bool(u.is_formatore or u.is_external),   # un esterno e' docente per definizione
         "poteri_formazione": u.ha_poteri_formazione,
@@ -228,14 +230,14 @@ def cambia_password(data: PasswordChange, request: Request, db: Session = Depend
 
 @router.get("/users")
 def list_users(db: Session = Depends(get_db), user=Depends(require_admin_tecnico)):
-    users = sorted(db.query(User).all(), key=lambda u: (u.full_name or "").casefold())   # il nome e' cifrato: si ordina qui
+    users = sorted(db.query(User).all(), key=lambda u: u.chiave_ordine)   # il nome e' cifrato: si ordina qui
     return _serialize_users(users, db)
 
 @router.get("/users/simple")
 def list_users_simple(formatori: bool = False, db: Session = Depends(get_db), user=Depends(get_current_user)):
     """Lista semplificata utenti attivi - usata per i picker. Con `formatori=true` solo chi si puo'
     assegnare come docente (qualifica Formatore, oppure esterno)."""
-    users = sorted(db.query(User).filter(User.is_active == True).all(), key=lambda u: (u.full_name or "").casefold())
+    users = sorted(db.query(User).filter(User.is_active == True).all(), key=lambda u: u.chiave_ordine)
     if formatori:
         users = [u for u in users if u.puo_essere_docente]
     return [{"id": str(u.id), "full_name": u.full_name, "email": u.email, "is_external": u.is_external,
@@ -250,7 +252,7 @@ def create_user(data: UserCreate, request: Request, db: Session = Depends(get_db
     scelta_dall_admin = bool(data.password)
     password = data.password or genera_password_temporanea()
     u = User(
-        email=data.email, full_name=data.full_name,
+        email=data.email, nome=data.nome.strip(), cognome=data.cognome.strip(),
         hashed_password=hash_password(password),
         is_admin=data.is_admin, is_formazione=data.is_formazione, is_formatore=data.is_formatore,
         is_external=data.is_external,
@@ -292,7 +294,7 @@ def _leggi_csv(file: UploadFile) -> str:
 def import_users_csv(file: UploadFile = File(...), modo: str = Query("nuovi"), request: Request = None,
                             db: Session = Depends(get_db), user=Depends(require_admin_tecnico)):
     """Import bulk per onboarding: CSV con colonne (case-insensitive) email,
-    full_name, password (opz.), admin / formazione / formatore (opz., sì/no),
+    nome, cognome, password (opz.), admin / formazione / formatore (opz., sì/no),
     is_external (opz.), organizzazione (ragione sociale, opz.), ufficio (nome o
     percorso intero, obbligatorio per gli interni non Admin), mansioni (nomi
     separati da ';' o '|', opz.), data_ingresso (opz., YYYY-MM-DD). Righe con errori vengono
@@ -317,8 +319,10 @@ def import_users_csv(file: UploadFile = File(...), modo: str = Query("nuovi"), r
     delimitatore = ";" if righe_testo[0].count(";") > righe_testo[0].count(",") else ","
     reader = csv.DictReader(io.StringIO(raw), delimiter=delimitatore)
     reader.fieldnames = [(f or "").strip().lower() for f in (reader.fieldnames or [])]
-    if "email" not in reader.fieldnames or not ("full_name" in reader.fieldnames or "nome" in reader.fieldnames):
-        raise HTTPException(400, "Intestazioni richieste: email, full_name (o nome)")
+    if "full_name" in reader.fieldnames and "cognome" not in reader.fieldnames:
+        raise HTTPException(400, "La colonna «full_name» non esiste più: usa due colonne, «nome» e «cognome»")
+    if "email" not in reader.fieldnames or "nome" not in reader.fieldnames or "cognome" not in reader.fieldnames:
+        raise HTTPException(400, "Intestazioni richieste: email, nome, cognome")
     if "role" in reader.fieldnames or "gruppi" in reader.fieldnames:
         raise HTTPException(400, "Le colonne «role» e «gruppi» non esistono più: usa «admin», «formazione», «formatore» (sì/no), «ufficio» e «mansioni»")
 
@@ -336,9 +340,9 @@ def import_users_csv(file: UploadFile = File(...), modo: str = Query("nuovi"), r
     for n, row in enumerate(reader, start=2):  # riga 1 = intestazione
         row = {(k or "").strip().lower(): (v or "").strip() for k, v in row.items()}
         email = row.get("email")
-        full_name = row.get("full_name") or row.get("nome")
-        if not email or not full_name:
-            righe.append({"riga": n, "email": email, "esito": "errore", "messaggio": "email o nome mancante"})
+        nome, cognome = row.get("nome"), row.get("cognome")
+        if not email or not nome or not cognome:
+            righe.append({"riga": n, "email": email, "esito": "errore", "messaggio": "email, nome o cognome mancante"})
             continue
         if db.query(User).filter(User.email_idx == impronta(email)).first():
             righe.append({"riga": n, "email": email, "esito": "errore", "messaggio": "email già esistente"})
@@ -389,7 +393,7 @@ def import_users_csv(file: UploadFile = File(...), modo: str = Query("nuovi"), r
             continue
 
         u = User(
-            email=email, full_name=full_name,
+            email=email, nome=nome, cognome=cognome,
             hashed_password=hash_password(password),
             is_admin=is_admin, is_formazione=is_formazione, is_formatore=is_formatore, is_external=is_external,
             organizzazione_id=org.id if org else None,
@@ -425,7 +429,7 @@ def import_users_csv(file: UploadFile = File(...), modo: str = Query("nuovi"), r
         db.flush()
         inviata = bool(link)
         if link:
-            dopo_il_commit(db, invia_invito, email, full_name, link)  # il link, mai la password; parte solo a commit riuscito
+            dopo_il_commit(db, invia_invito, email, f"{nome} {cognome}", link)  # il link, mai la password; parte solo a commit riuscito
         creati += 1
         messaggio = "creato"
         if mansioni_non_trovate:
@@ -520,7 +524,12 @@ def update_user(user_id: str, data: UserUpdate, request: Request,
                  db: Session = Depends(get_db), current=Depends(require_admin_tecnico)):
     u = db.query(User).filter(User.id == user_id).first()
     if not u: raise HTTPException(404)
-    if data.full_name is not None: u.full_name = data.full_name
+    if data.nome is not None:
+        if not data.nome.strip(): raise HTTPException(400, "Il nome non può essere vuoto")
+        u.nome = data.nome.strip()
+    if data.cognome is not None:
+        if not data.cognome.strip(): raise HTTPException(400, "Il cognome non può essere vuoto")
+        u.cognome = data.cognome.strip()
     avvisi_disattivazione, promossi = [], []
     if data.is_active is not None and data.is_active != u.is_active:
         if data.is_active is False:

@@ -56,7 +56,7 @@ def test_login_e_reset_ignorano_le_maiuscole(client, crea_utente, monkeypatch):
 
 def test_non_si_creano_due_utenti_che_differiscono_per_le_maiuscole(client, admin, auth, crea_utente):
     crea_utente("a@x.it")
-    r = client.post("/api/auth/users", headers=auth(admin), json={"email": "A@x.it", "full_name": "Doppione", "password": PASSWORD, "is_admin": True})
+    r = client.post("/api/auth/users", headers=auth(admin), json={"email": "A@x.it", "nome": "Doppione", "cognome": "D", "password": PASSWORD, "is_admin": True})
     assert r.status_code == 400
 
 
@@ -64,7 +64,7 @@ def test_non_si_creano_due_utenti_che_differiscono_per_le_maiuscole(client, admi
 
 def test_il_nome_del_file_non_attiva_la_disattivazione(client, db, admin, auth, crea_utente):
     u = crea_utente("resta@az.it")
-    r = client.post("/api/auth/users/import-csv", headers=auth(admin), files={"file": ("cessata_formazione_nuovi.csv", b"email,full_name\nresta@az.it,X\n", "text/csv")})
+    r = client.post("/api/auth/users/import-csv", headers=auth(admin), files={"file": ("cessata_formazione_nuovi.csv", b"email,nome,cognome\nresta@az.it,X,Y\n", "text/csv")})
     assert r.status_code == 400 and "cessati" in r.json()["detail"]
     db.refresh(u)
     assert u.is_active

@@ -15,7 +15,7 @@ from conftest import PASSWORD
 
 
 def nuovo(client, auth, admin, **extra):
-    corpo = {"email": "nuovo@test.it", "full_name": "Nuovo", "password": PASSWORD, **extra}
+    corpo = {"email": "nuovo@test.it", "nome": "Nuovo", "cognome": "Utente", "password": PASSWORD, **extra}
     return client.post("/api/auth/users", headers=auth(admin), json=corpo)
 
 
@@ -187,11 +187,11 @@ def test_csv_con_ufficio_mansioni_e_permessi(client, auth, admin, db, crea_uffic
     db.add(figlio); db.commit()
     client.post("/api/mansioni", headers=auth(admin), json={"name": "Preposto"})
     r = csv(client, auth, admin,
-            "email,full_name,ufficio,mansioni,formatore,formazione\n"
-            "a@az.it,A,Produzione / Linea 2,Preposto;Inesistente,sì,\n"
-            "b@az.it,B,,,,\n"
-            "c@az.it,C,Magazzino,,,\n"
-            "d@az.it,D,Produzione,,,x\n").json()
+            "email,nome,cognome,ufficio,mansioni,formatore,formazione\n"
+            "a@az.it,A,A,Produzione / Linea 2,Preposto;Inesistente,sì,\n"
+            "b@az.it,B,B,,,,\n"
+            "c@az.it,C,C,Magazzino,,,\n"
+            "d@az.it,D,D,Produzione,,,x\n").json()
     esiti = [x["esito"] for x in r["righe"]]
     assert esiti == ["creato", "errore", "errore", "creato"]
     assert "mansioni non trovate: Inesistente" in r["righe"][0]["messaggio"]
@@ -204,14 +204,14 @@ def test_csv_con_ufficio_mansioni_e_permessi(client, auth, admin, db, crea_uffic
 
 
 def test_csv_con_le_vecchie_colonne_spiega_cosa_fare(client, auth, admin):
-    r = csv(client, auth, admin, "email,full_name,role,gruppi\nx@az.it,X,user,Produzione\n")
+    r = csv(client, auth, admin, "email,nome,cognome,role,gruppi\nx@az.it,X,Y,user,Produzione\n")
     assert r.status_code == 400 and "ufficio" in r.json()["detail"]
 
 
 def test_csv_ufficio_con_lo_stesso_nome_in_due_rami_chiede_il_percorso(client, auth, admin, db, crea_ufficio):
     a, b = crea_ufficio("Nord"), crea_ufficio("Sud")
     db.add_all([Group(name="Vendite", parent_id=a.id, is_ufficio=True), Group(name="Vendite", parent_id=b.id, is_ufficio=True)]); db.commit()
-    r = csv(client, auth, admin, "email,full_name,ufficio\nx@az.it,X,Vendite\ny@az.it,Y,Nord / Vendite\n").json()
+    r = csv(client, auth, admin, "email,nome,cognome,ufficio\nx@az.it,X,X,Vendite\ny@az.it,Y,Y,Nord / Vendite\n").json()
     assert [x["esito"] for x in r["righe"]] == ["errore", "creato"] and "ambiguo" in r["righe"][0]["messaggio"]
 
 
