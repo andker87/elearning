@@ -3,6 +3,7 @@ from typing import Iterable, Optional
 from uuid import UUID
 
 from fastapi import HTTPException
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from ..models.corso import Corso
@@ -23,18 +24,20 @@ def _uuid_validi(ids) -> list:
 
 def converti_categorie_in_tematica(db: Session):
     """Nessuna famiglia di etichette e' predefinita: ognuno definisce le sue (pagina Etichette dei corsi).
-    Resta solo la conversione per chi arriva da una versione che aveva il vecchio campo Categoria: se non
-    esiste ancora nessuna famiglia e dei corsi hanno una categoria, nasce la famiglia «Tematica» con quei
-    testi come etichette (senza doppioni di grafia), assegnate ai rispettivi corsi."""
-    if db.query(EtichettaFamiglia).count():
-        return
+    Resta solo la conversione per chi arriva da una versione che aveva il vecchio campo Categoria: i corsi con una
+    categoria ricevono un'etichetta con quel testo nella famiglia «Tematica» (che si crea se non c'e', senza toccare le
+    altre famiglie; senza doppioni di grafia). Fatta la conversione il vecchio campo si svuota: non si ripete, e chi
+    toglie poi l'etichetta da un corso non se la ritrova."""
     corsi = [c for c in db.query(Corso).filter(Corso.categoria.isnot(None)).all() if " ".join((c.categoria or "").split())]
     if not corsi:
         return
-    tematica = EtichettaFamiglia(nome="Tematica", descrizione="Di che cosa parla il corso (dal vecchio campo Categoria).", scelta_multipla=True, ordine=0)
-    db.add(tematica)
-    db.flush()
-    esistenti = {}
+    tematica = db.query(EtichettaFamiglia).filter(func.lower(EtichettaFamiglia.nome) == "tematica").first()
+    if tematica is None:
+        tematica = EtichettaFamiglia(nome="Tematica", descrizione="Di che cosa parla il corso (dal vecchio campo Categoria).",
+                                     scelta_multipla=True, ordine=db.query(EtichettaFamiglia).count())
+        db.add(tematica)
+        db.flush()
+    esistenti = {e.nome.lower(): e for e in db.query(Etichetta).filter(Etichetta.famiglia_id == tematica.id).all()}
     for c in corsi:
         testo = " ".join((c.categoria or "").split())[:80]  # il nome dell'etichetta e' di 80 caratteri: si confronta il nome troncato
         e = esistenti.get(testo.lower())
@@ -43,7 +46,10 @@ def converti_categorie_in_tematica(db: Session):
             db.add(e)
             db.flush()
             esistenti[testo.lower()] = e
-        db.add(CorsoEtichetta(corso_id=c.id, etichetta_id=e.id))
+        mie = {x.id for x in etichette_del_corso(db, c.id) if x.famiglia_id == tematica.id}
+        if e.id not in mie and (tematica.scelta_multipla or not mie):    # una famiglia a scelta singola che il corso ha gia' valorizzata non si tocca
+            db.add(CorsoEtichetta(corso_id=c.id, etichetta_id=e.id))
+        c.categoria = None
     db.commit()
 
 

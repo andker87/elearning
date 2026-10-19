@@ -275,3 +275,11 @@ Provati con test (creazione utente e CSV, corsa simulata). SSO ed Entra: modific
 | FATTO 2.3.4 | docs/guida-amministratore.md | la guida diceva «filtra per permessi, tipo»: ora «ruoli» (il filtro Tipo non c'è più) |
 | FATTO 2.3.4 | docs/progetto-ruoli-mansioni.md | la sostituzione globale aveva trasformato `is_formatore` (nome vero nel codice) in `is_docente` in due righe: ripristinato, con la nota che in app si chiama «Docente» |
 | FATTO 2.3.4 | pages/Utenti.jsx | il modulo di modifica di un utente esterno non mostrava le capsule dei ruoli: ora mostra «Docente» ed «Esterno» |
+
+## PR #26 (2.4.0, etichette libere, corsi a schede, player compatto)
+
+| Stato | File | Rilievo |
+|---|---|---|
+| FATTO 2.4.0 | services/etichette.py | la conversione del vecchio campo Categoria in etichette si saltava se esisteva già una qualunque famiglia: ora i corsi con una categoria si convertono comunque, nella famiglia «Tematica» (creata o riusata senza toccare le altre, e senza duplicare i collegamenti); fatta la conversione il vecchio campo si svuota, così non si ripete e chi toglie l'etichetta non se la ritrova |
+| FATTO 2.4.0 | api/video.py | un docente assegnato alla sessione (senza il permesso Formazione) vedeva nella pagina il pulsante di anteprima del video ma il server rispondeva «non trovato»: ora i docenti della sessione possono vedere il video e ottenerne l'accesso; un docente di un'altra sessione o un utente qualunque no (errore mio della 2.4.0) |
+| FATTO 2.4.0 | tests/test_iscrizioni.py (nota) | il test sulle iscrizioni annullate passava anche se l'elenco restituiva solo quelle «iscritto»: ora controlla che lista d'attesa e corsi completati restino visibili |
