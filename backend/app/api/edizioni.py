@@ -10,6 +10,7 @@ from ..models.user import User
 from ..models.corso import Corso
 from ..services.gerarchia import sottoposti_di
 from ..services.etichette import corsi_con_etichette, etichette_del_corso
+from ..services.durata import durata_effettiva
 from ..services.iscrizioni import crea_iscrizione_con_capacita, promuovi_da_lista_attesa, posti_occupati
 from ..services.notifiche import invia_comunicazione_edizione, invia_invito_calendario
 from ..services.calendario import evento_edizione, costruisci_ics
@@ -34,8 +35,15 @@ class EdizioneIn(BaseModel):
     teams_mode: Optional[ModalitaTeams] = None
     video_id: Optional[str] = None
     ente_erogatore: Optional[str] = None
-    ore_dichiarate: Optional[int] = None
+    durata_minuti: Optional[int] = None   # vuota = segue il corso; diversa da quella del corso = durata forzata
     note: Optional[str] = None
+
+    @field_validator("durata_minuti")
+    @classmethod
+    def _durata_valida(cls, v):
+        if v is not None and not 1 <= v <= 100000:
+            raise ValueError("La durata deve essere di almeno 1 minuto (e non oltre 100000)")
+        return v
 
     @field_validator("video_id", mode="before")
     @classmethod
@@ -44,6 +52,13 @@ class EdizioneIn(BaseModel):
         # una stringa vuota non è un UUID valido, va trattata come "nessun valore".
         return v or None
 
+def _durata_propria(db: Session, corso_id, durata) -> Optional[int]:
+    """La sessione conserva la durata solo se e' diversa da quella del corso: uguale = segue il corso."""
+    if not durata:
+        return None
+    corso = db.query(Corso).filter(Corso.id == corso_id).first()
+    return None if corso is not None and corso.durata_minuti == durata else durata
+
 def _is_docente(edizione: Edizione, user: User) -> bool:
     return any(str(d.user_id) == str(user.id) for d in edizione.docenti)
 
@@ -51,6 +66,7 @@ def _serialize(e: Edizione, db: Session):
     n_iscritti = posti_occupati(db, e.id)
     n_lista_attesa = db.query(Iscrizione).filter(Iscrizione.edizione_id == e.id, Iscrizione.stato == StatoIscrizione.in_lista_attesa).count()
     corso = db.query(Corso).filter(Corso.id == e.corso_id).first()
+    nomi = {u.id: u.full_name for u in db.query(User).filter(User.id.in_([d.user_id for d in e.docenti])).all()} if e.docenti else {}
     return {
         "id": str(e.id), "corso_id": str(e.corso_id), "corso_titolo": corso.titolo if corso else None,
         "corso_permetti_autoiscrizione": corso.permetti_autoiscrizione if corso else False,
@@ -61,9 +77,12 @@ def _serialize(e: Edizione, db: Session):
         "checkin_mode": e.checkin_mode, "teams_mode": e.teams_mode,
         "teams_join_url": e.teams_join_url, "video_id": str(e.video_id) if e.video_id else None,
         "ente_erogatore": e.ente_erogatore,
-        "ore_dichiarate": e.ore_dichiarate, "note": e.note,
+        "durata_minuti": e.durata_minuti, "durata_corso_minuti": corso.durata_minuti if corso else None,
+        "durata_effettiva_minuti": durata_effettiva(e, corso),
+        "durata_modificata": bool(e.durata_minuti and corso and corso.durata_minuti and e.durata_minuti != corso.durata_minuti),
+        "note": e.note,
         "chiusa_at": e.chiusa_at, "n_iscritti": n_iscritti,
-        "docenti": [{"user_id": str(d.user_id), "ruolo": d.ruolo} for d in e.docenti],
+        "docenti": [{"user_id": str(d.user_id), "ruolo": d.ruolo, "nome": nomi.get(d.user_id)} for d in e.docenti],
     }
 
 @router.get("")
@@ -112,7 +131,9 @@ def get_edizione(edizione_id: str, db: Session = Depends(get_db), user=Depends(g
 
 @router.post("")
 def create_edizione(data: EdizioneIn, request: Request, db: Session = Depends(get_db), user=Depends(require_training_admin)):
-    e = Edizione(**data.model_dump(), stato=StatoEdizione.bozza)
+    campi = data.model_dump()
+    campi["durata_minuti"] = _durata_propria(db, data.corso_id, data.durata_minuti)
+    e = Edizione(**campi, stato=StatoEdizione.bozza)
     db.add(e); db.flush()
     audit_svc.log_from_request(db, request, user, "CREATE", entity_type="edizione", entity_id=str(e.id), entity_name=_nome_edizione(db, e))
     db.commit(); db.refresh(e)
@@ -125,6 +146,7 @@ def update_edizione(edizione_id: str, data: EdizioneIn, request: Request, db: Se
     if e.stato == StatoEdizione.chiusa:
         raise HTTPException(400, "Edizione chiusa: non modificabile")
     for k, v in data.model_dump().items(): setattr(e, k, v)
+    e.durata_minuti = _durata_propria(db, data.corso_id, data.durata_minuti)
     db.flush()
     promossi = []
     while True:  # se ora ci sono posti liberi, chi era in lista d'attesa sale (in ordine di arrivo)
@@ -344,7 +366,7 @@ def duplica_edizione(edizione_id: str, request: Request, db: Session = Depends(g
         corso_id=orig.corso_id, modalita=orig.modalita, stato=StatoEdizione.bozza,
         luogo=orig.luogo, posti_max=orig.posti_max, lista_attesa_abilitata=orig.lista_attesa_abilitata,
         checkin_mode=orig.checkin_mode, teams_mode=orig.teams_mode,
-        video_id=orig.video_id, ente_erogatore=orig.ente_erogatore, ore_dichiarate=orig.ore_dichiarate,
+        video_id=orig.video_id, ente_erogatore=orig.ente_erogatore, durata_minuti=orig.durata_minuti,
         note=orig.note,
     )
     db.add(nuova); db.flush()

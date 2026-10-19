@@ -7,6 +7,7 @@ from reportlab.lib.pagesizes import A4
 from reportlab.lib.colors import HexColor
 from reportlab.pdfgen import canvas
 from reportlab.lib.utils import ImageReader
+from .durata import durata_effettiva, ore_testo, durata_in_parole
 from . import cifratura
 from ..models.certificato import Certificato, TipoCertificato
 from ..models.azienda import Azienda
@@ -23,7 +24,8 @@ CAMPI_DISPONIBILI = [
     {"chiave": "nome_discente", "etichetta": "Nome partecipante"},
     {"chiave": "titolo_corso", "etichetta": "Titolo corso"},
     {"chiave": "data_evento", "etichetta": "Data"},
-    {"chiave": "ore_corso", "etichetta": "Monte ore"},
+    {"chiave": "ore_corso", "etichetta": "Monte ore (numero, es. 8 oppure 1,5)"},
+    {"chiave": "durata", "etichetta": "Durata (testo, es. 4 ore e 30 minuti)"},
     {"chiave": "azienda_nome", "etichetta": "Azienda"},
     {"chiave": "ente_erogatore", "etichetta": "Ente erogatore (corsi esterni)"},
     {"chiave": "docente_nome", "etichetta": "Docente(i)"},
@@ -41,7 +43,7 @@ def genera_codice_verifica() -> str:
     return secrets.token_hex(8).upper()
 
 def genera_pdf(path: str, *, nome_discente: str, titolo_corso: str,
-               data_evento: str, codice_verifica: str, azienda: str = "", logo_path: str = None):
+               data_evento: str, codice_verifica: str, azienda: str = "", logo_path: str = None, durata: str = ""):
     """Layout fisso di riserva, usato quando il corso non ha un template
     grafico assegnato (né esiste un template aziendale di default)."""
     os.makedirs(os.path.dirname(path), exist_ok=True)
@@ -64,6 +66,8 @@ def genera_pdf(path: str, *, nome_discente: str, titolo_corso: str,
     c.drawCentredString(width / 2, height - 240, f"Si attesta che {nome_discente}")
     c.drawCentredString(width / 2, height - 265, f"ha partecipato al corso \"{titolo_corso}\"")
     c.drawCentredString(width / 2, height - 290, f"in data {data_evento}")
+    if durata:
+        c.drawCentredString(width / 2, height - 315, f"della durata di {durata}")
     c.setFont("Helvetica", 9)
     c.drawCentredString(width / 2, 80, f"Codice di verifica: {codice_verifica}")
     c.drawCentredString(width / 2, 65, "Verificabile su richiesta presso l'ufficio formazione")
@@ -179,7 +183,8 @@ def crea_certificato(db, iscrizione, corso, nome_discente: str, azienda: str = "
             "nome_discente": nome_discente,
             "titolo_corso": corso.titolo if corso else "",
             "data_evento": datetime.utcnow().strftime("%d/%m/%Y"),
-            "ore_corso": str(edizione.ore_dichiarate) if edizione and edizione.ore_dichiarate else "",
+            "ore_corso": ore_testo(durata_effettiva(edizione, corso)),
+            "durata": durata_in_parole(durata_effettiva(edizione, corso)),
             "azienda_nome": azienda,
             "ente_erogatore": (edizione.ente_erogatore if edizione else "") or "",
             "docente_nome": _docenti_nomi(db, edizione),
@@ -189,7 +194,8 @@ def crea_certificato(db, iscrizione, corso, nome_discente: str, azienda: str = "
     else:
         genera_pdf(path, nome_discente=nome_discente, titolo_corso=corso.titolo if corso else "",
                    data_evento=datetime.utcnow().strftime("%d/%m/%Y"),
-                   codice_verifica=codice, azienda=azienda, logo_path=logo_path)
+                   codice_verifica=codice, azienda=azienda, logo_path=logo_path,
+                   durata=durata_in_parole(durata_effettiva(edizione, corso)))
     cert = Certificato(
         iscrizione_id=iscrizione.id,
         tipo=TipoCertificato.base,

@@ -129,7 +129,7 @@ def anteprima(template_id: str, db: Session = Depends(get_db), user=Depends(requ
         raise HTTPException(400, "Carica prima un'immagine di sfondo")
     valori = {
         "nome_discente": "Nome Cognome di esempio", "titolo_corso": "Titolo del corso di esempio",
-        "data_evento": datetime.utcnow().strftime("%d/%m/%Y"), "ore_corso": "8",
+        "data_evento": datetime.utcnow().strftime("%d/%m/%Y"), "ore_corso": "8", "durata": "8 ore",
         "azienda_nome": "Azienda S.r.l.", "ente_erogatore": "Ente formativo di esempio",
         "docente_nome": "Nome Docente", "codice_verifica": "ABCD1234EFGH5678",
     }

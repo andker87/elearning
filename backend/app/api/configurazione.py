@@ -11,6 +11,7 @@ from ..models.corso import Corso
 from ..models.group import Group, UserGroup
 from ..models.mansione import Mansione, UserMansione
 from ..services.persone import permessi_testo
+from ..services.durata import durata_in_parole
 from ..models.organizzazione import Organizzazione
 from ..models.percorso import PercorsoFormativo
 from ..models.user import User
@@ -73,8 +74,8 @@ def esporta_utenti(formato: str = "csv", pagina: str = "A4", db: Session = Depen
 @router.get("/corsi-export/elenco")
 def esporta_corsi(formato: str = "csv", pagina: str = "A4", db: Session = Depends(get_db), user=Depends(require_training_admin)):
     from ..services.etichette import etichette_del_corso
-    colonne = ["Titolo", "Etichette", "Validità (mesi)", "Rinnovo automatico", "Test finale", "Auto-iscrizione", "Versione", "Stato"]
-    righe = [[c.titolo, "; ".join(f"{e.famiglia.nome}: {e.nome}" for e in etichette_del_corso(db, c.id)), c.validita_mesi, f"{c.rinnovo_giorni_anticipo} gg prima" if c.rinnovo_automatico else "", c.ha_test_finale,
+    colonne = ["Titolo", "Etichette", "Durata", "Validità (mesi)", "Rinnovo automatico", "Test finale", "Auto-iscrizione", "Versione", "Stato"]
+    righe = [[c.titolo, "; ".join(f"{e.famiglia.nome}: {e.nome}" for e in etichette_del_corso(db, c.id)), durata_in_parole(c.durata_minuti), c.validita_mesi, f"{c.rinnovo_giorni_anticipo} gg prima" if c.rinnovo_automatico else "", c.ha_test_finale,
               ("con approvazione" if c.richiedi_approvazione_responsabile else "sì") if c.permetti_autoiscrizione else "", c.versione,
               "attivo" if c.is_active else "disattivato"] for c in db.query(Corso).order_by(Corso.titolo).all()]
     return esporta(formato, "corsi", "Catalogo corsi", colonne, righe, pagina)

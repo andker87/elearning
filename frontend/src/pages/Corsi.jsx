@@ -3,6 +3,8 @@ import { Link, useNavigate } from "react-router-dom";
 import api, { erroreDi } from "../api";
 import { useFamiglie, SceltaEtichette, ChipEtichette, FiltroEtichette } from "../components/Etichette";
 import ExportButton from "../components/ExportButton";
+import CampoDurata from "../components/CampoDurata";
+import { formattaDurata } from "../durata";
 
 const AZIONI = [
   { value: "concludi_comunque", label: "Concludi comunque" },
@@ -12,7 +14,7 @@ const AZIONI = [
 ];
 const SCHEDE = [{ id: "elenco", label: "Elenco corsi" }, { id: "nuovo", label: "Nuovo corso" }];
 const VUOTO = {
-  titolo: "", descrizione: "", validita_mesi: "",
+  titolo: "", descrizione: "", validita_mesi: "", durata_minuti: null,
   ha_test_finale: false, azione_test_non_superato: "concludi_comunque", giorni_scadenza_breve: "",
   confronta_pre_post_test: false, permetti_autoiscrizione: false, richiedi_approvazione_responsabile: false,
   rinnovo_automatico: false, rinnovo_giorni_anticipo: 30, certificato_template_id: "", is_active: true, etichette: [],
@@ -21,7 +23,7 @@ const VUOTO = {
 // Dal corso come lo restituisce il server ai valori del modulo (testi per i campi numerici).
 function valoriDa(c) {
   return {
-    titolo: c.titolo, descrizione: c.descrizione || "", validita_mesi: c.validita_mesi ?? "",
+    titolo: c.titolo, descrizione: c.descrizione || "", validita_mesi: c.validita_mesi ?? "", durata_minuti: c.durata_minuti ?? null,
     ha_test_finale: c.ha_test_finale, azione_test_non_superato: c.azione_test_non_superato, giorni_scadenza_breve: c.giorni_scadenza_breve ?? "",
     confronta_pre_post_test: c.confronta_pre_post_test, permetti_autoiscrizione: c.permetti_autoiscrizione,
     richiedi_approvazione_responsabile: c.richiedi_approvazione_responsabile,
@@ -35,6 +37,7 @@ function corpoDa(v, categoria = null) {
   return {
     ...v, categoria,
     validita_mesi: v.validita_mesi ? parseInt(v.validita_mesi) : null,
+    durata_minuti: v.durata_minuti || null,
     giorni_scadenza_breve: v.ha_test_finale && v.azione_test_non_superato === "concludi_scadenza_breve" && v.giorni_scadenza_breve ? parseInt(v.giorni_scadenza_breve) : null,
     rinnovo_automatico: !!v.validita_mesi && v.rinnovo_automatico,
     rinnovo_giorni_anticipo: parseInt(v.rinnovo_giorni_anticipo) || 30,
@@ -54,6 +57,9 @@ function CampiCorso({ v, set, famiglie, templates, modifica, anteprima, onAntepr
     <>
       <div className="field"><label>Titolo</label><input required value={v.titolo} onChange={(e) => set({ ...v, titolo: e.target.value })} /></div>
       <div className="field"><label>Descrizione</label><textarea value={v.descrizione} onChange={(e) => set({ ...v, descrizione: e.target.value })} /></div>
+      <div className="row">
+        <CampoDurata valore={v.durata_minuti} onChange={(d) => set({ ...v, durata_minuti: d })} id="corso-durata" suggerimento="Quanto dura il corso. Le sessioni la ereditano (chi le organizza può cambiarla) e finisce sull'attestato." />
+      </div>
       <div className="row">
         <div className="field"><label>Validità (mesi, vuoto = nessun rinnovo)</label><input type="number" min="1" value={v.validita_mesi} onChange={(e) => set({ ...v, validita_mesi: e.target.value })} /></div>
         <div className="field">
@@ -218,7 +224,7 @@ export default function Corsi() {
         <div style={{ maxWidth: 420 }}><FiltroEtichette valore={filtroEtichette} onChange={setFiltroEtichette} /></div>
         <div className="table-wrap">
           <table>
-            <thead><tr><th>Titolo</th><th>Etichette</th><th>Validità</th><th>Versione</th><th>Stato</th><th></th></tr></thead>
+            <thead><tr><th>Titolo</th><th>Etichette</th><th>Durata</th><th>Validità</th><th>Versione</th><th>Stato</th><th></th></tr></thead>
             <tbody>
               {visibili.map((c) => (
                 <React.Fragment key={c.id}>
@@ -236,6 +242,7 @@ export default function Corsi() {
                       {c.etichette_mancanti?.length > 0 && <div style={{ fontSize: 11, color: "var(--red-text)", marginTop: 3 }}>manca: {c.etichette_mancanti.join(", ")}</div>}
                       {c.avvisi_etichette?.map((a) => <div key={a} style={{ fontSize: 11, color: "var(--yellow-text)", marginTop: 3 }}>⚠ {a}</div>)}
                     </td>
+                    <td>{c.durata_minuti ? formattaDurata(c.durata_minuti) : <span className="text-muted">—</span>}</td>
                     <td>{c.validita_mesi ? `${c.validita_mesi} mesi` : "senza scadenza"}</td>
                     <td>v{c.versione}</td>
                     <td>{c.is_active ? <span className="badge green">attivo</span> : <span className="badge gray">disattivato</span>}</td>
@@ -247,7 +254,7 @@ export default function Corsi() {
                   </tr>
                   {modifica?.id === c.id && (
                     <tr>
-                      <td colSpan={6} style={{ background: "var(--bg3)" }}>
+                      <td colSpan={7} style={{ background: "var(--bg3)" }}>
                         <form id="c-form-modifica" onSubmit={salvaModifica}>
                           <h4 style={{ margin: "8px 0" }}>Modifica «{c.titolo}»</h4>
                           <CampiCorso v={modifica.valori} set={(valori) => setModifica({ ...modifica, valori })} famiglie={famiglie} templates={templates}
@@ -261,7 +268,7 @@ export default function Corsi() {
                   )}
                   {versioneApertaId === c.id && (
                     <tr>
-                      <td colSpan={6} style={{ background: "var(--bg3)" }}>
+                      <td colSpan={7} style={{ background: "var(--bg3)" }}>
                         <div style={{ padding: "8px 0" }}>
                           <p>Stai creando la <strong>versione {c.versione + 1}</strong> di "{c.titolo}". Chi ha già completato questo corso:</p>
                           <div className="field">
@@ -286,7 +293,7 @@ export default function Corsi() {
                   )}
                 </React.Fragment>
               ))}
-              {visibili.length === 0 && <tr><td colSpan={6} className="text-muted">{list.length === 0 ? "Nessun corso ancora: creane uno dalla scheda «Nuovo corso»." : "Nessun corso corrisponde ai filtri."}</td></tr>}
+              {visibili.length === 0 && <tr><td colSpan={7} className="text-muted">{list.length === 0 ? "Nessun corso ancora: creane uno dalla scheda «Nuovo corso»." : "Nessun corso corrisponde ai filtri."}</td></tr>}
             </tbody>
           </table>
         </div>
