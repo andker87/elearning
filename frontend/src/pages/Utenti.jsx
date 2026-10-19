@@ -3,7 +3,24 @@ import api, { erroreDi } from "../api";
 import ExportButton from "../components/ExportButton";
 import { REQUISITI_PASSWORD } from "../passwordPolicy";
 
+const SCHEDE = [{ id: "elenco", label: "Elenco" }, { id: "nuovo", label: "Nuovo utente" }, { id: "csv", label: "Importa da CSV" }];
+const RUOLI = { user: "Utente", training_admin: "Ufficio Formazione", admin_tecnico: "Admin tecnico" };
+const PER_PAGINA = [25, 50, 100];
+const COLONNE = [
+  { id: "full_name", label: "Nome", valore: (u) => u.full_name || "" },
+  { id: "email", label: "Email", valore: (u) => u.email || "" },
+  { id: "role", label: "Ruolo", valore: (u) => RUOLI[u.role] || u.role || "" },
+  { id: "gruppi", label: "Gruppi", valore: (u) => (u.groups || []).map((g) => g.name).sort().join(", ") },
+  { id: "tipo", label: "Tipo", valore: (u) => (u.is_external ? "esterno" : "interno") },
+  { id: "stato", label: "Stato", valore: (u) => (u.is_active ? "attivo" : "disabilitato") },
+];
+
 export default function Utenti() {
+  const [scheda, setScheda] = useState("elenco");
+  const [filtro, setFiltro] = useState({ testo: "", ruolo: "", tipo: "", stato: "", gruppo: "" });
+  const [ordine, setOrdine] = useState({ col: "full_name", verso: 1 });
+  const [pagina, setPagina] = useState(0);
+  const [perPagina, setPerPagina] = useState(25);
   const [list, setList] = useState([]);
   const [orgs, setOrgs] = useState([]);
   const [groups, setGroups] = useState([]);
@@ -56,10 +73,29 @@ export default function Utenti() {
     }
   }
 
+  function cambiaFiltro(campo, valore) { setFiltro({ ...filtro, [campo]: valore }); setPagina(0); }
+  function ordinaPer(col) { setOrdine(ordine.col === col ? { col, verso: -ordine.verso } : { col, verso: 1 }); }
+
+  const cerca = filtro.testo.trim().toLowerCase();
+  const colOrdine = COLONNE.find((c) => c.id === ordine.col) || COLONNE[0];
+  const visibili = list
+    .filter((u) => (!cerca || `${u.full_name} ${u.email}`.toLowerCase().includes(cerca))
+      && (!filtro.ruolo || u.role === filtro.ruolo)
+      && (!filtro.tipo || (filtro.tipo === "esterno") === !!u.is_external)
+      && (!filtro.stato || (filtro.stato === "attivo") === !!u.is_active)
+      && (!filtro.gruppo || (u.groups || []).some((g) => g.id === filtro.gruppo)))
+    .sort((a, b) => ordine.verso * colOrdine.valore(a).localeCompare(colOrdine.valore(b), "it", { sensitivity: "base", numeric: true }));
+  const pagineTotali = Math.max(1, Math.ceil(visibili.length / perPagina));
+  const paginaCorrente = Math.min(pagina, pagineTotali - 1);
+  const inPagina = visibili.slice(paginaCorrente * perPagina, (paginaCorrente + 1) * perPagina);
+
   return (
     <div>
-      <div className="page-header"><div><h2>Utenti</h2></div><ExportButton path="/auth/users/export" filename="utenti" /></div>
-      <div className="card">
+      <div className="page-header"><div><h2>Utenti</h2></div></div>
+      <div className="tabs">
+        {SCHEDE.map((x) => <button type="button" aria-pressed={scheda === x.id} key={x.id} className={`tab ${scheda === x.id ? "active" : ""}`} onClick={() => setScheda(x.id)}>{x.label}</button>)}
+      </div>
+      {scheda === "nuovo" && <div className="card">
         <h3>Nuovo utente</h3>
         <form onSubmit={submit}>
           <div className="row">
@@ -118,8 +154,8 @@ export default function Utenti() {
             {!creato.invito_inviato && !creato.password_temporanea && <p className="text-muted" style={{ margin: ".4rem 0 0", fontSize: 13 }}>Comunica a parte la password che hai scelto: dovrà cambiarla al primo accesso.</p>}
           </div>
         )}
-      </div>
-      <div className="card">
+      </div>}
+      {scheda === "csv" && <div className="card">
         <h3>Import massivo da CSV</h3>
         <p className="text-muted" style={{ fontSize: 13 }}>
           Colonne attese (intestazione, maiuscole/minuscole indifferenti): <code>email</code>, <code>full_name</code> (o <code>nome</code>),
@@ -166,23 +202,75 @@ export default function Utenti() {
             </div>
           </div>
         )}
-      </div>
-
-      <div className="table-wrap">
-        <table>
-          <thead><tr><th>Nome</th><th>Email</th><th>Ruolo</th><th>Tipo</th><th>Stato</th><th></th></tr></thead>
-          <tbody>
-            {list.map((u) => (
-              <tr key={u.id}>
-                <td>{u.full_name}</td><td>{u.email}</td><td>{u.role}</td>
-                <td>{u.is_external ? "esterno" : "interno"}</td>
-                <td>{u.is_active ? <span className="badge green">attivo</span> : <span className="badge red">disabilitato</span>}</td>
-                <td><button className="secondary" onClick={() => toggleActive(u)}>{u.is_active ? "Disabilita" : "Riattiva"}</button></td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+      </div>}
+      {scheda === "elenco" && <>
+        <div className="card">
+          <div className="row">
+            <div className="field"><label htmlFor="u-cerca">Cerca</label><input id="u-cerca" placeholder="nome o email" value={filtro.testo} onChange={(e) => cambiaFiltro("testo", e.target.value)} /></div>
+            <div className="field"><label htmlFor="u-ruolo">Ruolo</label>
+              <select id="u-ruolo" value={filtro.ruolo} onChange={(e) => cambiaFiltro("ruolo", e.target.value)}>
+                <option value="">Tutti</option>
+                {Object.entries(RUOLI).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+              </select></div>
+            <div className="field"><label htmlFor="u-gruppo">Gruppo</label>
+              <select id="u-gruppo" value={filtro.gruppo} onChange={(e) => cambiaFiltro("gruppo", e.target.value)}>
+                <option value="">Tutti</option>
+                {groups.map((g) => <option key={g.id} value={g.id}>{g.name}</option>)}
+              </select></div>
+            <div className="field"><label htmlFor="u-tipo">Tipo</label>
+              <select id="u-tipo" value={filtro.tipo} onChange={(e) => cambiaFiltro("tipo", e.target.value)}>
+                <option value="">Tutti</option><option value="interno">Interno</option><option value="esterno">Esterno</option>
+              </select></div>
+            <div className="field"><label htmlFor="u-stato">Stato</label>
+              <select id="u-stato" value={filtro.stato} onChange={(e) => cambiaFiltro("stato", e.target.value)}>
+                <option value="">Tutti</option><option value="attivo">Attivo</option><option value="disabilitato">Disabilitato</option>
+              </select></div>
+          </div>
+          <div className="flex-between">
+            <span aria-live="polite" className="text-muted" style={{ fontSize: 13 }}>{visibili.length} utenti{visibili.length !== list.length ? ` su ${list.length}` : ""}</span>
+            <ExportButton path="/auth/users/export" filename="utenti" />
+          </div>
+        </div>
+        <div className="table-wrap">
+          <table>
+            <thead><tr>
+              {COLONNE.map((c) => (
+                <th key={c.id} aria-sort={ordine.col === c.id ? (ordine.verso === 1 ? "ascending" : "descending") : "none"}>
+                  <button type="button" className="secondary" style={{ border: 0, background: "none", padding: 0, font: "inherit", fontWeight: 600, cursor: "pointer" }} onClick={() => ordinaPer(c.id)}>
+                    {c.label}{ordine.col === c.id ? (ordine.verso === 1 ? " ▲" : " ▼") : ""}
+                  </button>
+                </th>
+              ))}
+              <th></th>
+            </tr></thead>
+            <tbody>
+              {inPagina.map((u) => (
+                <tr key={u.id}>
+                  <td>{u.full_name}</td><td>{u.email}</td><td>{RUOLI[u.role] || u.role}</td>
+                  <td>{(u.groups || []).map((g) => g.name).join(", ") || "-"}</td>
+                  <td>{u.is_external ? "esterno" : "interno"}</td>
+                  <td>{u.is_active ? <span className="badge green">attivo</span> : <span className="badge red">disabilitato</span>}</td>
+                  <td><button className="secondary" onClick={() => toggleActive(u)}>{u.is_active ? "Disabilita" : "Riattiva"}</button></td>
+                </tr>
+              ))}
+              {inPagina.length === 0 && <tr><td colSpan={7} className="text-muted">Nessun utente corrisponde ai filtri.</td></tr>}
+            </tbody>
+          </table>
+        </div>
+        <div className="flex-between" style={{ marginTop: 12 }}>
+          <span>
+            <label htmlFor="u-pp" className="text-muted" style={{ fontSize: 13, marginRight: 6 }}>Per pagina</label>
+            <select id="u-pp" style={{ width: "auto" }} value={perPagina} onChange={(e) => { setPerPagina(Number(e.target.value)); setPagina(0); }}>
+              {PER_PAGINA.map((n) => <option key={n} value={n}>{n}</option>)}
+            </select>
+          </span>
+          <span>
+            <button type="button" className="secondary" disabled={paginaCorrente === 0} onClick={() => setPagina(paginaCorrente - 1)}>Precedente</button>
+            <span aria-live="polite" style={{ margin: "0 10px", fontSize: 13 }}>Pagina {paginaCorrente + 1} di {pagineTotali}</span>
+            <button type="button" className="secondary" disabled={paginaCorrente >= pagineTotali - 1} onClick={() => setPagina(paginaCorrente + 1)}>Successiva</button>
+          </span>
+        </div>
+      </>}
     </div>
   );
 }

@@ -874,6 +874,12 @@ Obiettivo: superare controlli di sicurezza (SAST, analisi delle dipendenze) e pr
 - [x] **1.9.7 Cifratura dei dati personali nel database** — nome/email utenti, dati degli enti esterni, email/IP/dettaglio del registro cifrati nella colonna; impronte (HMAC) per login, unicità e filtri esatti; conversione dei dati esistenti con `cifratura_cli cifra`; ordinamento per nome nel programma.
 - [x] **2.0.0 Pronta per l'uso aziendale** — chiusura della serie: nessuna funzione nuova; versione, changelog e documenti allineati, suite completa e controlli di sicurezza verdi. Restano a carico di chi installa HTTPS, cifratura del disco, backup e custodia della chiave (vedi `docs/sicurezza.md`).
 
+### Z7. Utenti, ruoli e gruppi (dopo la 2.0.0)
+Obiettivo: separare chi è una persona (anagrafica), che cosa fa nella formazione (ruoli come tag) e dove sta (gruppi = uffici). Tre passi, ciascuno una release:
+- [x] **2.1.0 Pagina Utenti a schede** — schede Elenco / Nuovo utente / Importa CSV; elenco con ricerca, filtri, ordinamento sulle intestazioni e paginazione; tolto «Esporta» dai Gruppi.
+- [ ] **2.2.0 Nome e Cognome** — due campi separati, mostrati e ordinabili; import CSV con `nome` e `cognome`; accesso aziendale ed Entra prendono nome e cognome dai dati dell'azienda.
+- [ ] **2.3.0 Ruoli come tag e gruppi come uffici** — Admin tecnico, Ufficio formazione e Docente come tag multipli sull'utente (senza tag = utente normale); il Docente diventa un tag vero (nelle edizioni si scelgono solo i docenti e gli esterni); i 4 gruppi di sistema (inutilizzati) si eliminano; i gruppi restano solo struttura (uffici, reparti), uno per persona assegnato nella scheda utente.
+
 ### Y. Etichette dei corsi — SPEDITO (14/10/2026, v1.7.0)
 
 Ragionata con il committente: una sola categoria per corso non basta (un corso di sicurezza

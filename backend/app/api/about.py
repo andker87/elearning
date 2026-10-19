@@ -18,6 +18,11 @@ PACCHETTI = ["fastapi", "uvicorn", "sqlalchemy", "pydantic", "pyjwt", "httpx", "
              "reportlab", "openpyxl", "pywebpush", "psycopg2-binary"]
 
 CHANGELOG = [
+    {"version": "2.1.0", "date": "2026-10", "label": "Pagina Utenti a schede", "changes": [
+        "La pagina Utenti è divisa in tre schede: Elenco, Nuovo utente, Importa da CSV, così non diventa lunghissima con molti utenti",
+        "L'elenco ha ricerca per nome o email, filtri per ruolo, gruppo, tipo e stato, intestazioni cliccabili per ordinare (senza badare alle maiuscole, con i numeri trattati come numeri), paginazione a 25, 50 o 100 righe e mostra anche i gruppi di ciascuno",
+        "Dalla pagina Gruppi è stato tolto il pulsante Esporta (l'esportazione della configurazione resta nella pagina Configurazione)",
+    ]},
     {"version": "2.0.0", "date": "2026-10", "label": "Pronta per l'uso aziendale", "changes": [
         "Chiude la serie di sicurezza 1.9: video non pubblici con indirizzi a tempo, file e video cifrati su disco, dati personali cifrati nel database, registro attività con conservazione limitata ed esportazione, librerie senza vulnerabilità note, immagini Docker senza problemi alti o critici",
         "Controlli automatici su GitHub Actions a ogni pull request e a ogni push su master (test, analisi del codice con Bandit, librerie Python e del sito, immagini Docker con Trivy); gli stessi controlli di sicurezza si lanciano a mano con scripts/controlli-sicurezza.sh, la suite di test con docker compose --profile test run --rm tests; revisione automatica del codice con CodeRabbit sulle pull request",

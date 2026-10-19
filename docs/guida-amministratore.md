@@ -14,6 +14,7 @@ Per chi configura e fa funzionare la piattaforma (ruolo **Admin tecnico**) e per
 9. **Impostazioni → Stato piattaforma**: verifica posta, accesso aziendale, spazio e job notturni.
 
 ## 2. Utenti
+- La pagina ha tre schede: **Elenco** (cerca per nome o email, filtra per ruolo, gruppo, tipo e stato, clicca sulle intestazioni per ordinare, scegli quante righe per pagina), **Nuovo utente** e **Importa da CSV**.
 - **Nuovo utente**: la password iniziale è facoltativa. Con posta e URL pubblico attivi la persona riceve un link (valido 3 giorni) per scegliere la propria password; altrimenti vedi una password temporanea, **una volta sola**, da comunicare a parte. Al primo accesso con una password assegnata si deve sceglierne una propria.
 - **Import CSV** (colonne: `email`, `full_name`, facoltative `password`, `role`, `is_external`, `organizzazione`, `gruppi`, `data_ingresso`). Per **disattivare** i cessati scegli «Disattiva cessati» (basta la colonna `email`; gli Admin tecnici non si disattivano da qui).
 - **Disattivare un utente** chiude l'account e le sessioni, annulla le iscrizioni aperte (chi era in lista d'attesa sale) e toglie dispositivi e calendario. Lo storico formativo resta. Docenze aperte e responsabilità di ufficio vengono segnalate da riassegnare.
