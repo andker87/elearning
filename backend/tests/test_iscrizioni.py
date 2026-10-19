@@ -52,3 +52,16 @@ def test_annullare_l_iscrizione_di_un_altro_e_vietato(client, db, auth, utente, 
     altro = crea_utente("altro@test.it")
     i = crea_iscrizione(ed, altro)
     assert client.post(f"/api/edizioni/{ed.id}/iscrizioni/{i.id}/annulla", headers=auth(utente)).status_code == 403
+
+
+def test_un_iscrizione_annullata_sparisce_da_i_miei_corsi(client, db, auth, admin, crea_corso, crea_edizione):
+    """Se mi iscrivo per errore e poi mi tolgo, non devo piu' comparire tra i miei corsi (ne' nello storico)."""
+    ed = crea_edizione(crea_corso("Corso per errore"), stato=SE.pianificata)
+    assert iscrivi(client, auth, admin, ed, admin).status_code == 200
+    mie = lambda: client.get("/api/edizioni/mie/iscrizioni", headers=auth(admin)).json()
+    assert [i["corso_titolo"] for i in mie()] == ["Corso per errore"]
+    i = db.query(Iscrizione).filter(Iscrizione.user_id == admin.id).one()
+    assert client.post(f"/api/edizioni/{ed.id}/iscrizioni/{i.id}/annulla", headers=auth(admin)).status_code == 200
+    assert mie() == []                                                    # annullata: non e' piu' mia
+    assert iscrivi(client, auth, admin, ed, admin).status_code == 200     # e se mi iscrivo di nuovo, ricompare (una sola volta)
+    assert [x["stato"] for x in mie()] == ["iscritto"]
