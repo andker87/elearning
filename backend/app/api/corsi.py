@@ -1,7 +1,8 @@
+import uuid
 from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
-from pydantic import BaseModel, model_validator
+from pydantic import BaseModel, field_validator, model_validator
 from typing import Optional, List
 from ..database import get_db
 from ..models.corso import Corso, AzioneTestNonSuperato, MODI_ISCRIZIONE_RESPONSABILI
@@ -34,6 +35,12 @@ class CorsoIn(BaseModel):
     rinnovo_giorni_anticipo: int = 30
     is_active: bool = True
     etichette: Optional[List[str]] = None  # None = non toccare le etichette (es. cambio del solo template)
+    questionario_gradimento_id: Optional[str] = None   # vuoto = il questionario predefinito; non indicato in una modifica = non toccarlo
+
+    @field_validator("questionario_gradimento_id", mode="before")
+    @classmethod
+    def _questionario_vuoto(cls, v):
+        return v or None
 
     @model_validator(mode="after")
     def _rinnovo_coerente(self):
@@ -51,6 +58,17 @@ class NuovaVersioneIn(BaseModel):
     richiedi_ripetizione: bool = False
     nota: Optional[str] = None
 
+def _controlla_questionario(db: Session, questionario_id):
+    if questionario_id:
+        from ..models.questionario import QuestionarioGradimento
+        try:
+            uuid.UUID(str(questionario_id))
+        except ValueError:
+            raise HTTPException(400, "Questionario di gradimento non trovato")
+        esiste = db.query(QuestionarioGradimento).filter(QuestionarioGradimento.id == questionario_id).first()
+        if not esiste:
+            raise HTTPException(400, "Questionario di gradimento non trovato")
+
 def _serialize(c: Corso, db: Session = None, famiglie=None):
     extra = etichette_svc.descrivi(db, c, famiglie) if db is not None else {}
     return {**extra, "id": str(c.id), "titolo": c.titolo, "descrizione": c.descrizione,
@@ -63,6 +81,7 @@ def _serialize(c: Corso, db: Session = None, famiglie=None):
             "permetti_autoiscrizione": c.permetti_autoiscrizione,
             "richiedi_approvazione_responsabile": c.richiedi_approvazione_responsabile,
             "certificato_template_id": str(c.certificato_template_id) if c.certificato_template_id else None,
+            "questionario_gradimento_id": str(c.questionario_gradimento_id) if c.questionario_gradimento_id else None,
             "rinnovo_automatico": c.rinnovo_automatico, "rinnovo_giorni_anticipo": c.rinnovo_giorni_anticipo,
             "versione": c.versione, "versione_minima_valida": c.versione_minima_valida,
             "is_active": c.is_active, "created_at": c.created_at}
@@ -81,6 +100,7 @@ def get_corso(corso_id: str, db: Session = Depends(get_db), user=Depends(get_cur
 
 @router.post("")
 def create_corso(data: CorsoIn, request: Request, db: Session = Depends(get_db), user=Depends(require_training_admin)):
+    _controlla_questionario(db, data.questionario_gradimento_id)
     c = Corso(**data.model_dump(exclude={"etichette"}))
     db.add(c); db.flush()
     try:
@@ -96,7 +116,9 @@ def create_corso(data: CorsoIn, request: Request, db: Session = Depends(get_db),
 def update_corso(corso_id: str, data: CorsoIn, request: Request, db: Session = Depends(get_db), user=Depends(require_training_admin)):
     c = db.query(Corso).filter(Corso.id == corso_id).first()
     if not c: raise HTTPException(404)
-    for k, v in data.model_dump(exclude={"etichette"}).items(): setattr(c, k, v)
+    _controlla_questionario(db, data.questionario_gradimento_id)
+    escludi = {"etichette"} | (set() if "questionario_gradimento_id" in data.model_fields_set else {"questionario_gradimento_id"})
+    for k, v in data.model_dump(exclude=escludi).items(): setattr(c, k, v)
     if data.etichette is not None:
         try:
             etichette_svc.imposta_etichette(db, c, data.etichette)

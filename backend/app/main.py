@@ -12,10 +12,10 @@ from .models import (
     user, group, azienda, organizzazione, corso, percorso, edizione,
     iscrizione, evidenza, video, test, certificato, certificato_template,
     notification, audit, richiesta_corso, fabbisogno, autoiscrizione,
-    push_subscription, comunicazione_edizione, job_run, password_reset, etichetta, mansione, richiesta_iscrizione,
+    push_subscription, comunicazione_edizione, job_run, password_reset, etichetta, mansione, richiesta_iscrizione, questionario,
 )
 from .api import (
-    setup, auth, catalogo as catalogo_api, groups, mansioni, team, richieste_iscrizione, organizzazioni, azienda as azienda_api,
+    setup, auth, catalogo as catalogo_api, questionari as questionari_api, groups, mansioni, team, richieste_iscrizione, organizzazioni, azienda as azienda_api,
     corsi, percorsi, edizioni, evidenze, certificati, certificato_templates,
     notifications, test as test_api, gradimenti, video as video_api,
     richieste_corso, fabbisogno as fabbisogno_api, autoiscrizione as autoiscrizione_api,
@@ -181,6 +181,7 @@ app.include_router(richieste_corso.router)
 app.include_router(fabbisogno_api.router)
 app.include_router(autoiscrizione_api.router)
 app.include_router(catalogo_api.router)
+app.include_router(questionari_api.router)
 app.include_router(registro.router)
 app.include_router(dashboard_formazione.router)
 app.include_router(dashboard_kpi.router)

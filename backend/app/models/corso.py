@@ -3,6 +3,7 @@ from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.sql import func
 import uuid, enum
 from ..database import Base
+from .questionario import QuestionarioGradimento  # noqa: F401  (la tabella deve esistere per il vincolo del corso)
 
 class AzioneTestNonSuperato(str, enum.Enum):
     concludi_comunque       = "concludi_comunque"        # completa il corso anche se il test finale non è superato
@@ -27,6 +28,9 @@ class Corso(Base):
     # Chi puo' iscrivere: solo la Formazione (corso «chiuso», predefinito), i responsabili direttamente, oppure i responsabili
     # su richiesta approvata dalla Formazione. L'auto-iscrizione del dipendente e' un'impostazione a parte.
     iscrizione_responsabili = Column(String, nullable=False, default="solo_formazione", server_default="solo_formazione")
+
+    # Questionario di gradimento di questo corso; vuoto = quello predefinito (vedi models/questionario.py)
+    questionario_gradimento_id = Column(UUID(as_uuid=True), ForeignKey("questionari_gradimento.id", ondelete="SET NULL"), nullable=True)
 
     # Non tutti i corsi hanno un test finale: la policy sotto ha senso solo se attivo.
     ha_test_finale = Column(Boolean, nullable=False, default=False)
