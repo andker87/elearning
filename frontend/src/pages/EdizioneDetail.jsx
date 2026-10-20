@@ -68,7 +68,7 @@ export default function EdizioneDetail() {
     await tenta(async () => {
       await api.put(`/edizioni/${id}`, { corso_id: e.corso_id, modalita: e.modalita, data_inizio: e.data_inizio, data_fine: e.data_fine, luogo: e.luogo,
         posti_max: e.posti_max, lista_attesa_abilitata: e.lista_attesa_abilitata, checkin_mode: e.checkin_mode, teams_mode: e.teams_mode,
-        video_id: e.video_id, ente_erogatore: e.ente_erogatore, note: e.note, durata_minuti: minuti || null });
+        video_id: e.video_id, ente_erogatore: e.ente_erogatore, note: e.note, sempre_aperta: !!e.sempre_aperta, durata_minuti: minuti || null });
       setModificaDurata(null); load();
     }, "Impossibile cambiare la durata");
   }
@@ -162,8 +162,8 @@ export default function EdizioneDetail() {
       <div className="card">
         <p><strong>Stato:</strong> <span className="badge gray">{edizione.stato}</span></p>
         <p>
-          <strong>Data:</strong> {edizione.data_inizio ? new Date(edizione.data_inizio).toLocaleString("it-IT") : "-"}
-          {edizione.data_inizio && (
+          <strong>Data:</strong> {edizione.sempre_aperta ? "Sempre disponibile" : edizione.data_inizio ? new Date(edizione.data_inizio).toLocaleString("it-IT") : "-"}
+          {edizione.data_inizio && !edizione.sempre_aperta && (
             <button type="button" className="secondary btn-sm" style={{ marginLeft: 10 }}
               onClick={() => downloadFile(`/edizioni/${id}/calendario.ics`, "sessione.ics")}>
               📅 Aggiungi al calendario
@@ -196,6 +196,15 @@ export default function EdizioneDetail() {
           <p><strong>Check-in:</strong> {edizione.checkin_mode === "docente" ? "registro docente" : "self check-in + validazione docente"}</p>
         )}
       </div>
+
+      {isAdmin && edizione.stato === "bozza" && (
+        <div className="card" style={{ borderColor: "var(--yellow)", background: "var(--yellow-bg)" }}>
+          <h3>La sessione è in bozza</h3>
+          <p>Finché è in bozza nessuno la vede e non ci si può iscrivere (nemmeno dal Catalogo o dalle richieste di «Il mio team»). Quando è pronta, pianificala per renderla disponibile.</p>
+          <button type="button" onClick={() => tenta(async () => { await api.post(`/edizioni/${id}/pianifica`); setMsg("Sessione pianificata: ora è disponibile."); load(); }, "Impossibile pianificare la sessione")}>Pianifica e rendi disponibile</button>
+        </div>
+      )}
+      {edizione.sempre_aperta && <p className="text-muted">Sessione sempre disponibile: chi completa il video (e supera il test finale, se c'è) riceve l'attestato in automatico.</p>}
 
       {!isAdmin && !miaIscrizione && edizione.corso_permetti_autoiscrizione && edizione.stato !== "chiusa" && (
         <div className="card">
@@ -260,7 +269,7 @@ export default function EdizioneDetail() {
       ) : video.stato === "pronto" && (
         <div className="card">
           <h3>Video</h3>
-          {miaIscrizione ? <VideoPlayer video={video} iscrizioneId={miaIscrizione.id} /> : <p className="text-muted">Non sei iscritto a questa sessione.</p>}
+          {miaIscrizione ? <VideoPlayer video={video} iscrizioneId={miaIscrizione.id} onCompletato={() => { setMsg("Hai completato il corso: il tuo attestato è pronto, lo trovi nello storico dei corsi."); load(); }} /> : <p className="text-muted">Non sei iscritto a questa sessione.</p>}
         </div>
       ))}
 

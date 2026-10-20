@@ -5,6 +5,7 @@ export const STATI_ISCRIZIONE = { iscritto: ["green", "iscritta/o"], in_lista_at
 
 // «21/10/2026, 03:10 – 12:10» (stesso giorno) oppure «21/10/2026 03:10 → 22/10/2026 12:10»
 export function quando(e) {
+  if (e.sempre_aperta) return "Sempre disponibile";
   if (!e.data_inizio) return "—";
   const i = new Date(e.data_inizio), f = e.data_fine ? new Date(e.data_fine) : null;
   const giorno = (d) => d.toLocaleDateString("it-IT"), ora = (d) => d.toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" });

@@ -19,6 +19,7 @@ export default function MieCorsi() {
 
   const now = new Date();
   const prossime = iscrizioni.filter((i) => (i.stato === "iscritto" || i.stato === "in_lista_attesa") && i.edizione_stato !== "chiusa" && i.edizione_data_inizio && new Date(i.edizione_data_inizio) >= now);
+  const inCorsoLibero = iscrizioni.filter((i) => i.edizione_sempre_aperta && i.stato === "iscritto" && i.edizione_stato !== "chiusa");     // corsi sempre disponibili iniziati e non finiti
   const percorsiInCorso = percorsi.filter((p) => !p.completato);
 
   const inScadenza = iscrizioni
@@ -58,6 +59,18 @@ export default function MieCorsi() {
         ))}
       </div>
 
+      {inCorsoLibero.length > 0 && (
+        <div className="card">
+          <h3>Corsi che stai seguendo</h3>
+          {inCorsoLibero.map((i) => (
+            <div key={i.id} className="flex-between" style={{ padding: "10px 0", borderBottom: "1px solid var(--border)" }}>
+              <div><strong>{i.corso_titolo}</strong><div className="text-muted" style={{ fontSize: 13 }}>Sempre disponibile · l'attestato arriva quando lo completi</div></div>
+              <Link to={`/sessioni/${i.edizione_id}?segui=1`}>Continua</Link>
+            </div>
+          ))}
+        </div>
+      )}
+
       <div className="card">
         <h3>Percorsi formativi in corso</h3>
         {percorsiInCorso.length === 0 && <p className="empty-state">Nessun percorso in corso.</p>}
@@ -75,7 +88,7 @@ export default function MieCorsi() {
         ))}
       </div>
 
-      <p><Link to="/storico-corsi">Vedi lo storico completo dei corsi seguiti →</Link></p>
+      <p><Link to="/catalogo">Cerca altri corsi nel catalogo →</Link> · <Link to="/storico-corsi">Vedi lo storico completo dei corsi seguiti →</Link></p>
     </div>
   );
 }

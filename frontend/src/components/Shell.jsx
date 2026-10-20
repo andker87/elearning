@@ -39,6 +39,7 @@ function buildSections(user, haSottoposti, uffici) {
   const sections = [
     { label: "Utente", links: [
       { to: "/miei-corsi", label: "I miei corsi", icon: "🎓" },
+      { to: "/catalogo", label: "Catalogo", icon: "📚" },
       { to: "/storico-corsi", label: "Storico corsi", icon: "📜" },
     ]},
   ];

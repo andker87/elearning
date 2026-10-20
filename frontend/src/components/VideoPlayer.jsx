@@ -22,7 +22,7 @@ export function qualitaAutomatica(versioni, schermoAltezza, bandaMbps) {
 }
 
 // Senza `iscrizioneId` e' un'anteprima (per chi gestisce la sessione): non registra l'avanzamento e non blocca i salti.
-export default function VideoPlayer({ video, iscrizioneId }) {
+export default function VideoPlayer({ video, iscrizioneId, onCompletato }) {
   const videoRef = useRef(null);
   const [current, setCurrent] = useState(0);
   const [maxRaggiunto, setMaxRaggiunto] = useState(0);
@@ -97,6 +97,7 @@ export default function VideoPlayer({ video, iscrizioneId }) {
       lastHeartbeat.current = t;
       api.post(`/iscrizioni/${iscrizioneId}/progresso`, { secondo_corrente: t }).then((r) => {
         setMaxRaggiunto(r.data.secondo_massimo_raggiunto);
+        if (r.data.completato && onCompletato) onCompletato(r.data);        // sessione sempre disponibile: completata, l'attestato e' pronto
       });
     }
   }

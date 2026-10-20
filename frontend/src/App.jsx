@@ -9,6 +9,7 @@ import ReimpostaPassword from "./pages/ReimpostaPassword";
 import RichiesteResetPassword from "./pages/RichiesteResetPassword";
 import Shell from "./components/Shell";
 import Corsi from "./pages/Corsi";
+import Catalogo from "./pages/Catalogo";
 import TestCorso from "./pages/TestCorso";
 import Percorsi from "./pages/Percorsi";
 import Edizioni from "./pages/Edizioni";
@@ -78,6 +79,7 @@ export default function App() {
         <Route path="/password-dimenticata" element={<PasswordDimenticata />} />
         <Route path="/reimposta-password" element={<ReimpostaPassword />} />
         <Route path="/miei-corsi" element={<RequireAuth><Shell><MieCorsi /></Shell></RequireAuth>} />
+        <Route path="/catalogo" element={<RequireAuth><Shell><Catalogo /></Shell></RequireAuth>} />
         <Route path="/storico-corsi" element={<RequireAuth><Shell><StoricoCorsi /></Shell></RequireAuth>} />
         <Route path="/impostazioni" element={<RequireAuth><Shell><ImpostazioniUtente /></Shell></RequireAuth>} />
         <Route path="/mie-sessioni" element={<RequireAuth><Shell><MieEdizioni /></Shell></RequireAuth>} />
