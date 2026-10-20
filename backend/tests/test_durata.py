@@ -91,7 +91,7 @@ def test_chiudendo_una_sessione_la_durata_va_nell_attestato_e_resta(client, auth
 def test_i_report_usano_la_durata(db, crea_corso, crea_edizione):
     from app.api.dashboard_kpi import _ore_edizione
     c = crea_corso("Corso"); c.durata_minuti = 90; db.commit()
-    e = crea_edizione(c)
+    e = crea_edizione(c, stato=StatoEdizione.pianificata)
     assert _ore_edizione(e, c) == 1.5
     e.durata_minuti = 60
     assert _ore_edizione(e, c) == 1.0
@@ -104,3 +104,26 @@ def test_i_campi_per_i_filtri_dei_discenti(client, auth, admin, crea_utente, cre
     client.put(f"/api/auth/users/{u.id}", headers=auth(admin), json={"mansione_ids": [mid]})
     riga = [x for x in client.get("/api/auth/users/simple", headers=auth(admin)).json() if x["email"] == "p@t.it"][0]
     assert riga["ufficio_id"] == str(uff.id) and riga["mansione_ids"] == [mid]
+
+
+def test_una_sessione_chiusa_non_riprende_la_durata_dal_corso(db, crea_corso, crea_edizione):
+    c = crea_corso("Corso senza durata")
+    e = crea_edizione(c, stato=StatoEdizione.pianificata)
+    congela(e, c); e.stato = StatoEdizione.chiusa; db.commit()
+    c.durata_minuti = 300; db.commit()
+    assert durata_effettiva(e, c) is None                                       # lo storico non cambia
+    aperta = crea_edizione(c, stato=StatoEdizione.pianificata)
+    assert durata_effettiva(aperta, c) == 300                                   # le sessioni non chiuse seguono il corso
+
+
+def test_duplicando_una_sessione_chiusa_la_copia_riparte_dalla_durata_del_corso(client, auth, formazione, crea_corso, crea_edizione, db):
+    c = crea_corso("Corso"); c.durata_minuti = 120; db.commit()
+    chiusa = crea_edizione(c, stato=StatoEdizione.pianificata)
+    congela(chiusa, c); chiusa.stato = StatoEdizione.chiusa
+    forzata = crea_edizione(c, stato=StatoEdizione.pianificata); forzata.durata_minuti = 45
+    db.commit()
+    c.durata_minuti = 200; db.commit()
+    copia = client.post(f"/api/edizioni/{chiusa.id}/duplica", headers=auth(formazione)).json()
+    assert copia["durata_minuti"] is None and copia["durata_effettiva_minuti"] == 200     # segue il corso, non il 120 congelato
+    copia2 = client.post(f"/api/edizioni/{forzata.id}/duplica", headers=auth(formazione)).json()
+    assert copia2["durata_minuti"] == 45                                                  # la durata forzata di una sessione non chiusa si mantiene

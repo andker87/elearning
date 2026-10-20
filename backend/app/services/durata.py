@@ -5,10 +5,14 @@ Il corso dichiara la durata; la sessione la eredita, ma chi la organizza puo' «
 valore effettivo): un attestato gia' emesso e i report passati non cambiano se poi si modifica il corso."""
 from typing import Optional
 
+from ..models.edizione import StatoEdizione
+
 
 def durata_effettiva(edizione, corso) -> Optional[int]:
     if edizione is not None and edizione.durata_minuti:
         return edizione.durata_minuti
+    if edizione is not None and getattr(edizione, "stato", None) == StatoEdizione.chiusa:
+        return None   # chiusa senza durata: resta senza, anche se il corso ne riceve una dopo (lo storico non cambia)
     return corso.durata_minuti if corso is not None and corso.durata_minuti else None
 
 

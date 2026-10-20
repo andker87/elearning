@@ -289,3 +289,10 @@ Provati con test (creazione utente e CSV, corsa simulata). SSO ed Entra: modific
 | Stato | File | Rilievo |
 |---|---|---|
 | FATTO 2.4.1 | api/video.py, pages/Video.jsx | l'eliminazione si bloccava solo con il video «in elaborazione»: eliminando appena caricato (il lavoro sta per partire) o a video pronto mentre si preparano le qualità più alte si lasciavano file orfani o si faceva fallire il lavoro. Ora è bloccata anche con «caricato» e con le altre qualità in preparazione (server e pulsante, con la spiegazione); se un riavvio interrompe il lavoro, all'avvio il video viene già sistemato e torna eliminabile |
+
+## PR #28 (2.5.0, durata e sessioni)
+
+| Stato | File | Rilievo |
+|---|---|---|
+| FATTO 2.5.0 | api/edizioni.py | duplicando una sessione chiusa la copia si portava dietro la durata congelata alla chiusura (che poteva essere solo quella ereditata dal corso, ormai superata). Ora la copia di una sessione chiusa riparte dal corso; si mantiene la durata forzata di una sessione non chiusa. Limite noto: la durata forzata di una sessione chiusa non si distingue da quella congelata e non viene copiata |
+| FATTO 2.5.0 | services/durata.py | una sessione chiusa senza alcuna durata riprendeva dal corso quella inserita in seguito, cambiando lo storico. Ora una sessione chiusa senza durata propria resta senza |
