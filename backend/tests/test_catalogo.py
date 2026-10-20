@@ -107,16 +107,21 @@ def test_con_il_test_finale_servono_video_e_test(client, auth, utente, db, sempr
     db.expire_all(); assert db.get(Iscrizione, i.id).stato == S.completato and db.query(Certificato).count() == 1
 
 
-def test_le_altre_sessioni_non_si_completano_da_sole(client, auth, utente, db, crea_corso, crea_edizione, crea_iscrizione, video_corto):
-    c = crea_corso("Normale"); c.permetti_autoiscrizione = True; db.commit()
-    e = crea_edizione(c, stato=SE.in_corso, modalita=M.video, video_id=video_corto.id)
-    i = crea_iscrizione(e, utente)
-    secondo = 0
-    while secondo < 100:
+def test_un_video_con_data_si_completa_da_solo_ma_le_altre_modalita_no(client, auth, utente, db, crea_corso, crea_edizione, crea_iscrizione, video_corto):
+    c = crea_corso("Normale"); db.commit()
+    video = crea_edizione(c, stato=SE.in_corso, modalita=M.video, video_id=video_corto.id, data_inizio=adesso() - timedelta(hours=1))     # gia' iniziato
+    i = crea_iscrizione(video, utente)
+    secondo, fatto = 0, False
+    while secondo < 90:
         secondo += 10
-        r = guarda(client, auth, utente, i.id, secondo).json()
-    assert r["completato"] is False
-    db.expire_all(); assert db.get(Iscrizione, i.id).stato == S.iscritto                       # per queste decide la chiusura
+        fatto = fatto or guarda(client, auth, utente, i.id, secondo).json()["completato"]
+    assert fatto
+    db.expire_all(); assert db.get(Iscrizione, i.id).stato == S.completato and db.query(Certificato).count() == 1
+    # una sessione in presenza non si completa mai da sola, nemmeno se ha un'evidenza di visione: la chiude la Formazione
+    from app.services.completamento import completa_se_dovuto
+    presenza = crea_edizione(c, stato=SE.in_corso)
+    ip = crea_iscrizione(presenza, utente)
+    assert completa_se_dovuto(db, None, ip) is None
 
 
 def test_alla_chiusura_un_video_visto_per_poco_non_vale_come_completato(client, auth, formazione, utente, db, crea_corso, crea_edizione, crea_iscrizione, video_corto):
@@ -276,3 +281,109 @@ def test_una_sessione_chiusa_blocca_anche_l_eliminazione_del_corso(client, auth,
     r = client.post(f"/api/corsi/{c.id}/elimina", headers=auth(admin), json={"conferma": "Con sessione chiusa"})
     assert r.status_code == 409 and "sessione chiusa" in r.json()["detail"]
     db.expire_all(); assert db.query(Corso).count() == 1 and db.query(Edizione).count() == 1
+
+
+# --- 2.9.0: video con data (dall'ora), chiusura senza doppi attestati, approvazioni ---------------------
+
+def test_un_video_con_data_non_si_apre_prima_dell_ora_ne_dopo_la_fine(client, auth, utente, formazione, db, crea_corso, crea_edizione, crea_iscrizione, tmp_path):
+    from app.services import cifratura
+    f = tmp_path / "v.mp4"; cifratura.scrivi_file(str(f), b"0" * 100)
+    video_corto_file = VideoContenuto(titolo="Con file", stato=StatoVideo.pronto, durata_secondi=100, file_path=str(f))
+    db.add(video_corto_file); db.commit()
+    c = crea_corso("Programmato")
+    e = crea_edizione(c, stato=SE.pianificata, modalita=M.video, video_id=video_corto_file.id, data_inizio=adesso() + timedelta(hours=2))
+    i = crea_iscrizione(e, utente)
+    r = client.get(f"/api/video/{video_corto_file.id}/accesso", headers=auth(utente))
+    assert r.status_code == 403 and "inizio" in r.json()["detail"]
+    assert guarda(client, auth, utente, i.id, 5).status_code == 403                          # nemmeno l'avanzamento
+    d = client.get(f"/api/edizioni/{e.id}", headers=auth(utente)).json()["disponibilita"]
+    assert d["ok"] is False and d["motivo"] == "non_ancora" and d["dal"]
+    assert client.get(f"/api/video/{video_corto_file.id}/accesso", headers=auth(formazione)).status_code == 200             # chi gestisce vede sempre
+    # dall'ora di inizio si apre
+    e.data_inizio = adesso() - timedelta(minutes=1); db.commit()
+    assert client.get(f"/api/video/{video_corto_file.id}/accesso", headers=auth(utente)).status_code == 200
+    assert guarda(client, auth, utente, i.id, 5).status_code == 200
+    # con la data di fine passata non si apre piu'
+    e.data_fine = adesso() - timedelta(seconds=30); db.commit()
+    r = client.get(f"/api/video/{video_corto_file.id}/accesso", headers=auth(utente))
+    assert r.status_code == 403 and "terminata" in r.json()["detail"]
+    assert client.get(f"/api/edizioni/{e.id}", headers=auth(utente)).json()["da_chiudere"] is True      # la Formazione la deve chiudere
+    # senza data di fine resta aperto finche' la Formazione non chiude
+    e.data_fine = None; db.commit()
+    assert client.get(f"/api/video/{video_corto_file.id}/accesso", headers=auth(utente)).status_code == 200
+    assert client.get(f"/api/edizioni/{e.id}", headers=auth(utente)).json()["da_chiudere"] is False
+
+
+def test_un_video_con_la_sola_data_di_inizio_resta_nel_catalogo_dopo_l_inizio(client, auth, utente, db, crea_corso, crea_edizione, video_corto):
+    c = crea_corso("Dal giorno X"); c.permetti_autoiscrizione = True; db.commit()
+    crea_edizione(c, stato=SE.pianificata, modalita=M.video, video_id=video_corto.id, data_inizio=adesso() - timedelta(days=3))
+    assert [x["corso_titolo"] for x in client.get("/api/catalogo", headers=auth(utente)).json()] == ["Dal giorno X"]
+    # una sessione in presenza con la stessa data invece e' finita
+    p = crea_corso("In presenza"); p.permetti_autoiscrizione = True; db.commit()
+    crea_edizione(p, stato=SE.pianificata, data_inizio=adesso() - timedelta(days=3))
+    assert [x["corso_titolo"] for x in client.get("/api/catalogo", headers=auth(utente)).json()] == ["Dal giorno X"]
+
+
+def test_la_chiusura_non_rifa_l_attestato_ne_tocca_le_annullate(client, auth, formazione, utente, crea_utente, db, crea_corso, crea_edizione, crea_iscrizione, video_corto):
+    c = crea_corso("Video"); c.permetti_autoiscrizione = True; db.commit()
+    e = crea_edizione(c, stato=SE.pianificata, modalita=M.video, video_id=video_corto.id, data_inizio=None, sempre_aperta=True)
+    client.post(f"/api/autoiscrizioni/edizioni/{e.id}", headers=auth(utente))
+    i = db.query(Iscrizione).filter(Iscrizione.user_id == utente.id).one()
+    secondo = 0
+    while secondo < 90:
+        secondo += 10; guarda(client, auth, utente, i.id, secondo)
+    annullata = crea_iscrizione(e, crea_utente("annullato@t.it"), stato=S.annullato)
+    attesa = crea_iscrizione(e, crea_utente("attesa@t.it"), stato=S.in_lista_attesa)
+    assert db.query(Certificato).count() == 1
+    r = client.post(f"/api/edizioni/{e.id}/chiudi", headers=auth(formazione))
+    assert r.status_code == 200, r.text
+    db.expire_all()
+    assert db.query(Certificato).count() == 1                                                  # nessun secondo attestato
+    assert db.get(Iscrizione, annullata.id).stato == S.annullato and db.get(Iscrizione, attesa.id).stato == S.in_lista_attesa
+
+
+def test_iscrizione_da_soli_con_approvazione(client, auth, utente, formazione, admin, crea_utente, crea_ufficio, db, crea_corso, crea_edizione):
+    from app.models.notification import Notification
+    from app.models.richiesta_iscrizione import RichiestaIscrizione
+    capo = crea_utente("capo@t.it", nome="Capo", cognome="Ufficio")
+    crea_ufficio("Produzione", membri=[capo, utente], responsabile=capo)
+    senza_capo = crea_utente("solo@t.it", nome="Solo", cognome="Soletto")
+    libero = crea_corso("Libero"); libero.permetti_autoiscrizione = True
+    dal_resp = crea_corso("Dal responsabile"); dal_resp.permetti_autoiscrizione = True; dal_resp.richiedi_approvazione_responsabile = True
+    dalla_form = crea_corso("Dalla Formazione"); dalla_form.permetti_autoiscrizione = True; dalla_form.richiedi_approvazione_formazione = True
+    sessioni = {c.titolo: crea_edizione(c, stato=SE.pianificata, data_inizio=adesso() + timedelta(days=5)) for c in (libero, dal_resp, dalla_form)}
+    db.commit()
+    iscrivi = lambda who, titolo: client.post(f"/api/autoiscrizioni/edizioni/{sessioni[titolo].id}", headers=auth(who))
+    assert iscrivi(utente, "Libero").json()["stato"] == "iscritto"
+    r = iscrivi(utente, "Dal responsabile").json()
+    assert (r["stato"], r["approva"]) == ("in_attesa_approvazione", "responsabile")
+    assert iscrivi(utente, "Dal responsabile").status_code == 400                                       # gia' in attesa
+    # chi non ha un responsabile: decide la Formazione (la porta non resta aperta)
+    r = iscrivi(senza_capo, "Dal responsabile").json()
+    assert (r["stato"], r["approva"]) == ("in_attesa_approvazione", "formazione")
+    assert db.query(Iscrizione).filter(Iscrizione.user_id == senza_capo.id).count() == 0
+    # approvazione della Formazione
+    r = iscrivi(utente, "Dalla Formazione").json()
+    assert (r["stato"], r["approva"]) == ("in_attesa_approvazione", "formazione")
+    assert iscrivi(utente, "Dalla Formazione").status_code == 400
+    assert db.query(RichiestaIscrizione).filter(RichiestaIscrizione.stato == "in_attesa").count() == 2
+    assert db.query(Notification).filter(Notification.user_id == formazione.id, Notification.tipo == "richiesta_iscrizione").count() == 2
+    elenco = client.get("/api/richieste-iscrizione", headers=auth(formazione)).json()["in_attesa"]
+    assert all(x["autorichiesta"] for x in elenco) and {x["corso_titolo"] for x in elenco} == {"Dal responsabile", "Dalla Formazione"}
+    cat = {x["corso_titolo"]: x for x in client.get("/api/catalogo", headers=auth(utente)).json()}
+    assert (cat["Dalla Formazione"]["mio_stato"], cat["Dalla Formazione"]["approva"]) == ("richiesta_in_attesa", "formazione")
+    assert cat["Libero"]["approva"] is None and cat["Dal responsabile"]["approva"] == "responsabile"
+    # la Formazione approva: iscritto e avvisato con il "tu"
+    rid = next(x["id"] for x in elenco if x["corso_titolo"] == "Dalla Formazione")
+    assert client.put(f"/api/richieste-iscrizione/{rid}/approva", headers=auth(formazione)).status_code == 200
+    n = db.query(Notification).filter(Notification.user_id == utente.id, Notification.tipo == "richiesta_iscrizione_esito").one()
+    assert "la tua iscrizione" in n.testo and n.link == "/miei-corsi"
+    db.expire_all()
+    assert db.query(Iscrizione).filter(Iscrizione.user_id == utente.id, Iscrizione.edizione_id == sessioni["Dalla Formazione"].id).one().stato == S.iscritto
+
+
+def test_le_due_approvazioni_non_si_sommano(client, auth, formazione):
+    r = client.post("/api/corsi", headers=auth(formazione), json={"titolo": "X", "permetti_autoiscrizione": True, "richiedi_approvazione_responsabile": True, "richiedi_approvazione_formazione": True})
+    assert r.status_code == 422
+    ok = client.post("/api/corsi", headers=auth(formazione), json={"titolo": "Y", "permetti_autoiscrizione": True, "richiedi_approvazione_formazione": True})
+    assert ok.status_code == 200 and ok.json()["richiedi_approvazione_formazione"] is True

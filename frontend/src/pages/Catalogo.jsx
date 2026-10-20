@@ -25,7 +25,10 @@ export default function Catalogo() {
     setErrore(null); setEsito(null); setInCorso(s.id);
     try {
       const r = await api.post(`/autoiscrizioni/edizioni/${s.id}`);
-      if (r.data.stato === "in_attesa_approvazione") { setEsito(`Richiesta inviata per «${s.corso_titolo}»: in attesa di approvazione del tuo responsabile.`); carica(); }
+      if (r.data.stato === "in_attesa_approvazione") {
+        setEsito(`Richiesta inviata per «${s.corso_titolo}»: ${r.data.approva === "formazione" ? "deciderà la Formazione, ti avviseremo" : "in attesa di approvazione del tuo responsabile"}.`);
+        carica();
+      }
       else if (s.sempre_aperta) navigate(`/sessioni/${s.id}?segui=1`);        // un corso sempre disponibile si guarda subito
       else { setEsito(`Sei iscritto a «${s.corso_titolo}».`); carica(); }
     } catch (e) { setErrore(erroreDi(e, "Iscrizione non riuscita")); }

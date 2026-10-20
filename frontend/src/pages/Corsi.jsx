@@ -17,9 +17,13 @@ const SCHEDE = [{ id: "elenco", label: "Elenco corsi" }, { id: "nuovo", label: "
 const VUOTO = {
   titolo: "", descrizione: "", validita_mesi: "", durata_minuti: null,
   ha_test_finale: false, azione_test_non_superato: "concludi_comunque", giorni_scadenza_breve: "",
-  confronta_pre_post_test: false, permetti_autoiscrizione: false, richiedi_approvazione_responsabile: false,
+  confronta_pre_post_test: false, permetti_autoiscrizione: false, richiedi_approvazione_responsabile: false, richiedi_approvazione_formazione: false,
   rinnovo_automatico: false, rinnovo_giorni_anticipo: 30, certificato_template_id: "", is_active: true, etichette: [], iscrizione_responsabili: "solo_formazione", questionario_gradimento_id: "",
 };
+
+// Le tre impostazioni del server (auto-iscrizione e le due approvazioni) si scelgono con un solo menu.
+const modoPersone = (v) => (!v.permetti_autoiscrizione ? "no" : v.richiedi_approvazione_formazione ? "formazione" : v.richiedi_approvazione_responsabile ? "responsabile" : "libera");
+const daModoPersone = (modo) => ({ permetti_autoiscrizione: modo !== "no", richiedi_approvazione_responsabile: modo === "responsabile", richiedi_approvazione_formazione: modo === "formazione" });
 
 // Dal corso come lo restituisce il server ai valori del modulo (testi per i campi numerici).
 function valoriDa(c) {
@@ -27,7 +31,7 @@ function valoriDa(c) {
     titolo: c.titolo, descrizione: c.descrizione || "", validita_mesi: c.validita_mesi ?? "", durata_minuti: c.durata_minuti ?? null,
     ha_test_finale: c.ha_test_finale, azione_test_non_superato: c.azione_test_non_superato, giorni_scadenza_breve: c.giorni_scadenza_breve ?? "",
     confronta_pre_post_test: c.confronta_pre_post_test, permetti_autoiscrizione: c.permetti_autoiscrizione,
-    richiedi_approvazione_responsabile: c.richiedi_approvazione_responsabile,
+    richiedi_approvazione_responsabile: c.richiedi_approvazione_responsabile, richiedi_approvazione_formazione: !!c.richiedi_approvazione_formazione,
     rinnovo_automatico: c.rinnovo_automatico, rinnovo_giorni_anticipo: c.rinnovo_giorni_anticipo,
     certificato_template_id: c.certificato_template_id || "", is_active: c.is_active, etichette: c.etichette.map((e) => e.id),
     iscrizione_responsabili: c.iscrizione_responsabili || "solo_formazione", questionario_gradimento_id: c.questionario_gradimento_id || "",
@@ -121,8 +125,16 @@ function CampiCorso({ v, set, famiglie, templates, questionari = [], modifica, a
       <fieldset style={{ border: "1px solid var(--border)", borderRadius: "var(--radius)", padding: "10px 14px", margin: "0 0 14px" }}>
         <legend style={{ padding: "0 6px", fontWeight: 600 }}>Chi può iscriversi</legend>
         <p className="text-muted" style={{ fontSize: 13, margin: "0 0 8px" }}>La Formazione iscrive sempre. Le due scelte qui sotto si sommano.</p>
-        <div className="field">{spunta("permetti_autoiscrizione", "Aperto a tutti: ognuno si iscrive da solo (le sue sessioni pubblicate compaiono nel Catalogo)", (on) => (on ? {} : { richiedi_approvazione_responsabile: false }))}</div>
-        {v.permetti_autoiscrizione && <div className="field" style={{ marginLeft: 24 }}>{spunta("richiedi_approvazione_responsabile", "L'iscrizione di chi ha un responsabile va approvata dal responsabile")}</div>}
+        <div className="field">
+          <label htmlFor="c-persone">Le persone possono iscriversi da sole?</label>
+          <select id="c-persone" value={modoPersone(v)} onChange={(e) => set({ ...v, ...daModoPersone(e.target.value) })}>
+            <option value="no">No: le iscrive la Formazione</option>
+            <option value="libera">Sì, liberamente (compare nel Catalogo)</option>
+            <option value="responsabile">Sì, con l'approvazione del loro responsabile (compare nel Catalogo)</option>
+            <option value="formazione">Sì, con l'approvazione della Formazione (compare nel Catalogo)</option>
+          </select>
+          {modoPersone(v) === "responsabile" && <span className="text-muted" style={{ fontSize: 12 }}>Chi non ha un responsabile chiede alla Formazione.</span>}
+        </div>
         <div className="field" style={{ marginBottom: 0 }}>
           <label htmlFor="c-modo">I responsabili possono iscrivere le persone del loro team?</label>
           <select id="c-modo" value={v.iscrizione_responsabili} onChange={(e) => set({ ...v, iscrizione_responsabili: e.target.value })}>
@@ -302,7 +314,7 @@ export default function Corsi() {
                         {c.ha_test_finale && <span className="badge gray">test finale</span>}
                         {c.rinnovo_automatico && <span className="badge gray">rinnovo automatico ({c.rinnovo_giorni_anticipo} gg prima)</span>}
                         {c.permetti_autoiscrizione
-                          ? <span className="badge green" title="Compare nel Catalogo: ognuno si iscrive da solo">{c.richiedi_approvazione_responsabile ? "aperto a tutti, con approvazione del responsabile" : "aperto a tutti"}</span>
+                          ? <span className="badge green" title="Compare nel Catalogo: ognuno chiede di iscriversi">{c.richiedi_approvazione_formazione ? "aperto a tutti, approva la Formazione" : c.richiedi_approvazione_responsabile ? "aperto a tutti, approva il responsabile" : "aperto a tutti"}</span>
                           : <span className="badge gray" title="Non compare nel Catalogo: si iscrive chi viene iscritto">su iscrizione</span>}
                         {c.iscrizione_responsabili === "diretta" && <span className="badge gray" title="I responsabili iscrivono direttamente le persone del loro team">i responsabili iscrivono il team</span>}
                         {c.iscrizione_responsabili === "su_richiesta" && <span className="badge gray" title="I responsabili chiedono l'iscrizione, approva la Formazione">i responsabili chiedono l'iscrizione</span>}

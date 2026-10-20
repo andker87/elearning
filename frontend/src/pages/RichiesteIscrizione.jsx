@@ -27,7 +27,7 @@ export default function RichiesteIscrizione() {
   return (
     <div>
       <div className="page-header"><div><h2>Richieste di iscrizione</h2>
-        <p>I responsabili chiedono qui di iscrivere le persone del loro team ai corsi «su richiesta». Approvando, la persona viene iscritta (rispettando posti e lista d'attesa); chi ha chiesto riceve l'esito.</p></div></div>
+        <p>Le richieste di iscrizione da approvare: quelle dei responsabili per le persone del loro team (corsi «su richiesta»), quelle delle persone stesse (corsi con approvazione della Formazione) e quelle di chi non ha un responsabile. Approvando, la persona viene iscritta (rispettando posti e lista d'attesa); chi ha chiesto riceve l'esito.</p></div></div>
       <div className="tabs">
         {SCHEDE.map((x) => <button type="button" aria-pressed={scheda === x.id} key={x.id} className={`tab ${scheda === x.id ? "active" : ""}`} onClick={() => setScheda(x.id)}>
           {x.label}{x.id === "attesa" && dati.in_attesa.length > 0 ? ` (${dati.in_attesa.length})` : ""}</button>)}
@@ -42,7 +42,7 @@ export default function RichiesteIscrizione() {
               {dati.in_attesa.map((r) => (
                 <React.Fragment key={r.id}>
                   <tr>
-                    <td>{dataBreve(r.created_at)}<div className="text-muted" style={{ fontSize: 12 }}>di {r.richiedente}</div></td>
+                    <td>{dataBreve(r.created_at)}<div className="text-muted" style={{ fontSize: 12 }}>{r.autorichiesta ? "richiesta dalla persona stessa" : `di ${r.richiedente}`}</div></td>
                     <td><strong>{r.persona}</strong><div className="text-muted" style={{ fontSize: 12 }}>{r.ufficio || "senza ufficio"}</div></td>
                     <td>
                       <strong>{r.corso_titolo}</strong> <span className="badge gray">{MODALITA[r.modalita] || r.modalita}</span>
@@ -91,7 +91,7 @@ export default function RichiesteIscrizione() {
                     <td>{dataBreve(r.valutata_at)}</td>
                     <td>{r.persona}</td>
                     <td>{r.corso_titolo}<div className="text-muted" style={{ fontSize: 12 }}>{quando(r)}</div></td>
-                    <td>{r.richiedente}</td>
+                    <td>{r.autorichiesta ? "la persona stessa" : r.richiedente}</td>
                     <td><span className={`badge ${classe}`}>{testo}</span>{r.motivo_rifiuto && <div className="text-muted" style={{ fontSize: 12 }}>{r.motivo_rifiuto}</div>}</td>
                   </tr>
                 );

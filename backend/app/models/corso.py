@@ -47,6 +47,8 @@ class Corso(Base):
     # richiedi_approvazione_responsabile ha senso solo se permetti_autoiscrizione è attivo.
     permetti_autoiscrizione = Column(Boolean, nullable=False, default=False)
     richiedi_approvazione_responsabile = Column(Boolean, nullable=False, default=False)
+    # Con l'auto-iscrizione: l'iscrizione va approvata dalla Formazione (in alternativa all'approvazione del responsabile).
+    richiedi_approvazione_formazione = Column(Boolean, nullable=False, default=False, server_default="false")
 
     # Rinnovo automatico (opzione dell'Ufficio Formazione, spenta di default): a
     # ridosso della scadenza iscrive la persona alla prossima sessione utile.

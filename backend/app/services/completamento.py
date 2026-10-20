@@ -1,6 +1,6 @@
-"""Completamento automatico delle sessioni «sempre aperte» (video senza date).
+"""Completamento automatico delle sessioni video (sempre disponibili o con data).
 
-Una sessione normale si chiude a mano e solo allora si decide chi ha completato; una sessione sempre aperta non si chiude:
+Le sessioni in presenza, ibride e remote si chiudono a mano e solo allora si decide chi ha completato; un video non ha bisogno di nessuno:
 chi raggiunge la soglia di visione del video (e supera il test finale, se il corso ne ha uno) risulta completato subito
 e riceve l'attestato. Si controlla a ogni avanzamento del video e a ogni tentativo del test finale."""
 from datetime import datetime, timezone
@@ -10,7 +10,7 @@ from sqlalchemy.orm import Session
 
 from ..models.certificato import Certificato
 from ..models.corso import Corso
-from ..models.edizione import Edizione, StatoEdizione
+from ..models.edizione import Edizione, ModalitaErogazione, StatoEdizione
 from ..models.evidenza import Evidenza, FonteEvidenza
 from ..models.iscrizione import Iscrizione, StatoIscrizione
 from ..models.test import Test, TentativoTest, MomentoTest
@@ -41,8 +41,8 @@ def _test_a_posto(db: Session, iscrizione: Iscrizione, corso: Corso) -> bool:
 def completa_se_dovuto(db: Session, request, iscrizione: Iscrizione) -> Optional[Certificato]:
     """Se la sessione e' sempre aperta e la persona ha fatto tutto, la completa e crea l'attestato; altrimenti non fa nulla."""
     e = db.query(Edizione).filter(Edizione.id == iscrizione.edizione_id).first()
-    if not e or not e.sempre_aperta or e.stato not in (StatoEdizione.pianificata, StatoEdizione.in_corso):
-        return None
+    if not e or e.modalita != ModalitaErogazione.video or e.stato not in (StatoEdizione.pianificata, StatoEdizione.in_corso):
+        return None        # solo i video si completano da soli (sempre disponibili o con data); le altre modalita' le chiude la Formazione
     db.refresh(iscrizione, with_for_update=True)       # heartbeat e tentativi concorrenti si mettono in fila: un solo attestato
     if iscrizione.stato != StatoIscrizione.iscritto:
         return None

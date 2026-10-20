@@ -34,7 +34,8 @@ export default function SessioneDiscente({ id, gestisce }) {
     setInvio(true); setMsg(null);
     try {
       const r = await api.post(`/autoiscrizioni/edizioni/${id}`);
-      setMsg(r.data.stato === "in_attesa_approvazione" ? "Richiesta inviata: in attesa di approvazione del tuo responsabile." : "Sei iscritto.");
+      setMsg(r.data.stato !== "in_attesa_approvazione" ? "Sei iscritto."
+        : r.data.approva === "formazione" ? "Richiesta inviata alla Formazione: ti avviseremo quando decide." : "Richiesta inviata: in attesa di approvazione del tuo responsabile.");
       carica();
     } catch (e) { setMsg(erroreDi(e, "Iscrizione non riuscita")); }
     setInvio(false);
@@ -60,6 +61,8 @@ export default function SessioneDiscente({ id, gestisce }) {
   const inLista = mia?.stato === "in_lista_attesa";
   const segue = mia && !inLista;
   const eVideo = edizione.modalita === "video";
+  const disp = edizione.disponibilita;                    // per un video: da quando e fino a quando si puo' guardare
+  const ora = (d) => new Date(d).toLocaleString("it-IT", { dateStyle: "long", timeStyle: "short" });
 
   const capsulaStato = mia && (
     <span className={`badge ${completato ? "green" : mia.stato === "non_completato" ? "red" : inLista ? "yellow" : "green"}`}>
@@ -98,7 +101,9 @@ export default function SessioneDiscente({ id, gestisce }) {
   );
   const iscrizione = !mia && (
     <div className="card">
-      {puoIscriversi
+      {!mia && edizione.mia_richiesta_in_attesa
+        ? <p style={{ margin: 0 }}>La tua richiesta di iscrizione è in attesa di approvazione: ti avviseremo quando arriva la risposta.</p>
+        : puoIscriversi
         ? <button type="button" disabled={invio} onClick={iscriviti}>{edizione.sempre_aperta ? "Inizia il corso" : "Iscrivimi a questa sessione"}</button>
         : <p style={{ margin: 0 }}>{chiusa ? "Questa sessione è conclusa." : "Non sei iscritto a questa sessione: l'iscrizione la fa la Formazione o il tuo responsabile."}</p>}
     </div>
@@ -106,7 +111,9 @@ export default function SessioneDiscente({ id, gestisce }) {
   // Per un corso video il video e' il cuore della pagina: grande, subito sotto il titolo, senza cornici attorno.
   const video_ = segue && eVideo && (
     <div style={{ marginBottom: "1.2rem" }}>
-      {video && video.stato === "pronto"
+      {disp && !disp.ok
+        ? <div className="card"><p style={{ margin: 0 }}>{disp.motivo === "non_ancora" ? <>Il video sarà disponibile <strong>dal {ora(disp.dal)}</strong>. Sei iscritto: lo troverai qui.</> : "Il video non è più disponibile: la sessione è terminata."}</p></div>
+        : video && video.stato === "pronto"
         ? <VideoPlayer video={video} iscrizioneId={mia.id} grande onCompletato={() => { setMsg("Hai completato il corso: il tuo attestato è pronto, lo trovi nello storico dei corsi."); carica(); }} />
         : <div className="card"><p className="text-muted" style={{ margin: 0 }}>Il video non è ancora pronto.</p></div>}
     </div>

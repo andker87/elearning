@@ -30,6 +30,7 @@ class CorsoIn(BaseModel):
     confronta_pre_post_test: bool = False
     permetti_autoiscrizione: bool = False
     richiedi_approvazione_responsabile: bool = False
+    richiedi_approvazione_formazione: bool = False
     certificato_template_id: Optional[str] = None
     rinnovo_automatico: bool = False
     rinnovo_giorni_anticipo: int = 30
@@ -44,6 +45,8 @@ class CorsoIn(BaseModel):
 
     @model_validator(mode="after")
     def _rinnovo_coerente(self):
+        if self.richiedi_approvazione_responsabile and self.richiedi_approvazione_formazione:
+            raise ValueError("L'iscrizione di chi si iscrive da solo la approva il responsabile oppure la Formazione, non entrambi")
         if self.iscrizione_responsabili not in MODI_ISCRIZIONE_RESPONSABILI:
             raise ValueError("Modo di iscrizione dei responsabili non valido")
         if self.durata_minuti is not None and not 1 <= self.durata_minuti <= 100000:
@@ -80,6 +83,7 @@ def _serialize(c: Corso, db: Session = None, famiglie=None):
             "confronta_pre_post_test": c.confronta_pre_post_test,
             "permetti_autoiscrizione": c.permetti_autoiscrizione,
             "richiedi_approvazione_responsabile": c.richiedi_approvazione_responsabile,
+            "richiedi_approvazione_formazione": c.richiedi_approvazione_formazione,
             "certificato_template_id": str(c.certificato_template_id) if c.certificato_template_id else None,
             "questionario_gradimento_id": str(c.questionario_gradimento_id) if c.questionario_gradimento_id else None,
             "rinnovo_automatico": c.rinnovo_automatico, "rinnovo_giorni_anticipo": c.rinnovo_giorni_anticipo,

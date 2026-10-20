@@ -8,6 +8,7 @@ from ..database import get_db
 from ..models.edizione import Edizione, StatoEdizione, ModalitaTeams
 from ..models.iscrizione import Iscrizione, StatoIscrizione
 from ..models.evidenza import Evidenza, FonteEvidenza
+from ..models.certificato import Certificato
 from ..models.user import User
 from ..models.corso import Corso
 from ..services import certificati as cert_svc
@@ -256,6 +257,13 @@ def chiudi_edizione(edizione_id: str, request: Request, db: Session = Depends(ge
                 ev.attestata_da_id = user.id
                 ev.attestata_at = now
 
+        if i.stato in (StatoIscrizione.annullato, StatoIscrizione.in_lista_attesa):
+            continue        # non hanno partecipato: la chiusura non le tocca (prima diventavano «non completato»)
+        if i.stato == StatoIscrizione.completato:
+            # gia' completata (un video lo fa da solo): niente secondo attestato
+            gia = db.query(Certificato).filter(Certificato.iscrizione_id == i.id).order_by(Certificato.emesso_at.desc()).first()
+            esito.append({"user_id": str(i.user_id), "completato": True, "certificato_id": str(gia.id) if gia else None})
+            continue
         if i.stato == StatoIscrizione.non_completato:
             # già deciso da un tentativo test con policy rifai_corso prima della chiusura
             esito.append({"user_id": str(i.user_id), "completato": False})

@@ -34,7 +34,7 @@ CAMPI_AZIENDA = ["ragione_sociale", "partita_iva", "codice_fiscale", "indirizzo"
                  "nome_piattaforma", "url_pubblico", "privacy_testo"]
 CAMPI_ORGANIZZAZIONE = ["tipo", "partita_iva", "accreditamento", "referente", "email", "telefono", "note"]
 CAMPI_CORSO = ["descrizione", "validita_mesi", "durata_minuti", "iscrizione_responsabili", "ha_test_finale", "giorni_scadenza_breve", "confronta_pre_post_test",
-               "permetti_autoiscrizione", "richiedi_approvazione_responsabile", "rinnovo_automatico", "rinnovo_giorni_anticipo", "is_active"]
+               "permetti_autoiscrizione", "richiedi_approvazione_responsabile", "richiedi_approvazione_formazione", "rinnovo_automatico", "rinnovo_giorni_anticipo", "is_active"]
 ESCLUSI = ["utenti, permessi, uffici e mansioni di ciascuno", "iscrizioni, esiti e attestati", "video, immagini, loghi e icone", "template degli attestati",
            "test e domande", "informativa privacy in PDF", "credenziali e chiavi (SMTP, SSO, Graph, notifiche push)"]
 
@@ -312,6 +312,8 @@ def _corsi(db, elenco, rapporto):
         valori["azione_test_non_superato"] = azione
         if valori.get("iscrizione_responsabili") not in MODI_ISCRIZIONE_RESPONSABILI:
             valori.pop("iscrizione_responsabili", None)       # valore sconosciuto: si tiene quello del corso (o il predefinito, chiuso)
+        if valori.get("richiedi_approvazione_responsabile") and valori.get("richiedi_approvazione_formazione"):
+            valori["richiedi_approvazione_formazione"] = False      # le due approvazioni non si sommano: resta quella del responsabile
         if valori.get("rinnovo_automatico") and not valori.get("validita_mesi"):
             valori["rinnovo_automatico"] = False
         c = esistenti.get(_chiave(d["titolo"]))

@@ -25,7 +25,8 @@ def video_pronto(db, tmp_path):
 
 @pytest.fixture
 def edizione_video(crea_corso, crea_edizione, video_pronto):
-    return crea_edizione(crea_corso(), modalita=ModalitaErogazione.video, video_id=video_pronto.id)
+    return crea_edizione(crea_corso(), modalita=ModalitaErogazione.video, video_id=video_pronto.id,
+                         data_inizio=datetime.now(timezone.utc) - timedelta(days=1))     # gia' iniziata: da quando inizia il video si apre
 
 
 def test_cartella_pubblica_dei_video_non_esiste_piu(client):
