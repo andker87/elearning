@@ -340,3 +340,10 @@ Provati con test (creazione utente e CSV, corsa simulata). SSO ed Entra: modific
 | FATTO 2.7.4 | pages/StoricoCorsi.jsx | dopo «Riprova» una vecchia richiesta in ritardo poteva sovrascrivere il risultato nuovo con un errore: ogni caricamento ha ora una sua generazione e le risposte vecchie si ignorano |
 | FATTO 2.7.4 | api.js | «Visualizza» apriva la scheda solo dopo aver scaricato il PDF e il browser poteva bloccarla senza avvisare: la scheda si apre subito nel gesto dell'utente, poi si carica il file, e si chiude se il file non arriva (vale anche per l'informativa privacy e le impostazioni) |
 | NON NECESSARIO | components/VideoPlayer.jsx | segnalazione già vista (salti brevi che avanzano il traguardo): CodeRabbit stesso nota che `saltoConsentito` rifiuta già i salti oltre il punto raggiunto; verificato con lo script di prova |
+
+## PR #33 (2.8.0, questionari di gradimento)
+
+| Stato | File | Rilievo |
+|---|---|---|
+| FATTO 2.8.0 | api/questionari.py | due salvataggi in parallelo con lo stesso nome passavano entrambi il controllo e uno dava errore 500 al salvataggio: ora il vincolo del database è gestito (anche alla modifica) e la risposta è lo stesso 400 «Esiste già un questionario con questo nome» |
+| FATTO 2.8.0 | api/gradimenti.py | nel riepilogo dei gradimenti le risposte aggiuntive si leggevano una query per volta: ora si caricano insieme alle altre |

@@ -4,6 +4,7 @@ from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, field_validator
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, joinedload
 
 from ..database import get_db
@@ -115,11 +116,16 @@ def elenco(db: Session = Depends(get_db), user=Depends(require_training_admin)):
 def crea(data: QuestionarioIn, request: Request, db: Session = Depends(get_db), user=Depends(require_training_admin)):
     _controlla_nome(db, data.nome)
     _pulisci(data.domande)          # errori di validazione prima di scrivere
-    q = QuestionarioGradimento(nome=data.nome)
-    db.add(q); db.flush()
-    _imposta(db, q, data)
-    audit_svc.log_from_request(db, request, user, "CREATE", entity_type="questionario", entity_id=str(q.id), entity_name=q.nome)
-    db.commit(); db.refresh(q)
+    try:
+        q = QuestionarioGradimento(nome=data.nome)
+        db.add(q); db.flush()
+        _imposta(db, q, data)
+        audit_svc.log_from_request(db, request, user, "CREATE", entity_type="questionario", entity_id=str(q.id), entity_name=q.nome)
+        db.commit()
+    except IntegrityError as err:        # due salvataggi in parallelo con lo stesso nome: passano entrambi il controllo, il database ne ferma uno
+        db.rollback()
+        raise HTTPException(400, "Esiste già un questionario con questo nome") from err
+    db.refresh(q)
     return _serialize(q, db)
 
 
@@ -128,9 +134,14 @@ def modifica(questionario_id: str, data: QuestionarioIn, request: Request, db: S
     q = db.query(QuestionarioGradimento).options(joinedload(QuestionarioGradimento.domande)).filter(QuestionarioGradimento.id == questionario_id).first()
     if not q: raise HTTPException(404)
     _controlla_nome(db, data.nome, q.id)
-    _imposta(db, q, data)
-    audit_svc.log_from_request(db, request, user, "UPDATE", entity_type="questionario", entity_id=str(q.id), entity_name=q.nome)
-    db.commit(); db.refresh(q)
+    try:
+        _imposta(db, q, data)
+        audit_svc.log_from_request(db, request, user, "UPDATE", entity_type="questionario", entity_id=str(q.id), entity_name=q.nome)
+        db.commit()
+    except IntegrityError as err:
+        db.rollback()
+        raise HTTPException(400, "Esiste già un questionario con questo nome") from err
+    db.refresh(q)
     return _serialize(q, db)
 
 
