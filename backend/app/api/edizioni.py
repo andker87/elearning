@@ -373,7 +373,9 @@ def duplica_edizione(edizione_id: str, request: Request, db: Session = Depends(g
         corso_id=orig.corso_id, modalita=orig.modalita, stato=StatoEdizione.bozza,
         luogo=orig.luogo, posti_max=orig.posti_max, lista_attesa_abilitata=orig.lista_attesa_abilitata,
         checkin_mode=orig.checkin_mode, teams_mode=orig.teams_mode,
-        video_id=orig.video_id, ente_erogatore=orig.ente_erogatore, durata_minuti=orig.durata_minuti,
+        video_id=orig.video_id, ente_erogatore=orig.ente_erogatore,
+        # di una sessione chiusa la durata e' congelata (anche se era solo quella del corso): la copia riparte dal corso
+        durata_minuti=None if orig.stato == StatoEdizione.chiusa else orig.durata_minuti,
         note=orig.note,
     )
     db.add(nuova); db.flush()

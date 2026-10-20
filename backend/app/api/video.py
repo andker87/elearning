@@ -266,7 +266,10 @@ def elimina_video(video_id: str, request: Request, db: Session = Depends(get_db)
     usi = _usi_dei_video(db, [v.id]).get(v.id, 0)
     if usi:
         raise HTTPException(400, f"Il video è collegato a {usi} {'sessione' if usi == 1 else 'sessioni'}: scollegalo prima dalle sessioni (o elimina le sessioni)")
-    if v.stato == StatoVideo.in_elaborazione:
+    # L'elaborazione parte dopo il caricamento e puo' continuare a produrre qualita' piu' alte anche a video pronto:
+    # eliminare in uno di questi momenti lascerebbe file orfani o farebbe fallire il lavoro in corso.
+    # (Se un riavvio la interrompe, all'avvio il video viene sistemato e di nuovo eliminabile.)
+    if v.stato in (StatoVideo.caricato, StatoVideo.in_elaborazione) or v.altre_versioni_in_corso:
         raise HTTPException(400, "Il video è in elaborazione: attendi che finisca")
     file_da_togliere = [v.file_originale, v.file_path, v.sottotitoli_path] + [x.file_path for x in v.versioni]
     audit_svc.log_from_request(db, request, user, "DELETE", entity_type="video", entity_id=str(v.id), entity_name=v.titolo)

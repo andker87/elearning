@@ -28,6 +28,7 @@ function Pannello({ v, ricarica, chiudi, setErrore }) {
   const [nuovoCap, setNuovoCap] = useState({ titolo: "", tempo: "" });
   const esegui = async (fn, errore) => { setErrore(null); try { await fn(); await ricarica(); return true; } catch (e) { setErrore(erroreDi(e, errore)); return false; } };
   const pronto = v.stato === "pronto";
+  const elaborazione = v.stato === "caricato" || v.stato === "in_elaborazione" || !!v.altre_qualita_in_preparazione;   // finche' lavora, non si elimina
 
   async function salvaTitolo(e) {
     e.preventDefault();
@@ -147,8 +148,9 @@ function Pannello({ v, ricarica, chiudi, setErrore }) {
       {!pronto && <p className="text-muted" style={{ fontSize: 13 }}>Il video non è ancora pronto: sottotitoli e capitoli si gestiscono quando l'elaborazione è finita.</p>}
 
       <div style={{ marginTop: 12, borderTop: "1px solid var(--border)", paddingTop: 10 }}>
-        <button type="button" className="danger btn-sm" disabled={v.usato_in > 0 || v.stato === "in_elaborazione"} onClick={eliminaVideo}>Elimina il video</button>
+        <button type="button" className="danger btn-sm" disabled={v.usato_in > 0 || elaborazione} onClick={eliminaVideo}>Elimina il video</button>
         {v.usato_in > 0 && <span className="text-muted" style={{ fontSize: 12, marginLeft: 8 }}>Non si può eliminare finché è collegato a delle sessioni.</span>}
+        {v.usato_in === 0 && elaborazione && <span className="text-muted" style={{ fontSize: 12, marginLeft: 8 }}>Non si può eliminare mentre il video è in elaborazione.</span>}
         {" "}<button type="button" className="secondary btn-sm" onClick={chiudi}>Chiudi</button>
       </div>
     </div>

@@ -283,3 +283,16 @@ Provati con test (creazione utente e CSV, corsa simulata). SSO ed Entra: modific
 | FATTO 2.4.0 | services/etichette.py | la conversione del vecchio campo Categoria in etichette si saltava se esisteva già una qualunque famiglia: ora i corsi con una categoria si convertono comunque, nella famiglia «Tematica» (creata o riusata senza toccare le altre, e senza duplicare i collegamenti); fatta la conversione il vecchio campo si svuota, così non si ripete e chi toglie l'etichetta non se la ritrova |
 | FATTO 2.4.0 | api/video.py | un docente assegnato alla sessione (senza il permesso Formazione) vedeva nella pagina il pulsante di anteprima del video ma il server rispondeva «non trovato»: ora i docenti della sessione possono vedere il video e ottenerne l'accesso; un docente di un'altra sessione o un utente qualunque no (errore mio della 2.4.0) |
 | FATTO 2.4.0 | tests/test_iscrizioni.py (nota) | il test sulle iscrizioni annullate passava anche se l'elenco restituiva solo quelle «iscritto»: ora controlla che lista d'attesa e corsi completati restino visibili |
+
+## PR #27 (2.4.1, sezione Video a schede)
+
+| Stato | File | Rilievo |
+|---|---|---|
+| FATTO 2.4.1 | api/video.py, pages/Video.jsx | l'eliminazione si bloccava solo con il video «in elaborazione»: eliminando appena caricato (il lavoro sta per partire) o a video pronto mentre si preparano le qualità più alte si lasciavano file orfani o si faceva fallire il lavoro. Ora è bloccata anche con «caricato» e con le altre qualità in preparazione (server e pulsante, con la spiegazione); se un riavvio interrompe il lavoro, all'avvio il video viene già sistemato e torna eliminabile |
+
+## PR #28 (2.5.0, durata e sessioni)
+
+| Stato | File | Rilievo |
+|---|---|---|
+| FATTO 2.5.0 | api/edizioni.py | duplicando una sessione chiusa la copia si portava dietro la durata congelata alla chiusura (che poteva essere solo quella ereditata dal corso, ormai superata). Ora la copia di una sessione chiusa riparte dal corso; si mantiene la durata forzata di una sessione non chiusa. Limite noto: la durata forzata di una sessione chiusa non si distingue da quella congelata e non viene copiata |
+| FATTO 2.5.0 | services/durata.py | una sessione chiusa senza alcuna durata riprendeva dal corso quella inserita in seguito, cambiando lo storico. Ora una sessione chiusa senza durata propria resta senza |
