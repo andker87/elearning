@@ -17,6 +17,23 @@ PACCHETTI = ["fastapi", "uvicorn", "sqlalchemy", "pydantic", "pyjwt", "httpx", "
              "reportlab", "openpyxl", "pywebpush", "psycopg2-binary"]
 
 CHANGELOG = [
+    {"version": "2.7.4", "date": "2026-10", "label": "Il video al centro", "changes": [
+        "Pagina di un corso video: il video è il protagonista, grande (formato 16:9, fino al 72% dell'altezza dello schermo) subito sotto il titolo e senza cornici; sotto ci sono le informazioni (descrizione, docenti), poi il test e il parere. Chi non è ancora iscritto trova al suo posto il pulsante «Inizia il corso»",
+        "Catalogo: i corsi già completati vanno in una sezione «Già completati» in fondo, così in alto restano quelli da fare",
+        "Il questionario di gradimento si chiama «Il tuo parere sul corso» (prima «Com'è andata?»): è sempre lo stesso, anonimo, e non conta per l'esito",
+        "Video con blocco dei salti: un salto in avanti è ammesso solo fino a dove si è guardato davvero (prima si poteva avanzare con tanti piccoli salti), e cambiando corso l'avanzamento non si porta dietro quello del precedente",
+        "Storico corsi: se un corso ha più attestati si vedono tutti, e se una delle due richieste fallisce lo si dice invece di mostrare «Caricamento» o «nessun attestato»; la pagina della sessione propone «Riprova» se non riesce a caricare l'iscrizione",
+        "Sicurezza: libreria Pillow aggiornata alla 13.0.0 (corregge 8 vulnerabilità note)",
+    ]},
+    {"version": "2.7.3", "date": "2026-10", "label": "Storico corsi e attestati", "changes": [
+        "Attestato: il file scaricato ha un nome che dice cos'è, nella forma Titolo-del-corso_Cognome_Nome_AAAA-MM-GG.pdf (la data è quella di emissione, la stessa stampata sull'attestato). Accenti e simboli sono tolti per non dare problemi su nessun sistema; il nome è quello di chi ha ottenuto l'attestato anche se lo scarica la Formazione",
+        "Storico corsi: una sola tabella con colonne Corso, Modalità, Data, Durata, Esito, Emesso il, Codice verifica e, per ogni attestato, «Visualizza» (si apre nel browser) e «Scarica PDF». Prima c'erano due tabelle separate. I corsi non completati restano nell'elenco, senza attestato. Il layout del PDF non cambia",
+    ]},
+    {"version": "2.7.2", "date": "2026-10", "label": "Seguire un corso e gestirlo sono due cose", "changes": [
+        "Pagina della sessione: due viste distinte. Chi segue il corso vede solo ciò che serve a seguirlo: titolo e descrizione, quando e dove, durata, docenti, il video, il test, la presenza, l'attestato e il gradimento. Gli strumenti di gestione (iscritti, docenti, Teams, comunicazioni, eliminazione, durata) li vede solo chi gestisce la sessione, cioè l'Ufficio Formazione e i docenti di quella sessione. Chi gestisce e apre un corso dal Catalogo o da «I miei corsi» lo trova come discente, con un rimando «Gestisci questa sessione»; dall'elenco Sessioni apre la vista di gestione",
+        "Privacy: un collega non vede più chi è iscritto a una sessione né come sta andando. L'elenco degli iscritti lo ricevono solo l'Ufficio Formazione e i docenti della sessione; chiunque altro riceve soltanto la propria iscrizione. «Iscrivi una tua risorsa» non è più nella pagina della sessione: i responsabili lo fanno da «Il mio team» → Corsi disponibili",
+        "Corretto: i video con il blocco dei salti in avanti si fermavano dopo 2-3 secondi e ripartivano da capo, in ciclo, per chi li guardava la prima volta; il limite si confrontava con l'ultimo avanzamento confermato dal server (ogni 4 secondi) invece che con quanto si era guardato davvero",
+    ]},
     {"version": "2.7.1", "date": "2026-10", "label": "Eliminare i corsi, pubblicare le sessioni", "changes": [
         "Corsi: pulsante «Elimina» (solo per l'admin tecnico, non per l'Ufficio Formazione). Si può eliminare un corso solo se non ha lasciato tracce di formazione (nessuna iscrizione attiva o conclusa, nessun attestato, non è in un percorso né in una richiesta di corso): in quel caso una finestra spiega cosa verrà tolto (corso, sessioni vuote, test, iscrizioni annullate) e chiede di riscrivere il titolo. Altrimenti la finestra elenca i motivi e invita a disattivarlo, così resta lo storico. L'eliminazione è registrata nel registro attività",
         "Sessioni: «Pubblica» al posto di «Pianifica». Una sessione nasce in bozza (la prepari e la salvi) e si pubblica quando è pronta: dalla pagina della sessione, dall'elenco o con la casella «Pubblica subito» alla creazione. Una sessione pubblicata e senza iscritti si può riportare in bozza. Lo stato «Pianificata» si chiama ora «Pubblicata»",

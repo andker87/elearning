@@ -36,8 +36,9 @@ export default function Catalogo() {
   if (!righe) return <p className="text-muted">Caricamento...</p>;
   const q = cerca.trim().toLowerCase();
   const visibili = righe.filter((s) => !q || [s.corso_titolo, s.corso_descrizione, ...s.etichette.map((x) => x.nome)].some((t) => (t || "").toLowerCase().includes(q)));
-  const sempre = visibili.filter((s) => s.sempre_aperta);
-  const inProgramma = visibili.filter((s) => !s.sempre_aperta);
+  const completati = visibili.filter((s) => s.mio_stato === "completato");      // in fondo: sono corsi gia' fatti
+  const sempre = visibili.filter((s) => s.sempre_aperta && s.mio_stato !== "completato");
+  const inProgramma = visibili.filter((s) => !s.sempre_aperta && s.mio_stato !== "completato");
 
   const azione = (s) => {
     const stato = s.mio_stato;
@@ -60,7 +61,7 @@ export default function Catalogo() {
       {esito && <div className="card card-muted" role="status">{esito}</div>}
 
       <h3>Sempre disponibili</h3>
-      {sempre.length === 0 && <p className="empty-state">{q ? "Nessun corso corrisponde alla ricerca." : "Nessun corso sempre disponibile per ora."}</p>}
+      {sempre.length === 0 && (!q || completati.length === 0) && <p className="empty-state">{q ? "Nessun corso corrisponde alla ricerca." : "Nessun corso sempre disponibile per ora."}</p>}
       {sempre.map((s) => (
         <div className="card" key={s.id}>
           <div className="flex-between" style={{ gap: 12, alignItems: "flex-start" }}>
@@ -78,7 +79,7 @@ export default function Catalogo() {
       ))}
 
       <h3>Sessioni in programma</h3>
-      {inProgramma.length === 0 && <p className="empty-state">{q ? "Nessuna sessione corrisponde alla ricerca." : "Nessuna sessione aperta alle iscrizioni."}</p>}
+      {inProgramma.length === 0 && (!q || completati.length === 0) && <p className="empty-state">{q ? "Nessuna sessione corrisponde alla ricerca." : "Nessuna sessione aperta alle iscrizioni."}</p>}
       {inProgramma.length > 0 && (
         <div className="table-wrap">
           <table>
@@ -96,6 +97,25 @@ export default function Catalogo() {
             </tbody>
           </table>
         </div>
+      )}
+
+      {completati.length > 0 && (
+        <>
+          <h3>Già completati</h3>
+          <div className="table-wrap">
+            <table>
+              <tbody>
+                {completati.map((s) => (
+                  <tr key={s.id}>
+                    <td><strong>{s.corso_titolo}</strong> {capsula(s)}</td>
+                    <td className="text-muted">{s.sempre_aperta ? "Sempre disponibile" : quando(s)}{s.durata_effettiva_minuti ? ` · ${formattaDurata(s.durata_effettiva_minuti)}` : ""}</td>
+                    <td style={{ textAlign: "right" }}>{azione(s)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </>
       )}
     </div>
   );

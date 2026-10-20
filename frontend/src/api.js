@@ -48,10 +48,21 @@ export async function downloadFile(path, filename) {
 }
 
 // Per aprire un file protetto (PDF) in una nuova scheda: un link diretto non porta il token.
+// La scheda si apre subito, nel gesto dell'utente, e solo dopo si carica il file: aprirla dopo l'attesa della rete
+// rischia di farla bloccare dal browser (e "Visualizza" sembrerebbe non fare nulla). Se il file non arriva, la scheda si chiude.
 export async function apriFile(path) {
-  const res = await api.get(path, { responseType: "blob" });
-  const blobUrl = window.URL.createObjectURL(res.data);
-  window.open(blobUrl, "_blank", "noopener");
+  const scheda = window.open("", "_blank");
+  if (scheda) { try { scheda.opener = null; } catch { /* scheda gia' su un altro sito: nessun legame da togliere */ } }
+  let blobUrl = null;
+  try {
+    const res = await api.get(path, { responseType: "blob" });
+    blobUrl = window.URL.createObjectURL(res.data);
+  } catch (e) {
+    if (scheda) scheda.close();
+    throw e;
+  }
+  if (scheda) scheda.location.href = blobUrl;
+  else window.open(blobUrl, "_blank", "noopener");        // il browser non ha concesso la scheda subito: ultimo tentativo
   setTimeout(() => window.URL.revokeObjectURL(blobUrl), 60000);
 }
 

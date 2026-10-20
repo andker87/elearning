@@ -37,7 +37,7 @@ export default function Gradimento({ iscrizioneId, docenti = [] }) {
 
   return (
     <div className="card">
-      <h3>Com'è andata?</h3>
+      <h3>Il tuo parere sul corso</h3>
       <p className="text-muted" style={{ fontSize: 12 }}>La tua valutazione è anonima: l'Ufficio Formazione vede solo medie e commenti, non chi li ha scritti.</p>
       <form onSubmit={submit}>
         <div className="field">

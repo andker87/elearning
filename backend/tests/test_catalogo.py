@@ -252,6 +252,21 @@ def test_una_sessione_chiusa_o_con_attestati_non_si_elimina(client, auth, admin,
     assert db.query(Edizione).count() == 2
 
 
+# --- 2.7.2: chi non gestisce la sessione non vede gli altri iscritti ---------------------------------
+
+def test_un_collega_non_vede_chi_e_iscritto(client, auth, formazione, utente, db, crea_utente, crea_corso, crea_edizione, crea_iscrizione):
+    from app.models.edizione import EdizioneDocente, RuoloDocente
+    collega, docente = crea_utente("collega@t.it"), crea_utente("doc@t.it")
+    e = crea_edizione(crea_corso("Corso"), stato=SE.pianificata)
+    db.add(EdizioneDocente(edizione_id=e.id, user_id=docente.id, ruolo=RuoloDocente.titolare)); db.commit()
+    crea_iscrizione(e, utente); crea_iscrizione(e, collega)
+    mie = client.get(f"/api/edizioni/{e.id}/iscrizioni", headers=auth(utente)).json()
+    assert [i["user_id"] for i in mie] == [str(utente.id)]                                       # solo la propria
+    assert client.get(f"/api/edizioni/{e.id}/iscrizioni", headers=auth(crea_utente("estraneo@t.it"))).json() == []
+    assert len(client.get(f"/api/edizioni/{e.id}/iscrizioni", headers=auth(formazione)).json()) == 2
+    assert len(client.get(f"/api/edizioni/{e.id}/iscrizioni", headers=auth(docente)).json()) == 2     # il docente della sessione vede tutti
+    assert client.get("/api/edizioni/00000000-0000-0000-0000-000000000000/iscrizioni", headers=auth(utente)).status_code == 404
+
 def test_una_sessione_chiusa_blocca_anche_l_eliminazione_del_corso(client, auth, admin, utente, db, crea_corso, crea_edizione, crea_iscrizione):
     from app.models.corso import Corso
     c = crea_corso("Con sessione chiusa"); chiusa = crea_edizione(c, stato=SE.chiusa)

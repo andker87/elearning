@@ -208,7 +208,7 @@ def icona(size: int = Query(192), db: Session = Depends(get_db)):
             lato = max(sorgente.size)
             quadro = Image.new("RGBA", (lato, lato), (255, 255, 255, 255))
             quadro.paste(sorgente, ((lato - sorgente.size[0]) // 2, (lato - sorgente.size[1]) // 2), sorgente)
-            quadro = quadro.resize((dim, dim), Image.LANCZOS)
+            quadro = quadro.resize((dim, dim), Image.Resampling.LANCZOS)
         except Exception:
             quadro = None  # file rovinato: si ripiega sul marchio, l'icona non deve mai rompere l'app
     if quadro is None:

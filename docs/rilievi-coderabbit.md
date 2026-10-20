@@ -319,3 +319,24 @@ Provati con test (creazione utente e CSV, corsa simulata). SSO ed Entra: modific
 |---|---|---|
 | FATTO 2.7.1 | services/elimina_corso.py | eliminando un corso, una sessione chiusa con sole iscrizioni annullate veniva cancellata, mentre la singola sessione chiusa non si può eliminare: ora una sessione chiusa blocca anche l'eliminazione del corso |
 | FATTO 2.7.1 | pages/Edizioni.jsx | creazione e pubblicazione condividevano lo stesso controllo degli errori: se la pubblicazione falliva dopo la creazione, il modulo restava pieno e un nuovo invio creava una seconda sessione. Ora i due passaggi sono separati: se la pubblicazione fallisce si avvisa e si apre la sessione creata |
+
+## PR #32 (2.7.2 e 2.7.3, vista discente e storico)
+
+| Stato | File | Rilievo |
+|---|---|---|
+| FATTO 2.7.4 | components/VideoPlayer.jsx | cambiando sessione il player riutilizzato poteva tenere l'avanzamento dell'iscrizione precedente e accettare risposte vecchie: ora si azzera a ogni iscrizione e le risposte di un'altra iscrizione si scartano |
+| FATTO 2.7.4 | components/VideoPlayer.jsx, avanzamentoVideo.js | un salto accettato (entro 2 secondi) faceva avanzare il traguardo: con tanti piccoli salti si attraversava il video. Ora i salti non contano come visione e sono ammessi solo fino al punto già guardato |
+| FATTO 2.7.4 | pages/SessioneDiscente.jsx | se la richiesta dell'iscrizione falliva la pagina restava su «Caricamento...» senza errore: ora mostra l'errore con «Riprova» |
+| FATTO 2.7.4 | pages/StoricoCorsi.jsx | un errore in una delle due richieste lasciava «Caricamento...» o «nessun attestato»: i due caricamenti hanno ora ciascuno il proprio stato di errore |
+| FATTO 2.7.4 | pages/StoricoCorsi.jsx | di un'iscrizione con più attestati se ne vedeva uno: ora una riga per attestato |
+| FATTO 2.7.4 | requirements.txt | non è un rilievo di CodeRabbit ma il controllo `pip-audit` della CI è fallito: 8 vulnerabilità note di Pillow 12.3.0, corrette passando alla 13.0.0 (`Image.LANCZOS` → `Image.Resampling.LANCZOS`) |
+
+### PR #32, seconda lettura (commit della 2.7.4)
+
+| Stato | File | Rilievo |
+|---|---|---|
+| FATTO 2.7.4 | components/VideoPlayer.jsx | l'iscrizione corrente si scriveva in un riferimento durante la costruzione della pagina (React può scartare quella costruzione): ora si aggiorna in un effetto prima di quello dell'avanzamento |
+| FATTO 2.7.4 | pages/Catalogo.jsx | cercando una parola che esiste solo tra i corsi già completati comparivano due messaggi «nessun risultato» prima dei risultati: ora si nascondono se tra i completati c'è una corrispondenza |
+| FATTO 2.7.4 | pages/StoricoCorsi.jsx | dopo «Riprova» una vecchia richiesta in ritardo poteva sovrascrivere il risultato nuovo con un errore: ogni caricamento ha ora una sua generazione e le risposte vecchie si ignorano |
+| FATTO 2.7.4 | api.js | «Visualizza» apriva la scheda solo dopo aver scaricato il PDF e il browser poteva bloccarla senza avvisare: la scheda si apre subito nel gesto dell'utente, poi si carica il file, e si chiude se il file non arriva (vale anche per l'informativa privacy e le impostazioni) |
+| NON NECESSARIO | components/VideoPlayer.jsx | segnalazione già vista (salti brevi che avanzano il traguardo): CodeRabbit stesso nota che `saltoConsentito` rifiuta già i salti oltre il punto raggiunto; verificato con lo script di prova |
