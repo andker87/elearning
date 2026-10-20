@@ -319,3 +319,14 @@ Provati con test (creazione utente e CSV, corsa simulata). SSO ed Entra: modific
 |---|---|---|
 | FATTO 2.7.1 | services/elimina_corso.py | eliminando un corso, una sessione chiusa con sole iscrizioni annullate veniva cancellata, mentre la singola sessione chiusa non si può eliminare: ora una sessione chiusa blocca anche l'eliminazione del corso |
 | FATTO 2.7.1 | pages/Edizioni.jsx | creazione e pubblicazione condividevano lo stesso controllo degli errori: se la pubblicazione falliva dopo la creazione, il modulo restava pieno e un nuovo invio creava una seconda sessione. Ora i due passaggi sono separati: se la pubblicazione fallisce si avvisa e si apre la sessione creata |
+
+## PR #32 (2.7.2 e 2.7.3, vista discente e storico)
+
+| Stato | File | Rilievo |
+|---|---|---|
+| FATTO 2.7.4 | components/VideoPlayer.jsx | cambiando sessione il player riutilizzato poteva tenere l'avanzamento dell'iscrizione precedente e accettare risposte vecchie: ora si azzera a ogni iscrizione e le risposte di un'altra iscrizione si scartano |
+| FATTO 2.7.4 | components/VideoPlayer.jsx, avanzamentoVideo.js | un salto accettato (entro 2 secondi) faceva avanzare il traguardo: con tanti piccoli salti si attraversava il video. Ora i salti non contano come visione e sono ammessi solo fino al punto già guardato |
+| FATTO 2.7.4 | pages/SessioneDiscente.jsx | se la richiesta dell'iscrizione falliva la pagina restava su «Caricamento...» senza errore: ora mostra l'errore con «Riprova» |
+| FATTO 2.7.4 | pages/StoricoCorsi.jsx | un errore in una delle due richieste lasciava «Caricamento...» o «nessun attestato»: i due caricamenti hanno ora ciascuno il proprio stato di errore |
+| FATTO 2.7.4 | pages/StoricoCorsi.jsx | di un'iscrizione con più attestati se ne vedeva uno: ora una riga per attestato |
+| FATTO 2.7.4 | requirements.txt | non è un rilievo di CodeRabbit ma il controllo `pip-audit` della CI è fallito: 8 vulnerabilità note di Pillow 12.3.0, corrette passando alla 13.0.0 (`Image.LANCZOS` → `Image.Resampling.LANCZOS`) |

@@ -17,6 +17,14 @@ PACCHETTI = ["fastapi", "uvicorn", "sqlalchemy", "pydantic", "pyjwt", "httpx", "
              "reportlab", "openpyxl", "pywebpush", "psycopg2-binary"]
 
 CHANGELOG = [
+    {"version": "2.7.4", "date": "2026-10", "label": "Il video al centro", "changes": [
+        "Pagina di un corso video: il video è il protagonista, grande (formato 16:9, fino al 72% dell'altezza dello schermo) subito sotto il titolo e senza cornici; sotto ci sono le informazioni (descrizione, docenti), poi il test e il parere. Chi non è ancora iscritto trova al suo posto il pulsante «Inizia il corso»",
+        "Catalogo: i corsi già completati vanno in una sezione «Già completati» in fondo, così in alto restano quelli da fare",
+        "Il questionario di gradimento si chiama «Il tuo parere sul corso» (prima «Com'è andata?»): è sempre lo stesso, anonimo, e non conta per l'esito",
+        "Video con blocco dei salti: un salto in avanti è ammesso solo fino a dove si è guardato davvero (prima si poteva avanzare con tanti piccoli salti), e cambiando corso l'avanzamento non si porta dietro quello del precedente",
+        "Storico corsi: se un corso ha più attestati si vedono tutti, e se una delle due richieste fallisce lo si dice invece di mostrare «Caricamento» o «nessun attestato»; la pagina della sessione propone «Riprova» se non riesce a caricare l'iscrizione",
+        "Sicurezza: libreria Pillow aggiornata alla 13.0.0 (corregge 8 vulnerabilità note)",
+    ]},
     {"version": "2.7.3", "date": "2026-10", "label": "Storico corsi e attestati", "changes": [
         "Attestato: il file scaricato ha un nome che dice cos'è, nella forma Titolo-del-corso_Cognome_Nome_AAAA-MM-GG.pdf (la data è quella di emissione, la stessa stampata sull'attestato). Accenti e simboli sono tolti per non dare problemi su nessun sistema; il nome è quello di chi ha ottenuto l'attestato anche se lo scarica la Formazione",
         "Storico corsi: una sola tabella con colonne Corso, Modalità, Data, Durata, Esito, Emesso il, Codice verifica e, per ogni attestato, «Visualizza» (si apre nel browser) e «Scarica PDF». Prima c'erano due tabelle separate. I corsi non completati restano nell'elenco, senza attestato. Il layout del PDF non cambia",

@@ -234,6 +234,9 @@ tbody tr:hover td { background: var(--bg3); }
 .video-main { flex: 0 1 560px; min-width: 0; max-width: 560px; }
 .video-main video { display: block; width: 100%; max-height: min(52vh, 340px); object-fit: contain; background: #000; }
 .video-chapters { width: 260px; flex-shrink: 0; }
+/* Il video come protagonista della pagina del corso (vista del discente): occupa la larghezza, in formato 16:9 */
+.video-grande .video-main { flex: 1 1 auto; max-width: none; }
+.video-grande .video-main video { max-height: 72vh; aspect-ratio: 16 / 9; border-radius: 12px; box-shadow: 0 4px 24px rgba(0, 0, 0, .18); }
 .video-chapters ul { list-style: none; margin: 0; padding: 0; }
 .video-chapters li { padding: .55rem .7rem; border-radius: var(--radius); font-size: .82rem; cursor: pointer; color: var(--text2); }
 .video-chapters li:hover { background: var(--bg3); }

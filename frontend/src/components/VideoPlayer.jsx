@@ -1,6 +1,6 @@
 import React, { useRef, useState, useEffect } from "react";
 import api, { erroreDi } from "../api";
-import { controllaPunto } from "../avanzamentoVideo";
+import { controllaPunto, saltoConsentito } from "../avanzamentoVideo";
 
 const CHIAVE_QUALITA = "qualita_video";
 
@@ -23,11 +23,14 @@ export function qualitaAutomatica(versioni, schermoAltezza, bandaMbps) {
 }
 
 // Senza `iscrizioneId` e' un'anteprima (per chi gestisce la sessione): non registra l'avanzamento e non blocca i salti.
-export default function VideoPlayer({ video, iscrizioneId, onCompletato }) {
+export default function VideoPlayer({ video, iscrizioneId, onCompletato, grande = false }) {
   const videoRef = useRef(null);
   const [current, setCurrent] = useState(0);
   const lastHeartbeat = useRef(0);
   const raggiunto = useRef(0);        // punto piu' lontano toccato guardando (all'inizio: quello che il server ricorda)
+  const inSalto = useRef(false);      // tra "seeking" e "seeked": quel punto non e' stato guardato, non fa avanzare il traguardo
+  const iscrizioneCorrente = useRef(iscrizioneId);
+  iscrizioneCorrente.current = iscrizioneId;     // le risposte di un'altra iscrizione (si e' cambiato sessione) si scartano
   const [accesso, setAccesso] = useState(null);   // indirizzi a tempo del video
   const [erroreVideo, setErroreVideo] = useState(null);
   const [scelta, setScelta] = useState(() => {   // "auto" oppure l'altezza scelta (preferenza di questo browser)
@@ -80,17 +83,23 @@ export default function VideoPlayer({ video, iscrizioneId, onCompletato }) {
   }
 
   useEffect(() => {
+    raggiunto.current = 0;           // una nuova iscrizione riparte dal suo avanzamento, non da quello della precedente
+    lastHeartbeat.current = 0;
+    inSalto.current = false;
     if (!iscrizioneId) return;
+    let attiva = true;
     api.get(`/iscrizioni/${iscrizioneId}/progresso`).then((r) => {
+      if (!attiva || iscrizioneCorrente.current !== iscrizioneId) return;
       raggiunto.current = Math.max(raggiunto.current, r.data.secondo_massimo_raggiunto);
       if (videoRef.current) videoRef.current.currentTime = 0; // riparte dall'inizio, ma lo skip resta sbloccato fino al max raggiunto
     });
+    return () => { attiva = false; };
   }, [iscrizioneId]);
 
   function onTimeUpdate() {
     const t = Math.floor(videoRef.current.currentTime);
     setCurrent(t);
-    if (iscrizioneId && video.blocca_skip_avanti) {
+    if (iscrizioneId && video.blocca_skip_avanti && !inSalto.current) {
       const esito = controllaPunto(t, raggiunto.current);
       if (esito.riporta) { videoRef.current.currentTime = raggiunto.current; return; }   // impedisce il salto in avanti lato client
       raggiunto.current = esito.raggiunto;
@@ -98,6 +107,7 @@ export default function VideoPlayer({ video, iscrizioneId, onCompletato }) {
     if (iscrizioneId && t - lastHeartbeat.current >= 4) {
       lastHeartbeat.current = t;
       api.post(`/iscrizioni/${iscrizioneId}/progresso`, { secondo_corrente: t }).then((r) => {
+        if (iscrizioneCorrente.current !== iscrizioneId) return;
         raggiunto.current = Math.max(raggiunto.current, r.data.secondo_massimo_raggiunto);
         if (r.data.completato && onCompletato) onCompletato(r.data);        // sessione sempre disponibile: completata, l'attestato e' pronto
       });
@@ -105,13 +115,15 @@ export default function VideoPlayer({ video, iscrizioneId, onCompletato }) {
   }
 
   function onSeeking() {
-    if (iscrizioneId && video.blocca_skip_avanti && videoRef.current.currentTime > raggiunto.current + 2) {
+    inSalto.current = true;
+    if (iscrizioneId && video.blocca_skip_avanti && !saltoConsentito(videoRef.current.currentTime, raggiunto.current)) {
       videoRef.current.currentTime = raggiunto.current;
     }
   }
+  function onSeeked() { inSalto.current = false; }
 
   function vaiACapitolo(sec) {
-    if (iscrizioneId && video.blocca_skip_avanti && sec > raggiunto.current + 2) return; // capitolo non ancora sbloccato
+    if (iscrizioneId && video.blocca_skip_avanti && !saltoConsentito(sec, raggiunto.current)) return; // capitolo non ancora sbloccato
     videoRef.current.currentTime = sec;
   }
 
@@ -129,12 +141,12 @@ export default function VideoPlayer({ video, iscrizioneId, onCompletato }) {
   const subUrl = accesso?.sottotitoli || null;
 
   return (
-    <div className="video-layout">
+    <div className={`video-layout${grande ? " video-grande" : ""}`}>
       <div className="video-main">
         {erroreVideo && <div className="error-msg">{erroreVideo} <button type="button" className="secondary btn-sm" onClick={riprova}>Riprova</button></div>}
         {videoUrl && (
           <video ref={videoRef} controls style={{ borderRadius: 12 }}
-                 src={videoUrl} onError={onErroreVideo} onCanPlay={onVideoPronto} onLoadedMetadata={onMetadati} onTimeUpdate={onTimeUpdate} onSeeking={onSeeking}>
+                 src={videoUrl} onError={onErroreVideo} onCanPlay={onVideoPronto} onLoadedMetadata={onMetadati} onTimeUpdate={onTimeUpdate} onSeeking={onSeeking} onSeeked={onSeeked}>
             {subUrl && <track src={subUrl} kind="subtitles" srcLang="it" label="Italiano" default />}
           </video>
         )}
