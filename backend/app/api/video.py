@@ -5,6 +5,7 @@ from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form, B
 from fastapi.responses import Response, StreamingResponse
 import jwt
 from jwt import PyJWTError as JWTError
+from sqlalchemy import func
 from sqlalchemy.orm import Session, joinedload, selectinload
 from pydantic import BaseModel
 from typing import Optional
@@ -47,11 +48,19 @@ async def _salva_a_pezzi(file: UploadFile, destinazione: str, limite: int):
         if os.path.exists(provvisorio): os.remove(provvisorio)
         raise
 
-def _serialize(v: VideoContenuto):
+def _usi_dei_video(db: Session, ids=None) -> dict:
+    """In quante sessioni e' collegato ciascun video (una query per tutti)."""
+    q = db.query(Edizione.video_id, func.count(Edizione.id)).filter(Edizione.video_id.isnot(None))
+    if ids is not None:
+        q = q.filter(Edizione.video_id.in_(ids))
+    return dict(q.group_by(Edizione.video_id).all())
+
+def _serialize(v: VideoContenuto, usato_in: int = 0):
     return {
         "id": str(v.id), "titolo": v.titolo, "stato": v.stato,
         "durata_secondi": v.durata_secondi, "ha_file": bool(v.file_path),
         "ha_sottotitoli": bool(v.sottotitoli_path), "blocca_skip_avanti": v.blocca_skip_avanti,
+        "usato_in": usato_in,
         "qualita": [x.altezza for x in sorted(v.versioni, key=lambda x: x.altezza)],
         "altre_qualita_in_preparazione": bool(v.altre_versioni_in_corso),
         "capitoli": [{"id": str(c.id), "titolo": c.titolo, "inizio_secondi": c.inizio_secondi}
@@ -76,13 +85,14 @@ async def upload_video(background_tasks: BackgroundTasks, titolo: str = Form(...
 @router.get("/api/video")
 def list_video(db: Session = Depends(get_db), user=Depends(require_training_admin)):
     rows = db.query(VideoContenuto).options(joinedload(VideoContenuto.capitoli), selectinload(VideoContenuto.versioni)).order_by(VideoContenuto.created_at.desc()).all()
-    return [_serialize(v) for v in rows]
+    usi = _usi_dei_video(db)
+    return [_serialize(v, usi.get(v.id, 0)) for v in rows]
 
 @router.get("/api/video/{video_id}")
 def get_video(video_id: str, db: Session = Depends(get_db), user=Depends(get_current_user)):
     v = db.query(VideoContenuto).options(joinedload(VideoContenuto.capitoli), selectinload(VideoContenuto.versioni)).filter(VideoContenuto.id == video_id).first()
     if not v or not _puo_vedere(db, user, v.id): raise HTTPException(404)
-    return _serialize(v)
+    return _serialize(v, _usi_dei_video(db, [v.id]).get(v.id, 0))
 
 def _puo_vedere(db: Session, user, video_id) -> bool:
     """Chi gestisce la formazione vede tutto; i docenti di una sessione vedono il suo video (anche in anteprima);
@@ -177,7 +187,9 @@ def update_video(video_id: str, data: VideoUpdate, db: Session = Depends(get_db)
     v = db.query(VideoContenuto).filter(VideoContenuto.id == video_id).first()
     if not v: raise HTTPException(404)
     if data.blocca_skip_avanti is not None: v.blocca_skip_avanti = data.blocca_skip_avanti
-    if data.titolo is not None: v.titolo = data.titolo
+    if data.titolo is not None:
+        if not data.titolo.strip(): raise HTTPException(400, "Il titolo non può essere vuoto")
+        v.titolo = data.titolo.strip()
     db.commit()
     return {"ok": True}
 
@@ -185,13 +197,32 @@ class CapitoloIn(BaseModel):
     titolo: str
     inizio_secondi: int
 
+def _controlla_capitolo(v: VideoContenuto, data: CapitoloIn) -> str:
+    titolo = data.titolo.strip()
+    if not titolo: raise HTTPException(400, "Il titolo del capitolo non può essere vuoto")
+    if data.inizio_secondi < 0: raise HTTPException(400, "L'inizio del capitolo non può essere negativo")
+    if v.durata_secondi and data.inizio_secondi > v.durata_secondi:
+        raise HTTPException(400, "L'inizio del capitolo è oltre la fine del video")
+    return titolo
+
 @router.post("/api/video/{video_id}/capitoli")
 def add_capitolo(video_id: str, data: CapitoloIn, db: Session = Depends(get_db), user=Depends(require_training_admin)):
-    if not db.query(VideoContenuto).filter(VideoContenuto.id == video_id).first():
+    v = db.query(VideoContenuto).filter(VideoContenuto.id == video_id).first()
+    if not v:
         raise HTTPException(404)
-    c = VideoCapitolo(video_id=video_id, titolo=data.titolo, inizio_secondi=data.inizio_secondi)
+    c = VideoCapitolo(video_id=video_id, titolo=_controlla_capitolo(v, data), inizio_secondi=data.inizio_secondi)
     db.add(c); db.commit()
     return {"ok": True, "id": str(c.id)}
+
+@router.put("/api/video/{video_id}/capitoli/{capitolo_id}")
+def update_capitolo(video_id: str, capitolo_id: str, data: CapitoloIn, db: Session = Depends(get_db), user=Depends(require_training_admin)):
+    v = db.query(VideoContenuto).filter(VideoContenuto.id == video_id).first()
+    c = db.query(VideoCapitolo).filter(VideoCapitolo.id == capitolo_id, VideoCapitolo.video_id == video_id).first()
+    if not v or not c: raise HTTPException(404)
+    c.titolo = _controlla_capitolo(v, data)
+    c.inizio_secondi = data.inizio_secondi
+    db.commit()
+    return {"ok": True}
 
 @router.delete("/api/video/{video_id}/capitoli/{capitolo_id}")
 def delete_capitolo(video_id: str, capitolo_id: str, db: Session = Depends(get_db), user=Depends(require_training_admin)):
@@ -208,6 +239,44 @@ async def upload_sottotitoli(video_id: str, file: UploadFile = File(...), db: Se
     await cifratura.salva_upload(file, path, MAX_SOTTOTITOLI_BYTES, lambda lim: HTTPException(413, f"File troppo grande (massimo {lim // (1024 * 1024)} MB)"))
     v.sottotitoli_path = path
     db.commit()
+    return {"ok": True}
+
+@router.delete("/api/video/{video_id}/sottotitoli")
+def elimina_sottotitoli(video_id: str, db: Session = Depends(get_db), user=Depends(require_training_admin)):
+    v = db.query(VideoContenuto).filter(VideoContenuto.id == video_id).first()
+    if not v: raise HTTPException(404)
+    if v.sottotitoli_path:
+        _rimuovi_file(v.sottotitoli_path)
+        v.sottotitoli_path = None
+        db.commit()
+    return {"ok": True}
+
+def _rimuovi_file(percorso):
+    try:
+        if percorso and os.path.isfile(percorso):
+            os.remove(percorso)
+    except OSError:
+        pass   # un file gia' sparito o non rimovibile non deve impedire di togliere il video dall'elenco
+
+@router.delete("/api/video/{video_id}")
+def elimina_video(video_id: str, request: Request, db: Session = Depends(get_db), user=Depends(require_training_admin)):
+    """Si elimina solo un video che nessuna sessione usa: togliere un video collegato lascerebbe sessioni senza contenuto."""
+    v = db.query(VideoContenuto).options(selectinload(VideoContenuto.versioni)).filter(VideoContenuto.id == video_id).first()
+    if not v: raise HTTPException(404)
+    usi = _usi_dei_video(db, [v.id]).get(v.id, 0)
+    if usi:
+        raise HTTPException(400, f"Il video è collegato a {usi} {'sessione' if usi == 1 else 'sessioni'}: scollegalo prima dalle sessioni (o elimina le sessioni)")
+    # L'elaborazione parte dopo il caricamento e puo' continuare a produrre qualita' piu' alte anche a video pronto:
+    # eliminare in uno di questi momenti lascerebbe file orfani o farebbe fallire il lavoro in corso.
+    # (Se un riavvio la interrompe, all'avvio il video viene sistemato e di nuovo eliminabile.)
+    if v.stato in (StatoVideo.caricato, StatoVideo.in_elaborazione) or v.altre_versioni_in_corso:
+        raise HTTPException(400, "Il video è in elaborazione: attendi che finisca")
+    file_da_togliere = [v.file_originale, v.file_path, v.sottotitoli_path] + [x.file_path for x in v.versioni]
+    audit_svc.log_from_request(db, request, user, "DELETE", entity_type="video", entity_id=str(v.id), entity_name=v.titolo)
+    db.delete(v)       # capitoli e versioni cadono con lui
+    db.commit()
+    for percorso in set(p for p in file_da_togliere if p):
+        _rimuovi_file(percorso)
     return {"ok": True}
 
 # --- Tracciamento riproduzione (fonte di evidenza per il completamento) ---
