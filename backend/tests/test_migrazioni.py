@@ -227,3 +227,33 @@ def test_0010_le_ore_dichiarate_diventano_la_durata_in_minuti():
         if s is not None:
             s.close()
         ricrea_schema()
+
+
+def test_0011_i_corsi_che_c_erano_restano_aperti_ai_responsabili():
+    from app.database import SessionLocal
+    from app.models.corso import Corso
+    s = None
+    try:
+        ricrea_schema()
+        s = SessionLocal()
+        s.add(Corso(titolo="Esistente")); s.commit()
+        s.close(); s = None
+        with engine.begin() as conn:        # la forma della 2.5.x: niente modo di iscrizione, niente richieste
+            conn.execute(sa.text("ALTER TABLE corsi DROP COLUMN iscrizione_responsabili"))
+            conn.execute(sa.text("DROP TABLE richieste_iscrizione"))
+            conn.execute(sa.text("UPDATE alembic_version SET version_num = '0010'"))
+        esegui_migrazioni()
+        assert versione_corrente() == ultima_migrazione()
+        with engine.connect() as conn:
+            assert conn.execute(sa.text("SELECT iscrizione_responsabili FROM corsi")).scalar() == "diretta"      # comportamento invariato
+            assert conn.execute(sa.text("SELECT count(*) FROM richieste_iscrizione")).scalar() == 0
+            conn.execute(sa.text("INSERT INTO corsi (id, titolo, versione, versione_minima_valida) VALUES (gen_random_uuid(), 'Nuovo', 1, 1)")) if False else None
+        s = SessionLocal()
+        s.add(Corso(titolo="Nuovo dopo")); s.commit()
+        s.close(); s = None
+        with engine.connect() as conn:
+            assert conn.execute(sa.text("SELECT iscrizione_responsabili FROM corsi WHERE titolo = 'Nuovo dopo'")).scalar() == "solo_formazione"   # i nuovi nascono chiusi
+    finally:
+        if s is not None:
+            s.close()
+        ricrea_schema()

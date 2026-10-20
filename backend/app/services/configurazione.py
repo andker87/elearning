@@ -15,7 +15,7 @@ from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from ..models.azienda import Azienda
-from ..models.corso import AzioneTestNonSuperato, Corso
+from ..models.corso import AzioneTestNonSuperato, Corso, MODI_ISCRIZIONE_RESPONSABILI
 from ..models.etichetta import CorsoEtichetta, Etichetta, EtichettaFamiglia
 from ..models.mansione import Mansione
 from ..models.group import Group
@@ -33,7 +33,7 @@ SCHEMA = 2   # 2 (2.2.0): mansioni; i gruppi sono solo uffici. I file dello sche
 CAMPI_AZIENDA = ["ragione_sociale", "partita_iva", "codice_fiscale", "indirizzo", "cap", "citta", "provincia", "nazione", "email", "pec",
                  "nome_piattaforma", "url_pubblico", "privacy_testo"]
 CAMPI_ORGANIZZAZIONE = ["tipo", "partita_iva", "accreditamento", "referente", "email", "telefono", "note"]
-CAMPI_CORSO = ["descrizione", "validita_mesi", "durata_minuti", "ha_test_finale", "giorni_scadenza_breve", "confronta_pre_post_test",
+CAMPI_CORSO = ["descrizione", "validita_mesi", "durata_minuti", "iscrizione_responsabili", "ha_test_finale", "giorni_scadenza_breve", "confronta_pre_post_test",
                "permetti_autoiscrizione", "richiedi_approvazione_responsabile", "rinnovo_automatico", "rinnovo_giorni_anticipo", "is_active"]
 ESCLUSI = ["utenti, permessi, uffici e mansioni di ciascuno", "iscrizioni, esiti e attestati", "video, immagini, loghi e icone", "template degli attestati",
            "test e domande", "informativa privacy in PDF", "credenziali e chiavi (SMTP, SSO, Graph, notifiche push)"]
@@ -310,6 +310,8 @@ def _corsi(db, elenco, rapporto):
             azione = AzioneTestNonSuperato.concludi_comunque
         valori = {k: d[k] for k in CAMPI_CORSO if k in d}
         valori["azione_test_non_superato"] = azione
+        if valori.get("iscrizione_responsabili") not in MODI_ISCRIZIONE_RESPONSABILI:
+            valori.pop("iscrizione_responsabili", None)       # valore sconosciuto: si tiene quello del corso (o il predefinito, chiuso)
         if valori.get("rinnovo_automatico") and not valori.get("validita_mesi"):
             valori["rinnovo_automatico"] = False
         c = esistenti.get(_chiave(d["titolo"]))

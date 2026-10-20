@@ -48,7 +48,7 @@ function buildSections(user, haSottoposti, uffici) {
     ]});
   }
   if (haSottoposti) {
-    sections.push({ label: "Il mio team", links: [{ to: "/risorse", label: "Le mie risorse", icon: "🧑‍🤝‍🧑" }] });
+    sections.push({ label: "Il mio team", links: [{ to: "/risorse", label: "Il mio team", icon: "🧑‍🤝‍🧑" }] });
   }
   if (uffici.length > 0) {
     // L'Ufficio Formazione non chiede corsi a se stesso, ma se guida un ufficio
@@ -63,6 +63,7 @@ function buildSections(user, haSottoposti, uffici) {
       { to: "/dashboard-formazione", label: "Dashboard", icon: "📊" },
       { to: "/dashboard-kpi", label: "Dashboard KPI", icon: "📈" },
       { to: "/sessioni", label: "Sessioni", icon: "📅" },
+      { to: "/richieste-iscrizione", label: "Richieste di iscrizione", icon: "📨" },
       { to: "/corsi", label: "Corsi", icon: "📚" },
       { to: "/video", label: "Video", icon: "🎬" },
       { to: "/percorsi", label: "Percorsi formativi", icon: "🧭" },

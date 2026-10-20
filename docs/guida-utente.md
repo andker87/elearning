@@ -26,7 +26,7 @@ Nell'elenco delle **Sessioni** cerca quella che ti serve (puoi filtrare per etic
 
 ## Se sei responsabile di un ufficio
 Vedi in più:
-- **Le mie risorse**: le sessioni in cui puoi iscrivere le persone sotto la tua responsabilità (il tuo ufficio e i sotto-uffici) e le richieste di auto-iscrizione che aspettano la tua approvazione.
+- **Il mio team** (per chi guida un ufficio), con quattro schede: **Il mio team** (gli uffici che guidi e i sottouffici, ad albero, con le persone, i loro ruoli e mansioni; per ciascuna la *situazione formativa*: sessioni a cui partecipa, corsi svolti e scadenze); **Formazione del team** (solo le sessioni in cui sono iscritte persone del tuo team, con quando, dove, durata e modalità, per sessione o per persona); **Corsi disponibili** (le prossime sessioni dei corsi aperti ai responsabili: *iscrizione diretta*, dove iscrivi tu le persone, oppure *su richiesta*, dove chiedi l'iscrizione e la Formazione approva); **Richieste e approvazioni** (le auto-iscrizioni dei tuoi da approvare e l'esito delle richieste che hai fatto).
 - **Richiedi un corso**: chiedi alla Formazione una sessione su un argomento, indicando le persone interessate.
 - **Richieste**: le campagne di raccolta del fabbisogno formativo. Per ogni ufficio scegli se rispondere tu o girare la richiesta ai sotto-uffici; una risposta può contenere più esigenze. Qui valuti anche le proposte dei tuoi sotto-uffici (approva, rifiuta o unisci le simili) e puoi aprire una **richiesta spontanea**.
 

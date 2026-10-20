@@ -80,6 +80,14 @@ export default function EdizioneDetail() {
     } catch (err) { window.alert(erroreDi(err, "Iscrizione non riuscita")); }
     setSelectedSottoposto(""); load();
   }
+  async function chiediSottoposto() {
+    if (!selectedSottoposto) return;
+    try {
+      const r = await api.post("/team/richieste", { edizione_id: id, user_ids: [selectedSottoposto] });
+      window.alert(r.data.richieste ? "Richiesta inviata alla Formazione." : "Nessuna nuova richiesta: la persona è già iscritta o la richiesta è già in attesa.");
+    } catch (err) { window.alert(erroreDi(err, "Richiesta non riuscita")); }
+    setSelectedSottoposto("");
+  }
   async function autoiscriviti() {
     try {
       const r = await api.post(`/autoiscrizioni/edizioni/${id}`);
@@ -198,16 +206,19 @@ export default function EdizioneDetail() {
 
       <SezioneDocenti edizione={edizione} utenti={utenti} puoModificare={isAdmin && edizione.stato !== "chiusa"} ricarica={load} />
 
-      {!isAdmin && sottopostiNonIscritti.length > 0 && edizione.stato !== "chiusa" && (
+      {!isAdmin && sottopostiNonIscritti.length > 0 && edizione.stato !== "chiusa" && edizione.corso_iscrizione_responsabili !== "solo_formazione" && (
         <div className="card">
-          <h3>Iscrivi una tua risorsa</h3>
+          <h3>{edizione.corso_iscrizione_responsabili === "su_richiesta" ? "Chiedi l'iscrizione di una tua risorsa" : "Iscrivi una tua risorsa"}</h3>
           <div className="row">
             <select value={selectedSottoposto} onChange={(e) => setSelectedSottoposto(e.target.value)}>
               <option value="">-- persona --</option>
               {sottopostiNonIscritti.map((s) => <option key={s.id} value={s.id}>{s.full_name}</option>)}
             </select>
-            <button className="secondary" onClick={iscriviSottoposto}>Iscrivi</button>
+            {edizione.corso_iscrizione_responsabili === "su_richiesta"
+              ? <button className="secondary" onClick={chiediSottoposto}>Chiedi l'iscrizione</button>
+              : <button className="secondary" onClick={iscriviSottoposto}>Iscrivi</button>}
           </div>
+          {edizione.corso_iscrizione_responsabili === "su_richiesta" && <p className="text-muted" style={{ fontSize: 12, margin: "6px 0 0" }}>Per questo corso la richiesta arriva alla Formazione, che la approva o la rifiuta. Trovi l'esito in «Il mio team».</p>}
         </div>
       )}
 
