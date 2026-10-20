@@ -126,7 +126,7 @@ function CampiCorso({ v, set, famiglie, templates, modifica, anteprima, onAntepr
           <option value="su_richiesta">I responsabili chiedono l'iscrizione e la Formazione approva</option>
         </select>
       </div>
-      <div className="field">{spunta("permetti_autoiscrizione", "Permetti auto-iscrizione (il discente si iscrive da sé a una sessione con posti disponibili)", (on) => (on ? {} : { richiedi_approvazione_responsabile: false }))}</div>
+      <div className="field">{spunta("permetti_autoiscrizione", "Permetti auto-iscrizione (le sue sessioni pubblicate compaiono nel Catalogo e il discente si iscrive da sé, se ci sono posti)", (on) => (on ? {} : { richiedi_approvazione_responsabile: false }))}</div>
       {v.permetti_autoiscrizione && <div className="field">{spunta("richiedi_approvazione_responsabile", "Richiedi approvazione del responsabile")}</div>}
       {modifica && <div className="field">{spunta("is_active", "Corso attivo (se lo spegni non si può più assegnare, lo storico resta)")}</div>}
     </>

@@ -8,7 +8,7 @@ from ..models.corso import Corso
 from ..models.iscrizione import Iscrizione, StatoIscrizione
 from ..models.user import User
 from ..services.gerarchia import responsabili_di, sottoposti_di
-from ..services.iscrizioni import crea_iscrizione_con_capacita
+from ..services.iscrizioni import autoiscrizione_ammessa, crea_iscrizione_con_capacita
 from ..services.notifiche import invia_invito_calendario
 from ..services import audit as audit_svc
 from .deps import get_current_user
@@ -32,7 +32,7 @@ def richiedi_autoiscrizione(edizione_id: str, request: Request, db: Session = De
     if e.stato not in (StatoEdizione.pianificata, StatoEdizione.in_corso):
         raise HTTPException(400, "Questa sessione non è aperta alle iscrizioni")
     corso = db.query(Corso).filter(Corso.id == e.corso_id).first()
-    if not corso or not corso.permetti_autoiscrizione:
+    if not autoiscrizione_ammessa(e, corso):
         raise HTTPException(403, "Questo corso non permette l'auto-iscrizione")
     gia = db.query(Iscrizione).filter(Iscrizione.edizione_id == edizione_id, Iscrizione.user_id == user.id,
                                        Iscrizione.stato != StatoIscrizione.annullato).first()
@@ -41,7 +41,7 @@ def richiedi_autoiscrizione(edizione_id: str, request: Request, db: Session = De
                              AutoIscrizioneRichiesta.user_id == user.id, AutoIscrizioneRichiesta.stato == StatoAutoIscrizione.in_attesa).first()
     if gia_richiesta: raise HTTPException(400, "Richiesta già in attesa di approvazione")
 
-    if corso.richiedi_approvazione_responsabile and responsabili_di(db, user.id):
+    if corso.permetti_autoiscrizione and corso.richiedi_approvazione_responsabile and responsabili_di(db, user.id):
         r = AutoIscrizioneRichiesta(edizione_id=edizione_id, user_id=user.id)
         db.add(r); db.flush()
         audit_svc.log_from_request(db, request, user, "SELF_ENROLL_REQUEST", entity_type="edizione", entity_id=edizione_id,

@@ -1,6 +1,7 @@
 """Catalogo: le sessioni a cui chiunque puo' iscriversi da solo (corsi con auto-iscrizione), comprese quelle
 sempre aperte (video senza date). Chi non e' abilitato a iscriversi da solo non le vede qui."""
 from fastapi import APIRouter, Depends
+from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
 from ..database import get_db
@@ -12,7 +13,7 @@ from ..models.user import User
 from ..services.durata import durata_effettiva
 from ..services.etichette import etichette_del_corso
 from ..services.gerarchia import responsabili_di
-from ..services.iscrizioni import posti_occupati, sessione_finita
+from ..services.iscrizioni import posti_occupati, in_catalogo
 from .deps import get_current_user
 
 router = APIRouter(prefix="/api/catalogo", tags=["catalogo"])
@@ -22,8 +23,8 @@ router = APIRouter(prefix="/api/catalogo", tags=["catalogo"])
 def catalogo(db: Session = Depends(get_db), user: User = Depends(get_current_user)):
     righe = (db.query(Edizione, Corso).join(Corso, Corso.id == Edizione.corso_id)
              .filter(Edizione.stato.in_((StatoEdizione.pianificata, StatoEdizione.in_corso)), Corso.is_active == True,  # noqa: E712
-                     Corso.permetti_autoiscrizione == True).all())  # noqa: E712
-    righe = [(e, c) for e, c in righe if not sessione_finita(e)]
+                     or_(Corso.permetti_autoiscrizione == True, Edizione.sempre_aperta == True)).all())  # noqa: E712
+    righe = [(e, c) for e, c in righe if in_catalogo(e, c)]
     ids = [e.id for e, _ in righe]
     mie = {}
     attesa = set()
@@ -44,7 +45,7 @@ def catalogo(db: Session = Depends(get_db), user: User = Depends(get_current_use
             "luogo": e.luogo, "durata_effettiva_minuti": durata_effettiva(e, c),
             "posti_liberi": (max(0, e.posti_max - posti_occupati(db, e.id)) if e.posti_max else None),
             "lista_attesa": bool(e.lista_attesa_abilitata),
-            "richiede_approvazione": bool(c.richiedi_approvazione_responsabile and ho_responsabili),
+            "richiede_approvazione": bool(c.permetti_autoiscrizione and c.richiedi_approvazione_responsabile and ho_responsabili),
             "mio_stato": stato,
         })
     out.sort(key=lambda r: (not r["sempre_aperta"], r["data_inizio"] is None, r["data_inizio"].timestamp() if r["data_inizio"] else 0, r["corso_titolo"].lower()))

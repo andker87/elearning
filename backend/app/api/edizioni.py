@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, Response, Request, Query
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, joinedload
 from pydantic import BaseModel, field_validator, model_validator
 from typing import Optional, List
@@ -11,11 +12,12 @@ from ..models.corso import Corso
 from ..services.gerarchia import sottoposti_di
 from ..services.etichette import corsi_con_etichette, etichette_del_corso
 from ..services.durata import durata_effettiva
-from ..services.iscrizioni import crea_iscrizione_con_capacita, promuovi_da_lista_attesa, posti_occupati
+from ..services.iscrizioni import autoiscrizione_ammessa, crea_iscrizione_con_capacita, in_catalogo, promuovi_da_lista_attesa, posti_occupati
 from ..services.notifiche import invia_comunicazione_edizione, invia_invito_calendario
 from ..services.calendario import evento_edizione, costruisci_ics
 from ..models.comunicazione_edizione import ComunicazioneEdizione
 from ..services import audit as audit_svc
+from ..services import elimina_corso as elimina_corso_svc
 from .deps import require_training_admin, get_current_user
 
 router = APIRouter(prefix="/api/edizioni", tags=["edizioni"])
@@ -80,7 +82,8 @@ def _serialize(e: Edizione, db: Session):
     nomi = {u.id: u.full_name for u in db.query(User).filter(User.id.in_([d.user_id for d in e.docenti])).all()} if e.docenti else {}
     return {
         "id": str(e.id), "corso_id": str(e.corso_id), "corso_titolo": corso.titolo if corso else None,
-        "corso_permetti_autoiscrizione": corso.permetti_autoiscrizione if corso else False,
+        "corso_permetti_autoiscrizione": autoiscrizione_ammessa(e, corso),     # ci si puo' iscrivere da soli (anche per una sessione sempre disponibile)
+        "corso_autoiscrizione_attiva": bool(corso and corso.permetti_autoiscrizione), "in_catalogo": in_catalogo(e, corso),
         "corso_iscrizione_responsabili": corso.iscrizione_responsabili if corso else "solo_formazione",
         "corso_etichette": [{"id": str(x.id), "nome": x.nome, "famiglia": x.famiglia.nome} for x in etichette_del_corso(db, e.corso_id)],
         "modalita": e.modalita, "stato": e.stato,
@@ -209,6 +212,45 @@ def riporta_in_bozza(edizione_id: str, request: Request, db: Session = Depends(g
     audit_svc.log_from_request(db, request, user, "UNPUBLISH", entity_type="edizione", entity_id=str(e.id), entity_name=_nome_edizione(db, e))
     db.commit()
     return {"ok": True}
+
+class EliminaSessioneIn(BaseModel):
+    conferma: Optional[str] = None      # «ELIMINA», richiesto solo se ci sono persone iscritte
+
+
+@router.get("/{edizione_id}/eliminazione")
+def esame_eliminazione_sessione(edizione_id: str, db: Session = Depends(get_db), user=Depends(require_training_admin)):
+    e = db.query(Edizione).filter(Edizione.id == edizione_id).first()
+    if not e: raise HTTPException(404)
+    esito = elimina_corso_svc.esame_sessione(db, e)
+    esito["puoi_con_iscritti"] = bool(user.is_admin)           # con persone iscritte elimina solo l'admin tecnico
+    return esito
+
+
+@router.post("/{edizione_id}/elimina")
+def elimina_sessione(edizione_id: str, data: EliminaSessioneIn, request: Request, db: Session = Depends(get_db), user=Depends(require_training_admin)):
+    """Elimina una sessione creata per errore. La Formazione elimina le sessioni senza iscritti; con persone iscritte solo
+    l'admin tecnico, scrivendo ELIMINA. Mai una sessione chiusa o con attestati: sono lo storico."""
+    e = db.query(Edizione).filter(Edizione.id == edizione_id).first()
+    if not e: raise HTTPException(404)
+    esito = elimina_corso_svc.esame_sessione(db, e)
+    if not esito["eliminabile"]:
+        raise HTTPException(409, "La sessione non si può eliminare (" + "; ".join(esito["motivi"]) + ")")
+    if esito["iscrizioni_vive"]:
+        if not user.is_admin:
+            raise HTTPException(403, "Ci sono persone iscritte: solo l'admin tecnico può eliminare la sessione (oppure annulla prima le iscrizioni)")
+        if (data.conferma or "").strip() != "ELIMINA":
+            raise HTTPException(400, "Per confermare scrivi ELIMINA")
+    nome = _nome_edizione(db, e)
+    try:
+        elimina_corso_svc.elimina_sessione(db, e)
+        audit_svc.log_from_request(db, request, user, "DELETE", entity_type="edizione", entity_id=edizione_id, entity_name=nome,
+                                    detail=f"eliminata (iscrizioni: {esito['iscrizioni_vive']} attive, {esito['iscrizioni_annullate']} annullate)")
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(409, "La sessione ha dati collegati che non si possono togliere")
+    return {"ok": True}
+
 
 @router.get("/{edizione_id}/calendario.ics")
 def calendario_ics(edizione_id: str, db: Session = Depends(get_db), user=Depends(get_current_user)):

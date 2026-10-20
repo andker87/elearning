@@ -198,3 +198,55 @@ def test_una_sessione_pubblicata_torna_in_bozza_solo_se_vuota(client, auth, form
     db.expire_all(); assert db.get(Edizione, e.id).stato == SE.bozza
     chiusa = crea_edizione(crea_corso("Altro"), stato=SE.chiusa)
     assert client.post(f"/api/edizioni/{chiusa.id}/bozza", headers=auth(formazione)).status_code == 400
+
+
+def test_una_sessione_sempre_disponibile_e_aperta_a_tutti_anche_se_il_corso_non_ha_l_auto_iscrizione(client, auth, utente, db, crea_corso, crea_edizione, video_corto):
+    c = crea_corso("Corso senza auto-iscrizione")
+    libera = crea_edizione(c, stato=SE.pianificata, modalita=M.video, data_inizio=None, sempre_aperta=True, video_id=video_corto.id)
+    datata = crea_edizione(c, stato=SE.pianificata, data_inizio=adesso() + timedelta(days=4))
+    catalogo = client.get("/api/catalogo", headers=auth(utente)).json()
+    assert [x["id"] for x in catalogo] == [str(libera.id)]                                      # quella con data resta su invito
+    assert client.post(f"/api/autoiscrizioni/edizioni/{libera.id}", headers=auth(utente)).json()["stato"] == "iscritto"
+    assert client.post(f"/api/autoiscrizioni/edizioni/{datata.id}", headers=auth(utente)).status_code == 403
+    d = client.get(f"/api/edizioni/{libera.id}", headers=auth(utente)).json()
+    assert d["in_catalogo"] is True and d["corso_permetti_autoiscrizione"] is True and d["corso_autoiscrizione_attiva"] is False
+    assert client.get(f"/api/edizioni/{datata.id}", headers=auth(utente)).json()["in_catalogo"] is False
+
+
+def test_si_puo_rendere_sempre_disponibile_una_sessione_video_gia_creata(client, auth, formazione, utente, db, crea_corso, crea_edizione, video_corto):
+    c = crea_corso("Comunicazione efficace")
+    e = crea_edizione(c, stato=SE.pianificata, modalita=M.video, data_inizio=None, video_id=video_corto.id)
+    assert client.get("/api/catalogo", headers=auth(utente)).json() == []
+    r = client.put(f"/api/edizioni/{e.id}", headers=auth(formazione), json={"corso_id": str(c.id), "modalita": "video", "video_id": str(video_corto.id), "sempre_aperta": True})
+    assert r.status_code == 200 and r.json()["in_catalogo"] is True
+    assert [x["corso_titolo"] for x in client.get("/api/catalogo", headers=auth(utente)).json()] == ["Comunicazione efficace"]
+
+
+def test_eliminare_una_sessione(client, auth, admin, formazione, utente, db, crea_corso, crea_edizione, crea_iscrizione):
+    c = crea_corso("Corso")
+    vuota = crea_edizione(c, stato=SE.bozza)
+    assert client.get(f"/api/edizioni/{vuota.id}/eliminazione", headers=auth(formazione)).json()["eliminabile"] is True
+    assert client.post(f"/api/edizioni/{vuota.id}/elimina", headers=auth(utente), json={}).status_code == 403
+    assert client.post(f"/api/edizioni/{vuota.id}/elimina", headers=auth(formazione), json={}).status_code == 200            # la Formazione toglie quelle vuote
+    assert db.query(Edizione).count() == 0
+    con_iscritti = crea_edizione(c, stato=SE.pianificata); uuid_e = con_iscritti.id
+    crea_iscrizione(con_iscritti, utente)
+    r = client.post(f"/api/edizioni/{uuid_e}/elimina", headers=auth(formazione), json={"conferma": "ELIMINA"})
+    assert r.status_code == 403 and "admin tecnico" in r.json()["detail"]                                                       # con iscritti no
+    assert client.post(f"/api/edizioni/{uuid_e}/elimina", headers=auth(admin), json={}).status_code == 400                    # serve ELIMINA
+    assert db.get(Edizione, uuid_e) is not None
+    assert client.post(f"/api/edizioni/{uuid_e}/elimina", headers=auth(admin), json={"conferma": "ELIMINA"}).status_code == 200
+    db.expire_all(); assert db.query(Edizione).count() == 0 and db.query(Iscrizione).count() == 0
+
+
+def test_una_sessione_chiusa_o_con_attestati_non_si_elimina(client, auth, admin, utente, db, crea_corso, crea_edizione, crea_iscrizione):
+    c = crea_corso("Corso")
+    chiusa = crea_edizione(c, stato=SE.chiusa)
+    r = client.post(f"/api/edizioni/{chiusa.id}/elimina", headers=auth(admin), json={"conferma": "ELIMINA"})
+    assert r.status_code == 409 and "chiusa" in r.json()["detail"]
+    aperta = crea_edizione(c, stato=SE.in_corso)
+    i = crea_iscrizione(aperta, utente, stato=S.completato)
+    db.add(Certificato(iscrizione_id=i.id, codice_verifica="ABC123", pdf_path="/tmp/x.pdf")); db.commit()
+    r = client.post(f"/api/edizioni/{aperta.id}/elimina", headers=auth(admin), json={"conferma": "ELIMINA"})
+    assert r.status_code == 409 and "attestat" in r.json()["detail"]
+    assert db.query(Edizione).count() == 2

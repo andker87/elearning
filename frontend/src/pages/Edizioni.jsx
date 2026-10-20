@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import api, { erroreDi } from "../api";
+import EliminaSessione from "../components/EliminaSessione";
 import { FiltroEtichette, ChipEtichette } from "../components/Etichette";
 import CampoDurata from "../components/CampoDurata";
 import { formattaDurata } from "../durata";
@@ -56,6 +57,8 @@ export default function Edizioni() {
     catch (err) { setErrore(erroreDi(err, "Impossibile creare la sessione")); }
   }
 
+  const [daEliminare, setDaEliminare] = useState(null);
+
   async function pubblica(id) {
     try { await api.post(`/edizioni/${id}/pianifica`); load(); } catch (err) { setErrore(erroreDi(err, "Impossibile pubblicare la sessione")); }
   }
@@ -95,6 +98,7 @@ export default function Edizioni() {
 
   return (
     <div>
+      {daEliminare && <EliminaSessione sessioneId={daEliminare.id} nome={daEliminare.corso_titolo || "questo corso"} onChiudi={() => setDaEliminare(null)} onEliminata={() => { setDaEliminare(null); load(); }} />}
       <div className="page-header"><div><h2>Sessioni</h2><p>Le singole edizioni di un corso: quando, dove, chi insegna e chi partecipa.</p></div></div>
       <div className="tabs">
         {SCHEDE.map((x) => <button type="button" aria-pressed={scheda === x.id} key={x.id} className={`tab ${scheda === x.id ? "active" : ""}`} onClick={() => setScheda(x.id)}>{x.label}</button>)}
@@ -180,7 +184,7 @@ export default function Edizioni() {
                 </label>
                 <p className="text-muted" style={{ fontSize: 12, margin: "4px 0 0" }}>
                   Chi vuole la guarda quando preferisce, dal Catalogo. Chi la completa (e supera il test finale, se c'è) riceve l'attestato in automatico.
-                  {corsoScelto && !corsoScelto.permetti_autoiscrizione && form.sempre_aperta && <strong style={{ color: "var(--red-text)" }}> Il corso non permette l'auto-iscrizione: attivala dalla pagina Corsi, altrimenti non comparirà nel Catalogo.</strong>}
+                  {" "}Una sessione sempre disponibile compare nel Catalogo per tutti, anche se il corso non ha l'auto-iscrizione.
                 </p>
               </div>
             )}
@@ -253,6 +257,7 @@ export default function Edizioni() {
                         <button type="button" className="btn-sm" onClick={() => navigate(`/sessioni/${e.id}`)}>Apri</button>
                         {e.stato === "bozza" && <button type="button" className="btn-sm" onClick={() => pubblica(e.id)}>Pubblica</button>}
                         <button type="button" className="secondary btn-sm" onClick={() => duplica(e.id)}>Duplica</button>
+                        {e.stato !== "chiusa" && <button type="button" className="danger btn-sm" onClick={() => setDaEliminare(e)}>Elimina</button>}
                       </div>
                     </td>
                   </tr>

@@ -9,7 +9,7 @@ from ..models.autoiscrizione import AutoIscrizioneRichiesta
 from ..models.certificato import Certificato
 from ..models.comunicazione_edizione import ComunicazioneEdizione
 from ..models.corso import Corso
-from ..models.edizione import Edizione
+from ..models.edizione import Edizione, StatoEdizione
 from ..models.etichetta import CorsoEtichetta
 from ..models.evidenza import Evidenza
 from ..models.iscrizione import Iscrizione, StatoIscrizione
@@ -45,10 +45,11 @@ def esame(db: Session, corso: Corso) -> dict:
             "iscrizioni_annullate": len(iscrizioni) - len(vive), "test": db.query(Test).filter(Test.corso_id == corso.id).count()}
 
 
-def elimina(db: Session, corso: Corso) -> None:
-    sessioni = _ids(db, Edizione, Edizione.corso_id, [corso.id])
+def elimina_sessioni(db: Session, sessioni: list) -> None:
+    """Toglie le sessioni indicate con tutto cio' che le riguarda (iscrizioni, esiti, richieste, comunicazioni, docenti).
+    Chi chiama ha gia' controllato che non ci siano attestati ne' sessioni chiuse."""
     iscrizioni = _ids(db, Iscrizione, Iscrizione.edizione_id, sessioni)
-    if iscrizioni:       # solo annullate (l'esame l'ha garantito): si tolgono con quello che le riguarda
+    if iscrizioni:
         for gr in db.query(Gradimento).filter(Gradimento.iscrizione_id.in_(iscrizioni)).all():
             db.delete(gr)                                   # cascata sui voti ai docenti
         db.query(TentativoTest).filter(TentativoTest.iscrizione_id.in_(iscrizioni)).delete(synchronize_session=False)
@@ -62,6 +63,28 @@ def elimina(db: Session, corso: Corso) -> None:
         db.expire_all()
         for e in db.query(Edizione).filter(Edizione.id.in_(sessioni)).all():
             db.delete(e)                                    # cascata sui docenti
+        db.flush()
+
+
+def esame_sessione(db: Session, e: Edizione) -> dict:
+    """Cosa impedisce l'eliminazione di una sessione e cosa verrebbe tolto."""
+    iscrizioni = db.query(Iscrizione).filter(Iscrizione.edizione_id == e.id).all()
+    vive = [i for i in iscrizioni if i.stato != StatoIscrizione.annullato]
+    motivi = []
+    if e.stato == StatoEdizione.chiusa:
+        motivi.append("la sessione è chiusa: fa parte dello storico")
+    attestati = db.query(Certificato).filter(Certificato.iscrizione_id.in_([i.id for i in iscrizioni])).count() if iscrizioni else 0
+    if attestati:
+        motivi.append(f"{attestati} {'attestato emesso' if attestati == 1 else 'attestati emessi'}")
+    return {"eliminabile": not motivi, "motivi": motivi, "iscrizioni_vive": len(vive), "iscrizioni_annullate": len(iscrizioni) - len(vive)}
+
+
+def elimina_sessione(db: Session, e: Edizione) -> None:
+    elimina_sessioni(db, [e.id])
+
+
+def elimina(db: Session, corso: Corso) -> None:
+    elimina_sessioni(db, _ids(db, Edizione, Edizione.corso_id, [corso.id]))      # l'esame ha garantito: solo iscrizioni annullate
     for t in db.query(Test).filter(Test.corso_id == corso.id).all():
         db.delete(t)                                        # cascata su domande e opzioni
     db.query(CorsoEtichetta).filter(CorsoEtichetta.corso_id == corso.id).delete(synchronize_session=False)
