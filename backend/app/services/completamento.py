@@ -43,6 +43,7 @@ def completa_se_dovuto(db: Session, request, iscrizione: Iscrizione) -> Optional
     e = db.query(Edizione).filter(Edizione.id == iscrizione.edizione_id).first()
     if not e or not e.sempre_aperta or e.stato not in (StatoEdizione.pianificata, StatoEdizione.in_corso):
         return None
+    db.refresh(iscrizione, with_for_update=True)       # heartbeat e tentativi concorrenti si mettono in fila: un solo attestato
     if iscrizione.stato != StatoIscrizione.iscritto:
         return None
     corso = db.query(Corso).filter(Corso.id == e.corso_id).first()
