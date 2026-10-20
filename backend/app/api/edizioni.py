@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, Response, Request, Query
 from sqlalchemy.orm import Session, joinedload
-from pydantic import BaseModel, field_validator
+from pydantic import BaseModel, field_validator, model_validator
 from typing import Optional, List
 from datetime import datetime
 from ..database import get_db
@@ -36,7 +36,18 @@ class EdizioneIn(BaseModel):
     video_id: Optional[str] = None
     ente_erogatore: Optional[str] = None
     durata_minuti: Optional[int] = None   # vuota = segue il corso; diversa da quella del corso = durata forzata
+    sempre_aperta: bool = False           # solo video: senza date, attestato automatico a chi la completa
     note: Optional[str] = None
+
+    @model_validator(mode="after")
+    def _sempre_aperta_solo_video(self):
+        if self.sempre_aperta:
+            if self.modalita != ModalitaErogazione.video:
+                raise ValueError("Solo una sessione video può essere sempre disponibile")
+            self.data_inizio = self.data_fine = None        # senza date: chi vuole la segue quando vuole
+            self.posti_max = None                            # e senza posti contati
+            self.lista_attesa_abilitata = False
+        return self
 
     @field_validator("durata_minuti")
     @classmethod
@@ -77,7 +88,7 @@ def _serialize(e: Edizione, db: Session):
         "posti_max": e.posti_max, "lista_attesa_abilitata": e.lista_attesa_abilitata, "n_lista_attesa": n_lista_attesa,
         "checkin_mode": e.checkin_mode, "teams_mode": e.teams_mode,
         "teams_join_url": e.teams_join_url, "video_id": str(e.video_id) if e.video_id else None,
-        "ente_erogatore": e.ente_erogatore,
+        "ente_erogatore": e.ente_erogatore, "sempre_aperta": e.sempre_aperta,
         "durata_minuti": e.durata_minuti, "durata_corso_minuti": corso.durata_minuti if corso else None,
         "durata_effettiva_minuti": durata_effettiva(e, corso),
         "durata_modificata": bool(e.durata_minuti and corso and corso.durata_minuti and e.durata_minuti != corso.durata_minuti),
@@ -120,6 +131,7 @@ def mie_iscrizioni(db: Session = Depends(get_db), user=Depends(get_current_user)
             "edizione_modalita": e.modalita if e else None,
             "edizione_stato": e.stato if e else None,
             "edizione_data_inizio": e.data_inizio if e else None,
+            "edizione_sempre_aperta": bool(e and e.sempre_aperta),
             "aggiornamento_contenuto": aggiornamento,
         })
     return out
@@ -376,6 +388,7 @@ def duplica_edizione(edizione_id: str, request: Request, db: Session = Depends(g
         video_id=orig.video_id, ente_erogatore=orig.ente_erogatore,
         # di una sessione chiusa la durata e' congelata (anche se era solo quella del corso): la copia riparte dal corso
         durata_minuti=None if orig.stato == StatoEdizione.chiusa else orig.durata_minuti,
+        sempre_aperta=orig.sempre_aperta,
         note=orig.note,
     )
     db.add(nuova); db.flush()

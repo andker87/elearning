@@ -13,6 +13,7 @@ from ..models.corso import Corso
 from ..models.user import User
 from ..services import certificati as cert_svc
 from ..services import audit as audit_svc
+from ..services.completamento import completa_se_dovuto
 from ..services.export import neutralizza
 from .deps import get_current_user, require_training_admin
 
@@ -138,7 +139,8 @@ def tenta_test(test_id: str, data: TentativoIn, request: Request, db: Session = 
 
     n_precedenti = db.query(TentativoTest).filter(TentativoTest.test_id == test_id, TentativoTest.iscrizione_id == iscr.id).count()
     corso = db.query(Corso).filter(Corso.id == t.corso_id).first()
-    ignora_limite = corso.azione_test_non_superato.value == "rifai_test"
+    # In una sessione sempre aperta non c'e' «una nuova edizione» in cui rifare il corso: si puo' sempre riprovare
+    ignora_limite = corso.azione_test_non_superato.value == "rifai_test" or (edizione.sempre_aperta and corso.azione_test_non_superato.value == "rifai_corso")
     if t.tentativi_max and not ignora_limite and n_precedenti >= t.tentativi_max:
         raise HTTPException(400, "Numero massimo di tentativi raggiunto")
 
@@ -157,7 +159,15 @@ def tenta_test(test_id: str, data: TentativoIn, request: Request, db: Session = 
 
     esito_extra = {}
     if t.momento == MomentoTest.finale:
-        esito_extra = _applica_policy_test(db, iscr, corso, superato)
+        if edizione.sempre_aperta and not superato and corso.azione_test_non_superato.value == "rifai_corso":
+            esito_extra = {"messaggio": "Test non superato: puoi ritentare."}
+        else:
+            esito_extra = _applica_policy_test(db, iscr, corso, superato)
+        db.flush()
+        cert_auto = completa_se_dovuto(db, request, iscr)      # sessione sempre aperta: se il video e' gia' visto, si completa ora
+        if cert_auto:
+            esito_extra["certificato_id"] = str(cert_auto.id)
+            esito_extra["messaggio"] = "Corso completato: il tuo attestato è pronto."
         # Se l'edizione era già chiusa e l'unica cosa che mancava era superare il
         # test (policy rifai_test), il superamento ora completa retroattivamente.
         if superato and edizione.stato == StatoEdizione.chiusa and iscr.stato == StatoIscrizione.iscritto:

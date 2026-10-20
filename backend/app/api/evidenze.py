@@ -210,8 +210,8 @@ SOGLIA_COMPLETAMENTO_VIDEO_PCT = 80  # un video visto per questa percentuale val
 
 def _evidenza_indica_completamento(ev: Evidenza) -> bool:
     if ev is None: return False
-    if ev.percentuale_completamento is not None and ev.percentuale_completamento >= SOGLIA_COMPLETAMENTO_VIDEO_PCT:
-        return True
+    if ev.percentuale_completamento is not None:
+        return ev.percentuale_completamento >= SOGLIA_COMPLETAMENTO_VIDEO_PCT      # un video visto per poco non vale come completato
     return ev.inizio_at is not None and ev.fine_at is not None
 
 def _test_permette_completamento(db: Session, iscrizione: Iscrizione, corso: Corso):

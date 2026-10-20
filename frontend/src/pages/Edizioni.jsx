@@ -9,7 +9,7 @@ import { MODALITA, STATI, quando, dove } from "../sessioni";
 const SCHEDE = [{ id: "elenco", label: "Elenco sessioni" }, { id: "nuova", label: "Nuova sessione" }];
 const PER_PAGINA = [25, 50, 100];
 const VUOTO = { corso_id: "", modalita: "presenza", checkin_mode: "discente_validato", luogo: "", ente_erogatore: "", posti_max: "", lista_attesa_abilitata: false,
-  data_inizio: "", data_fine: "", video_id: "", durata_minuti: null };
+  data_inizio: "", data_fine: "", video_id: "", durata_minuti: null, sempre_aperta: false };
 
 const toLocalInput = (d) => { const p = (n) => String(n).padStart(2, "0"); return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`; };
 
@@ -46,7 +46,9 @@ export default function Edizioni() {
   async function submit(e) {
     e.preventDefault();
     setErrore(null);
-    const payload = { ...form, posti_max: form.posti_max ? parseInt(form.posti_max, 10) : null, data_inizio: form.data_inizio || null, data_fine: form.data_fine || null,
+    const libera = form.modalita === "video" && form.sempre_aperta;       // sempre disponibile: niente date né posti
+    const payload = { ...form, sempre_aperta: libera, posti_max: form.posti_max && !libera ? parseInt(form.posti_max, 10) : null,
+      data_inizio: !libera && form.data_inizio ? form.data_inizio : null, data_fine: !libera && form.data_fine ? form.data_fine : null,
       ente_erogatore: form.modalita === "esterna" ? (form.ente_erogatore || null) : null, luogo: form.modalita === "video" || form.modalita === "remoto" ? "" : form.luogo,
       durata_minuti: form.durata_minuti || null };
     try { const r = await api.post("/edizioni", payload); setForm(VUOTO); setDurataToccata(false); load(); navigate(`/sessioni/${r.data.id}`); }
@@ -144,7 +146,7 @@ export default function Edizioni() {
                 <div className="field"><label>Luogo (facoltativo)</label><input value={form.luogo} onChange={(e) => setForm({ ...form, luogo: e.target.value })} /></div>
               </div>
             )}
-            <div className="row">
+            {!(form.modalita === "video" && form.sempre_aperta) && <div className="row">
               <div className="field"><label>Posti massimi (vuoto = illimitati)</label><input type="number" min="1" value={form.posti_max} onChange={(e) => setForm({ ...form, posti_max: e.target.value })} /></div>
               {form.posti_max && (
                 <div className="field">
@@ -154,7 +156,7 @@ export default function Edizioni() {
                   </label>
                 </div>
               )}
-            </div>
+            </div>}
             {form.modalita === "video" && (
               <div className="field">
                 <label>Contenuto video</label>
@@ -165,14 +167,26 @@ export default function Edizioni() {
                 {video.length === 0 && <p className="text-muted" style={{ fontSize: 12 }}>Nessun video pronto — caricane uno nella sezione Video.</p>}
               </div>
             )}
-            <div className="row">
+            {form.modalita === "video" && (
+              <div className="field">
+                <label style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <input type="checkbox" style={{ width: "auto" }} checked={form.sempre_aperta} onChange={(e) => setForm({ ...form, sempre_aperta: e.target.checked })} />
+                  Sempre disponibile (senza date)
+                </label>
+                <p className="text-muted" style={{ fontSize: 12, margin: "4px 0 0" }}>
+                  Chi vuole la guarda quando preferisce, dal Catalogo. Chi la completa (e supera il test finale, se c'è) riceve l'attestato in automatico.
+                  {corsoScelto && !corsoScelto.permetti_autoiscrizione && form.sempre_aperta && <strong style={{ color: "var(--red-text)" }}> Il corso non permette l'auto-iscrizione: attivala dalla pagina Corsi, altrimenti non comparirà nel Catalogo.</strong>}
+                </p>
+              </div>
+            )}
+            {!(form.modalita === "video" && form.sempre_aperta) && <div className="row">
               <div className="field"><label>Data/ora inizio</label><input type="datetime-local" value={form.data_inizio} onChange={(e) => setForm({ ...form, data_inizio: e.target.value })} /></div>
               <div className="field">
                 <label>Data/ora fine</label>
                 <input type="datetime-local" value={form.data_fine} onChange={(e) => setForm({ ...form, data_fine: e.target.value })} />
                 {form.data_inizio && form.durata_minuti > 0 && form.durata_minuti < 24 * 60 && <button type="button" className="secondary btn-sm" style={{ marginTop: 4 }} onClick={fineSuggerita}>Imposta la fine in base alla durata</button>}
               </div>
-            </div>
+            </div>}
             <button type="submit">Crea sessione</button>
           </form>
         </div>

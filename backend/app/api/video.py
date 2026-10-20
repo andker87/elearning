@@ -20,6 +20,7 @@ from ..services import cifratura
 from ..services import video_elaborazione
 from .deps import get_current_user, require_training_admin
 
+from ..services.completamento import completa_se_dovuto
 from .evidenze import SOGLIA_COMPLETAMENTO_VIDEO_PCT  # una sola soglia, condivisa con il completamento delle evidenze
 
 router = APIRouter(tags=["video"])
@@ -333,8 +334,13 @@ def aggiorna_progresso(iscrizione_id: str, data: ProgressoIn, request: Request, 
         audit_svc.log_from_request(db, request, user, "VIDEO_COMPLETATO", entity_type="edizione", entity_id=str(e.id),
                                     entity_name=nome_ed, detail=f"video: {video.titolo} - raggiunto il {percentuale}%")
 
+    certificato = None
+    if percentuale is not None and percentuale >= soglia:
+        db.flush()
+        certificato = completa_se_dovuto(db, request, i)         # sessione sempre aperta: completata e attestato subito
     db.commit()
-    return {"secondo_massimo_raggiunto": prog.secondo_massimo_raggiunto, "percentuale_completamento": percentuale}
+    return {"secondo_massimo_raggiunto": prog.secondo_massimo_raggiunto, "percentuale_completamento": percentuale,
+            "completato": certificato is not None, "certificato_id": str(certificato.id) if certificato else None}
 
 @router.get("/api/iscrizioni/{iscrizione_id}/progresso")
 def leggi_progresso(iscrizione_id: str, db: Session = Depends(get_db), user=Depends(get_current_user)):

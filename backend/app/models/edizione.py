@@ -63,6 +63,10 @@ class Edizione(Base):
     # (e, alla chiusura, valore congelato). Vedi services/durata.py.
     durata_minuti = Column(Integer, nullable=True)
 
+    # Sessione video «sempre aperta»: niente date, la segue chi vuole quando vuole; chi la completa riceve
+    # l'attestato in automatico (services/completamento.py). Solo per la modalita' video.
+    sempre_aperta = Column(Boolean, nullable=False, default=False, server_default="false")
+
     note = Column(Text, nullable=True)
 
     chiusa_da_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
