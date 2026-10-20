@@ -306,3 +306,9 @@ Provati con test (creazione utente e CSV, corsa simulata). SSO ed Entra: modific
 | FATTO 2.6.0 | api/richieste_iscrizione.py | l'approvazione per una persona disattivata la iscriveva: ora risponde 400 e invita a rifiutare |
 | FATTO 2.6.0 | api/team.py, api/richieste_iscrizione.py, services/iscrizioni.py | sessioni pianificate già finite accettavano richieste e approvazioni: nuovo controllo condiviso `sessione_finita` (usato anche nell'elenco dei corsi disponibili) |
 | FATTO 2.6.0 | pages/IlMioTeam.jsx | la vista «Per persona» raggruppava per nome: due omonimi si fondevano; ora per identificativo |
+
+## PR #30 (2.7.0, Catalogo e corsi sempre disponibili)
+
+| Stato | File | Rilievo |
+|---|---|---|
+| FATTO 2.7.0 | services/completamento.py | due richieste contemporanee sulla stessa iscrizione (due heartbeat del player, due schede, un heartbeat e un tentativo del test) potevano emettere due attestati: la riga dell'iscrizione si rilegge ora con blocco prima di controllare lo stato, così la seconda trova già «completato» |
