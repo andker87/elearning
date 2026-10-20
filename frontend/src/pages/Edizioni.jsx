@@ -53,8 +53,15 @@ export default function Edizioni() {
       ente_erogatore: form.modalita === "esterna" ? (form.ente_erogatore || null) : null, luogo: form.modalita === "video" || form.modalita === "remoto" ? "" : form.luogo,
       durata_minuti: form.durata_minuti || null };
     delete payload.pubblica_subito;
-    try { const r = await api.post("/edizioni", payload); if (form.pubblica_subito) await api.post(`/edizioni/${r.data.id}/pianifica`); setForm(VUOTO); setDurataToccata(false); load(); navigate(`/sessioni/${r.data.id}`); }
-    catch (err) { setErrore(erroreDi(err, "Impossibile creare la sessione")); }
+    let r;
+    try { r = await api.post("/edizioni", payload); }
+    catch (err) { setErrore(erroreDi(err, "Impossibile creare la sessione")); return; }
+    setForm(VUOTO); setDurataToccata(false);
+    if (form.pubblica_subito) {        // la sessione esiste gia': se la pubblicazione fallisce non se ne crea una seconda
+      try { await api.post(`/edizioni/${r.data.id}/pianifica`); }
+      catch (err) { window.alert(`Sessione creata in bozza, ma non pubblicata: ${erroreDi(err, "pubblicazione non riuscita")}. Puoi pubblicarla dalla sua pagina.`); }
+    }
+    load(); navigate(`/sessioni/${r.data.id}`);
   }
 
   const [daEliminare, setDaEliminare] = useState(null);

@@ -266,3 +266,13 @@ def test_un_collega_non_vede_chi_e_iscritto(client, auth, formazione, utente, db
     assert len(client.get(f"/api/edizioni/{e.id}/iscrizioni", headers=auth(formazione)).json()) == 2
     assert len(client.get(f"/api/edizioni/{e.id}/iscrizioni", headers=auth(docente)).json()) == 2     # il docente della sessione vede tutti
     assert client.get("/api/edizioni/00000000-0000-0000-0000-000000000000/iscrizioni", headers=auth(utente)).status_code == 404
+
+def test_una_sessione_chiusa_blocca_anche_l_eliminazione_del_corso(client, auth, admin, utente, db, crea_corso, crea_edizione, crea_iscrizione):
+    from app.models.corso import Corso
+    c = crea_corso("Con sessione chiusa"); chiusa = crea_edizione(c, stato=SE.chiusa)
+    crea_iscrizione(chiusa, utente, stato=S.annullato)                      # solo iscrizioni annullate: prima il corso risultava eliminabile
+    esame = client.get(f"/api/corsi/{c.id}/eliminazione", headers=auth(admin)).json()
+    assert esame["eliminabile"] is False and "1 sessione chiusa" in esame["motivi"]
+    r = client.post(f"/api/corsi/{c.id}/elimina", headers=auth(admin), json={"conferma": "Con sessione chiusa"})
+    assert r.status_code == 409 and "sessione chiusa" in r.json()["detail"]
+    db.expire_all(); assert db.query(Corso).count() == 1 and db.query(Edizione).count() == 1

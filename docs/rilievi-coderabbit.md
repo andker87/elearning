@@ -312,3 +312,10 @@ Provati con test (creazione utente e CSV, corsa simulata). SSO ed Entra: modific
 | Stato | File | Rilievo |
 |---|---|---|
 | FATTO 2.7.0 | services/completamento.py | due richieste contemporanee sulla stessa iscrizione (due heartbeat del player, due schede, un heartbeat e un tentativo del test) potevano emettere due attestati: la riga dell'iscrizione si rilegge ora con blocco prima di controllare lo stato, così la seconda trova già «completato» |
+
+## PR #31 (2.7.1, eliminare corsi e sessioni, sessioni da pubblicare)
+
+| Stato | File | Rilievo |
+|---|---|---|
+| FATTO 2.7.1 | services/elimina_corso.py | eliminando un corso, una sessione chiusa con sole iscrizioni annullate veniva cancellata, mentre la singola sessione chiusa non si può eliminare: ora una sessione chiusa blocca anche l'eliminazione del corso |
+| FATTO 2.7.1 | pages/Edizioni.jsx | creazione e pubblicazione condividevano lo stesso controllo degli errori: se la pubblicazione falliva dopo la creazione, il modulo restava pieno e un nuovo invio creava una seconda sessione. Ora i due passaggi sono separati: se la pubblicazione fallisce si avvisa e si apre la sessione creata |
