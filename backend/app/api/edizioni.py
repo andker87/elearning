@@ -136,6 +136,7 @@ def mie_iscrizioni(db: Session = Depends(get_db), user=Depends(get_current_user)
             "edizione_stato": e.stato if e else None,
             "edizione_data_inizio": e.data_inizio if e else None,
             "edizione_sempre_aperta": bool(e and e.sempre_aperta),
+            "durata_effettiva_minuti": durata_effettiva(e, corso) if e else None,
             "aggiornamento_contenuto": aggiornamento,
         })
     return out

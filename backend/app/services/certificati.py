@@ -2,6 +2,7 @@ import io
 import logging
 import re
 import secrets, os
+import unicodedata
 from datetime import datetime
 from reportlab.lib.pagesizes import A4
 from reportlab.lib.colors import HexColor
@@ -38,6 +39,19 @@ def azienda_info(db):
     if not a:
         return "", None
     return a.ragione_sociale or "", a.logo_path
+
+def _parte_nome_file(testo: str, massimo: int = 40) -> str:
+    """Una parte del nome file: senza accenti ne' simboli, parole unite da trattini (compatibile con ogni sistema)."""
+    t = unicodedata.normalize("NFKD", testo or "").encode("ascii", "ignore").decode()
+    return re.sub(r"[^A-Za-z0-9]+", "-", t).strip("-")[:massimo].strip("-")
+
+
+def nome_file_attestato(titolo_corso: str, cognome: str, nome: str, data) -> str:
+    """Il nome con cui si scarica l'attestato: «Titolo-del-corso_Cognome_Nome_2026-10-21.pdf». La data e' quella di emissione
+    (stesso giorno stampato sull'attestato)."""
+    parti = [_parte_nome_file(titolo_corso), _parte_nome_file(cognome), _parte_nome_file(nome), data.strftime("%Y-%m-%d") if data else ""]
+    return ("_".join(p for p in parti if p) or "attestato") + ".pdf"
+
 
 def genera_codice_verifica() -> str:
     return secrets.token_hex(8).upper()
