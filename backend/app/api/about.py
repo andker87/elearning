@@ -20,7 +20,7 @@ CHANGELOG = [
     {"version": "2.4.1", "date": "2026-10", "label": "Sezione Video a schede", "changes": [
         "Video: schede «Elenco video» e «Carica video». L'elenco è una tabella (titolo, stato, durata, qualità, sottotitoli sì/no, numero di capitoli, anti-skip, in quante sessioni è usato) e ogni video si apre sotto la riga per gestirne le proprietà",
         "Dal video aperto: cambiare il titolo, attivare o no l'anti-skip, vedere l'anteprima compatta, caricare, sostituire o eliminare i sottotitoli, aggiungere, modificare ed eliminare i capitoli (si scrivono in minuti:secondi, non più in secondi, con controllo che non superino la durata)",
-        "Si può eliminare un video con i suoi file (qualità, originale, sottotitoli), ma solo se nessuna sessione lo usa e non è in elaborazione; l'eliminazione è registrata nel registro attività",
+        "Si può eliminare un video con i suoi file (qualità, originale, sottotitoli), ma solo se nessuna sessione lo usa e non è in elaborazione (neanche appena caricato o con altre qualità ancora in preparazione); l'eliminazione è registrata nel registro attività",
     ]},
     {"version": "2.4.0", "date": "2026-10", "label": "Etichette libere, corsi a schede, player compatto", "changes": [
         "Etichette dei corsi: il sistema non crea più nessuna famiglia preimpostata (tematica, norma, ambito, obbligo): le definisci tu da zero, e la pagina vuota spiega come. Chi aggiorna non perde nulla: le famiglie già presenti restano. Solo chi arriva dal vecchio campo Categoria trova una famiglia «Tematica» con quei testi",
