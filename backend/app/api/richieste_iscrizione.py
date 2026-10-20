@@ -17,7 +17,7 @@ from ..models.user import User
 from ..services import audit as audit_svc
 from ..services.durata import durata_effettiva
 from ..services.email import dopo_il_commit, invia_email
-from ..services.iscrizioni import crea_iscrizione_con_capacita, posti_occupati
+from ..services.iscrizioni import crea_iscrizione_con_capacita, posti_occupati, sessione_finita
 from ..services.notifiche import invia_invito_calendario
 from .deps import require_training_admin
 
@@ -48,7 +48,7 @@ def elenco(db: Session = Depends(get_db), user: User = Depends(require_training_
 
 
 def _da_gestire(db: Session, richiesta_id: str) -> RichiestaIscrizione:
-    r = db.query(RichiestaIscrizione).filter(RichiestaIscrizione.id == richiesta_id).first()
+    r = db.query(RichiestaIscrizione).filter(RichiestaIscrizione.id == richiesta_id).with_for_update().first()   # due Formazione insieme: la seconda aspetta e vede l'esito
     if not r:
         raise HTTPException(404)
     if r.stato != "in_attesa":
@@ -72,8 +72,11 @@ def _avvisa_richiedente(db: Session, r: RichiestaIscrizione, testo: str, oggetto
 def approva(richiesta_id: str, request: Request, db: Session = Depends(get_db), user: User = Depends(require_training_admin)):
     r = _da_gestire(db, richiesta_id)
     e = db.query(Edizione).filter(Edizione.id == r.edizione_id).first()
-    if not e or e.stato not in (StatoEdizione.pianificata, StatoEdizione.in_corso):
+    if not e or e.stato not in (StatoEdizione.pianificata, StatoEdizione.in_corso) or sessione_finita(e):
         raise HTTPException(400, "La sessione non è più aperta alle iscrizioni: rifiuta la richiesta")
+    persona_u = db.query(User).filter(User.id == r.user_id).first()
+    if not persona_u or not persona_u.is_active:
+        raise HTTPException(400, "La persona non è più attiva: rifiuta la richiesta")
     i = crea_iscrizione_con_capacita(db, e, r.user_id)       # rispetta posti e lista d'attesa; se non c'e' posto la richiesta resta in attesa
     r.stato = "approvata"
     r.valutata_da_id = user.id

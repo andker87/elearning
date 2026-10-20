@@ -256,10 +256,10 @@ def iscrivi(edizione_id: str, user_ids: List[str], request: Request, db: Session
         # campo "posso iscrivere" da mantenere a parte.
         corso = db.query(Corso).filter(Corso.id == e.corso_id).first()
         modo = corso.iscrizione_responsabili if corso else "solo_formazione"
-        if modo == "solo_formazione":
-            raise HTTPException(403, "A questo corso iscrive solo la Formazione")
         if modo == "su_richiesta":
             raise HTTPException(403, "A questo corso non si iscrive direttamente: chiedi l'iscrizione alla Formazione (dalla pagina «Il mio team»)")
+        if modo != "diretta":     # elenco ammesso: qualunque altro valore (anche sconosciuto) lascia il corso chiuso
+            raise HTTPException(403, "A questo corso iscrive solo la Formazione")
         sottoposti_ids = {str(s.id) for s in sottoposti_di(db, user.id)}
         non_autorizzati = [uid for uid in user_ids if uid not in sottoposti_ids]
         if non_autorizzati:

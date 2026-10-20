@@ -23,7 +23,7 @@ from ..services import audit as audit_svc
 from ..services.durata import durata_effettiva
 from ..services.email import dopo_il_commit, invia_email
 from ..services.gerarchia import e_responsabile, sottoposti_di, uffici_guidati_da
-from ..services.iscrizioni import posti_occupati
+from ..services.iscrizioni import posti_occupati, sessione_finita
 from .deps import get_current_user
 from .auth import _mansioni_per_utente
 from .edizioni import _serialize as serializza_edizione
@@ -143,8 +143,7 @@ def corsi_disponibili(db: Session = Depends(get_db), user: User = Depends(get_cu
                  Corso.iscrizione_responsabili.in_(["diretta", "su_richiesta"])))
     candidate = []
     for e, c in q.all():
-        fine = e.data_fine or e.data_inizio
-        if e.stato == StatoEdizione.pianificata and fine is not None and fine < ora:
+        if sessione_finita(e):
             continue                                          # gia' finita
         candidate.append((e, c))
     ids = [e.id for e, _ in candidate]
@@ -183,7 +182,7 @@ def chiedi_iscrizione(data: RichiestaIn, request: Request, db: Session = Depends
     e = db.query(Edizione).filter(Edizione.id == data.edizione_id).first()
     if not e:
         raise HTTPException(404)
-    if e.stato not in STATI_APERTI:
+    if e.stato not in STATI_APERTI or sessione_finita(e):
         raise HTTPException(400, "Questa sessione non è aperta alle iscrizioni")
     corso = db.query(Corso).filter(Corso.id == e.corso_id).first()
     if not corso or not corso.is_active:

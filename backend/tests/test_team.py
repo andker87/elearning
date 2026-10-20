@@ -219,3 +219,46 @@ def test_l_esportazione_della_configurazione_porta_il_modo_di_iscrizione(client,
     client.post("/api/corsi", headers=auth(formazione), json={"titolo": "Aperto", "iscrizione_responsabili": "diretta"})
     dati = client.get("/api/admin/configurazione/export", headers=auth(admin)).json()
     assert [c["iscrizione_responsabili"] for c in dati["corsi"]] == ["diretta"]
+
+
+# --- correzioni dalla review della PR #29 --------------------------------------------------------
+
+def test_un_modo_sconosciuto_lascia_il_corso_chiuso(client, auth, team, db, crea_corso, crea_edizione):
+    s = sessione(crea_corso, crea_edizione, db, modo="refuso", titolo="Strano")
+    r = client.post(f"/api/edizioni/{s.id}/iscrizioni", headers=auth(team["capo"]), json=[str(team["anna"].id)])
+    assert r.status_code == 403 and "Formazione" in r.json()["detail"]
+
+
+def test_l_importazione_scarta_un_modo_di_iscrizione_sconosciuto(client, auth, admin, db):
+    from app.models.corso import Corso
+    file = client.get("/api/admin/configurazione/export", headers=auth(admin)).json()      # intestazione vera, poi i corsi di prova
+    file["corsi"] = [{"titolo": "Importato", "iscrizione_responsabili": "refuso"}, {"titolo": "Aperto", "iscrizione_responsabili": "diretta"}]
+    r = client.post("/api/admin/configurazione/import", headers=auth(admin), json={"contenuto": file, "applica": True})
+    assert r.status_code == 200, r.text
+    db.expire_all()
+    modi = {c.titolo: c.iscrizione_responsabili for c in db.query(Corso).all()}
+    assert modi == {"Importato": "solo_formazione", "Aperto": "diretta"}      # il refuso non apre il corso
+
+
+def test_non_si_chiede_ne_si_approva_per_una_sessione_gia_finita(client, auth, team, formazione, db, crea_corso, crea_edizione):
+    passata = sessione(crea_corso, crea_edizione, db, modo="su_richiesta", titolo="Passata", data_inizio=adesso() - timedelta(days=5), data_fine=adesso() - timedelta(days=4))
+    assert chiedi(client, auth, team["capo"], passata, team["anna"]).status_code == 400
+    # richiesta fatta quando la sessione era ancora futura, poi la data passa
+    s = sessione(crea_corso, crea_edizione, db, modo="su_richiesta", titolo="Scade", data_inizio=adesso() + timedelta(days=2), data_fine=adesso() + timedelta(days=3))
+    assert chiedi(client, auth, team["capo"], s, team["anna"]).status_code == 200
+    s.data_inizio, s.data_fine = adesso() - timedelta(days=2), adesso() - timedelta(days=1); db.commit()
+    rid = client.get("/api/richieste-iscrizione", headers=auth(formazione)).json()["in_attesa"][0]["id"]
+    r = client.put(f"/api/richieste-iscrizione/{rid}/approva", headers=auth(formazione))
+    assert r.status_code == 400 and "rifiuta" in r.json()["detail"]
+    assert db.query(Iscrizione).filter(Iscrizione.edizione_id == s.id).count() == 0
+
+
+def test_non_si_approva_per_una_persona_disattivata(client, auth, team, formazione, db, crea_corso, crea_edizione):
+    s = sessione(crea_corso, crea_edizione, db, modo="su_richiesta", titolo="Corso", data_inizio=adesso() + timedelta(days=3))
+    chiedi(client, auth, team["capo"], s, team["anna"])
+    team["anna"].is_active = False; db.commit()
+    rid = client.get("/api/richieste-iscrizione", headers=auth(formazione)).json()["in_attesa"][0]["id"]
+    r = client.put(f"/api/richieste-iscrizione/{rid}/approva", headers=auth(formazione))
+    assert r.status_code == 400 and "non è più attiva" in r.json()["detail"]
+    assert db.query(Iscrizione).filter(Iscrizione.edizione_id == s.id).count() == 0
+    assert client.put(f"/api/richieste-iscrizione/{rid}/rifiuta", headers=auth(formazione), json={"motivo": "Persona non più attiva"}).status_code == 200    # si puo' rifiutare

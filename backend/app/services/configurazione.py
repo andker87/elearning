@@ -15,7 +15,7 @@ from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from ..models.azienda import Azienda
-from ..models.corso import AzioneTestNonSuperato, Corso
+from ..models.corso import AzioneTestNonSuperato, Corso, MODI_ISCRIZIONE_RESPONSABILI
 from ..models.etichetta import CorsoEtichetta, Etichetta, EtichettaFamiglia
 from ..models.mansione import Mansione
 from ..models.group import Group
@@ -310,6 +310,8 @@ def _corsi(db, elenco, rapporto):
             azione = AzioneTestNonSuperato.concludi_comunque
         valori = {k: d[k] for k in CAMPI_CORSO if k in d}
         valori["azione_test_non_superato"] = azione
+        if valori.get("iscrizione_responsabili") not in MODI_ISCRIZIONE_RESPONSABILI:
+            valori.pop("iscrizione_responsabili", None)       # valore sconosciuto: si tiene quello del corso (o il predefinito, chiuso)
         if valori.get("rinnovo_automatico") and not valori.get("validita_mesi"):
             valori["rinnovo_automatico"] = False
         c = esistenti.get(_chiave(d["titolo"]))

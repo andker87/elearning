@@ -296,3 +296,13 @@ Provati con test (creazione utente e CSV, corsa simulata). SSO ed Entra: modific
 |---|---|---|
 | FATTO 2.5.0 | api/edizioni.py | duplicando una sessione chiusa la copia si portava dietro la durata congelata alla chiusura (che poteva essere solo quella ereditata dal corso, ormai superata). Ora la copia di una sessione chiusa riparte dal corso; si mantiene la durata forzata di una sessione non chiusa. Limite noto: la durata forzata di una sessione chiusa non si distingue da quella congelata e non viene copiata |
 | FATTO 2.5.0 | services/durata.py | una sessione chiusa senza alcuna durata riprendeva dal corso quella inserita in seguito, cambiando lo storico. Ora una sessione chiusa senza durata propria resta senza |
+
+## PR #29 (2.6.0, Il mio team e corsi aperti)
+
+| Stato | File | Rilievo |
+|---|---|---|
+| FATTO 2.6.0 | api/edizioni.py, services/configurazione.py | l'iscrizione diretta del responsabile escludeva solo due valori: un modo sconosciuto (refuso in una configurazione importata) apriva il corso. Ora si ammette solo «diretta»; l'importazione scarta i valori non ammessi (il corso resta chiuso o come era) |
+| FATTO 2.6.0 | api/richieste_iscrizione.py | la richiesta si legge ora con blocco di riga: due approvazioni/rifiuti contemporanei non lasciano una richiesta «rifiutata» con la persona iscritta |
+| FATTO 2.6.0 | api/richieste_iscrizione.py | l'approvazione per una persona disattivata la iscriveva: ora risponde 400 e invita a rifiutare |
+| FATTO 2.6.0 | api/team.py, api/richieste_iscrizione.py, services/iscrizioni.py | sessioni pianificate già finite accettavano richieste e approvazioni: nuovo controllo condiviso `sessione_finita` (usato anche nell'elenco dei corsi disponibili) |
+| FATTO 2.6.0 | pages/IlMioTeam.jsx | la vista «Per persona» raggruppava per nome: due omonimi si fondevano; ora per identificativo |

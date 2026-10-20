@@ -96,8 +96,11 @@ function SchedaFormazione() {
   if (errore) return <div className="error-msg">{errore}</div>;
   if (!righe) return <p className="text-muted">Caricamento...</p>;
   const perPersona = {};
-  righe.forEach((s) => s.persone.forEach((p) => { (perPersona[p.nome] = perPersona[p.nome] || []).push({ ...s, stato_persona: p.stato }); }));
-  const persone = Object.keys(perPersona).sort((a, b) => a.localeCompare(b, "it", { sensitivity: "base" }));
+  righe.forEach((s) => s.persone.forEach((p) => {       // per identificativo, non per nome: due omonimi restano due persone
+    const sc = perPersona[p.user_id] = perPersona[p.user_id] || { nome: p.nome, sessioni: [] };
+    sc.sessioni.push({ ...s, stato_persona: p.stato });
+  }));
+  const persone = Object.keys(perPersona).sort((a, b) => perPersona[a].nome.localeCompare(perPersona[b].nome, "it", { sensitivity: "base" }));
   const dettaglio = (s) => <>{quando(s)} · {dove(s)}{s.durata_effettiva_minuti ? ` · ${formattaDurata(s.durata_effettiva_minuti)}` : ""}</>;
   return (
     <>
@@ -128,11 +131,11 @@ function SchedaFormazione() {
           </table>
         </div>
       )}
-      {vista === "persona" && persone.map((nome) => (
-        <div className="card" key={nome}>
-          <h4 style={{ marginTop: 0 }}>{nome}</h4>
+      {vista === "persona" && persone.map((id) => (
+        <div className="card" key={id}>
+          <h4 style={{ marginTop: 0 }}>{perPersona[id].nome}</h4>
           <ul style={{ margin: 0, paddingLeft: "1.2rem" }}>
-            {perPersona[nome].map((s) => <li key={s.id}><strong>{s.corso_titolo}</strong> — {dettaglio(s)} {capsulaStato(s.stato_persona)}</li>)}
+            {perPersona[id].sessioni.map((s) => <li key={s.id}><strong>{s.corso_titolo}</strong> — {dettaglio(s)} {capsulaStato(s.stato_persona)}</li>)}
           </ul>
         </div>
       ))}

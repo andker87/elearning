@@ -1,11 +1,23 @@
+from datetime import datetime, timezone
+
 from fastapi import HTTPException
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
-from ..models.edizione import Edizione
+from ..models.edizione import Edizione, StatoEdizione
 from ..models.iscrizione import Iscrizione, StatoIscrizione
 from ..models.user import User
 
 STATI_OCCUPANO_POSTO = (StatoIscrizione.iscritto, StatoIscrizione.completato, StatoIscrizione.non_completato)
+
+def sessione_finita(e) -> bool:
+    """Una sessione pianificata la cui data (fine, o inizio se manca) e' passata: non accetta piu' iscrizioni."""
+    fine = e.data_fine or e.data_inizio
+    if fine is None or e.stato != StatoEdizione.pianificata:
+        return False
+    if fine.tzinfo is None:
+        fine = fine.replace(tzinfo=timezone.utc)
+    return fine < datetime.now(timezone.utc)
+
 
 def posti_occupati(db: Session, edizione_id: str) -> int:
     return db.query(Iscrizione).filter(Iscrizione.edizione_id == edizione_id,
