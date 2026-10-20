@@ -5,6 +5,7 @@ import { useFamiglie, SceltaEtichette, ChipEtichette, FiltroEtichette } from "..
 import ExportButton from "../components/ExportButton";
 import CampoDurata from "../components/CampoDurata";
 import { formattaDurata } from "../durata";
+import Finestra from "../components/Finestra";
 
 const AZIONI = [
   { value: "concludi_comunque", label: "Concludi comunque" },
@@ -92,7 +93,7 @@ function CampiCorso({ v, set, famiglie, templates, modifica, anteprima, onAntepr
                       `${anteprima.persone.length} ${anteprima.persone.length === 1 ? "persona" : "persone"} da rinnovare: ${anteprima.persone.map((p) => `${p.nome} (${p.scaduto ? "scaduto" : "scade"} il ${new Date(p.scadenza).toLocaleDateString("it-IT")})`).join(", ")}.`}
                   </p>
                   <p style={{ margin: 0, fontSize: 13 }}>
-                    {anteprima.sessioni.length === 0 ? <span style={{ color: "var(--red-text)" }}>Nessuna sessione disponibile: pianificane una, altrimenti il rinnovo non può partire.</span> :
+                    {anteprima.sessioni.length === 0 ? <span style={{ color: "var(--red-text)" }}>Nessuna sessione disponibile: creane e pubblicane una, altrimenti il rinnovo non può partire.</span> :
                       `Sessioni utili: ${anteprima.sessioni.map((e) => `${e.data_inizio ? new Date(e.data_inizio).toLocaleDateString("it-IT") : "sempre aperta"}${e.posti_liberi != null ? ` (${e.posti_liberi} posti liberi)` : ""}`).join(", ")}.`}
                   </p>
                   <p className="text-muted" style={{ margin: "6px 0 0", fontSize: 12 }}>Il controllo gira ogni notte alle 02:00 sulle impostazioni salvate.</p>
@@ -125,7 +126,7 @@ function CampiCorso({ v, set, famiglie, templates, modifica, anteprima, onAntepr
           <option value="su_richiesta">I responsabili chiedono l'iscrizione e la Formazione approva</option>
         </select>
       </div>
-      <div className="field">{spunta("permetti_autoiscrizione", "Permetti auto-iscrizione (il discente si iscrive da sé a una sessione con posti disponibili)", (on) => (on ? {} : { richiedi_approvazione_responsabile: false }))}</div>
+      <div className="field">{spunta("permetti_autoiscrizione", "Permetti auto-iscrizione (le sue sessioni pubblicate compaiono nel Catalogo e il discente si iscrive da sé, se ci sono posti)", (on) => (on ? {} : { richiedi_approvazione_responsabile: false }))}</div>
       {v.permetti_autoiscrizione && <div className="field">{spunta("richiedi_approvazione_responsabile", "Richiedi approvazione del responsabile")}</div>}
       {modifica && <div className="field">{spunta("is_active", "Corso attivo (se lo spegni non si può più assegnare, lo storico resta)")}</div>}
     </>
@@ -149,6 +150,18 @@ export default function Corsi() {
   const [versioneForm, setVersioneForm] = useState({ richiedi_ripetizione: false, nota: "" });
   const [versioneMsg, setVersioneMsg] = useState(null);
 
+  const utenteAdmin = (() => { try { return !!JSON.parse(localStorage.getItem("user") || "{}")?.is_admin; } catch { return false; } })();     // solo l'admin tecnico elimina
+  const [eliminazione, setEliminazione] = useState(null);       // { corso, esame, conferma, errore, invio }
+  async function apriEliminazione(c) {
+    setErrore(null);
+    try { const r = await api.get(`/corsi/${c.id}/eliminazione`); setEliminazione({ corso: c, esame: r.data, conferma: "", errore: null, invio: false }); }
+    catch (e) { setErrore(erroreDi(e, "Impossibile controllare il corso")); }
+  }
+  async function eliminaCorso() {
+    setEliminazione({ ...eliminazione, invio: true, errore: null });
+    try { await api.post(`/corsi/${eliminazione.corso.id}/elimina`, { conferma: eliminazione.conferma }); setEliminazione(null); load(); }
+    catch (e) { setEliminazione({ ...eliminazione, invio: false, errore: erroreDi(e, "Eliminazione non riuscita") }); }
+  }
   function load() { api.get("/corsi").then((r) => setList(r.data)).catch((e) => setErrore(erroreDi(e, "Impossibile caricare i corsi"))); }
   useEffect(load, []);
   useEffect(() => { api.get("/certificato-templates").then((r) => setTemplates(r.data)).catch((e) => setErrore(erroreDi(e, "Impossibile caricare i template degli attestati"))); }, []);
@@ -207,8 +220,39 @@ export default function Corsi() {
     return Object.values(perFamiglia).every((gruppo) => gruppo.some((id) => mie.has(id)));
   });
 
+  const dialogEliminazione = eliminazione && (() => {
+    const { corso, esame } = eliminazione;
+    return (
+      <Finestra titolo={`Eliminare «${corso.titolo}»?`} onChiudi={() => setEliminazione(null)}
+        azioni={<>
+          <button type="button" className="secondary" onClick={() => setEliminazione(null)}>{esame.eliminabile ? "Annulla" : "Chiudi"}</button>
+          {esame.eliminabile && <button type="button" className="danger" disabled={eliminazione.invio || eliminazione.conferma.trim() !== corso.titolo.trim()} onClick={eliminaCorso}>Elimina definitivamente</button>}
+        </>}>
+        {esame.eliminabile ? (
+          <>
+            <p><strong>Attenzione: l'eliminazione è definitiva e non si può annullare.</strong></p>
+            <p>Verranno eliminati il corso{esame.sessioni ? `, ${esame.sessioni} ${esame.sessioni === 1 ? "sessione (vuota)" : "sessioni (vuote)"}` : ""}{esame.test ? `, ${esame.test} test` : ""}{esame.iscrizioni_annullate ? ` e ${esame.iscrizioni_annullate} ${esame.iscrizioni_annullate === 1 ? "iscrizione annullata" : "iscrizioni annullate"}` : ""}.</p>
+            <p className="text-muted" style={{ fontSize: 13 }}>Se il corso è solo da non usare più, meglio disattivarlo (Modifica → Stato): resta lo storico. L'eliminazione è registrata nel registro attività.</p>
+            <div className="field">
+              <label htmlFor="conferma-elimina">Per confermare scrivi il titolo del corso: <strong>{corso.titolo}</strong></label>
+              <input id="conferma-elimina" value={eliminazione.conferma} autoComplete="off" onChange={(e) => setEliminazione({ ...eliminazione, conferma: e.target.value })} />
+            </div>
+            {eliminazione.errore && <div className="error-msg" role="alert">{eliminazione.errore}</div>}
+          </>
+        ) : (
+          <>
+            <p>Questo corso <strong>non si può eliminare</strong>, perché ha lasciato tracce di formazione:</p>
+            <ul>{esame.motivi.map((m) => <li key={m}>{m}</li>)}</ul>
+            <p>Disattivalo da Modifica → Stato: sparisce dalle scelte ma resta lo storico di chi lo ha seguito.</p>
+          </>
+        )}
+      </Finestra>
+    );
+  })();
+
   return (
     <div>
+      {dialogEliminazione}
       <div className="page-header">
         <div>
           <h2>Corsi</h2>
@@ -261,6 +305,7 @@ export default function Corsi() {
                       <button type="button" className="btn-sm" onClick={() => apriModifica(c)}>Modifica</button>{" "}
                       <button type="button" className="secondary btn-sm" onClick={() => navigate(`/corsi/${c.id}/test`)}>Test</button>{" "}
                       <button type="button" className="secondary btn-sm" onClick={() => apriNuovaVersione(c)}>Nuova versione</button>
+                      {utenteAdmin && <>{" "}<button type="button" className="danger btn-sm" onClick={() => apriEliminazione(c)}>Elimina</button></>}
                     </td>
                   </tr>
                   {modifica?.id === c.id && (

@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import api, { erroreDi } from "../api";
+import EliminaSessione from "../components/EliminaSessione";
 import { FiltroEtichette, ChipEtichette } from "../components/Etichette";
 import CampoDurata from "../components/CampoDurata";
 import { formattaDurata } from "../durata";
@@ -9,7 +10,7 @@ import { MODALITA, STATI, quando, dove } from "../sessioni";
 const SCHEDE = [{ id: "elenco", label: "Elenco sessioni" }, { id: "nuova", label: "Nuova sessione" }];
 const PER_PAGINA = [25, 50, 100];
 const VUOTO = { corso_id: "", modalita: "presenza", checkin_mode: "discente_validato", luogo: "", ente_erogatore: "", posti_max: "", lista_attesa_abilitata: false,
-  data_inizio: "", data_fine: "", video_id: "", durata_minuti: null, sempre_aperta: false };
+  data_inizio: "", data_fine: "", video_id: "", durata_minuti: null, sempre_aperta: false, pubblica_subito: false };
 
 const toLocalInput = (d) => { const p = (n) => String(n).padStart(2, "0"); return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`; };
 
@@ -51,8 +52,22 @@ export default function Edizioni() {
       data_inizio: !libera && form.data_inizio ? form.data_inizio : null, data_fine: !libera && form.data_fine ? form.data_fine : null,
       ente_erogatore: form.modalita === "esterna" ? (form.ente_erogatore || null) : null, luogo: form.modalita === "video" || form.modalita === "remoto" ? "" : form.luogo,
       durata_minuti: form.durata_minuti || null };
-    try { const r = await api.post("/edizioni", payload); setForm(VUOTO); setDurataToccata(false); load(); navigate(`/sessioni/${r.data.id}`); }
-    catch (err) { setErrore(erroreDi(err, "Impossibile creare la sessione")); }
+    delete payload.pubblica_subito;
+    let r;
+    try { r = await api.post("/edizioni", payload); }
+    catch (err) { setErrore(erroreDi(err, "Impossibile creare la sessione")); return; }
+    setForm(VUOTO); setDurataToccata(false);
+    if (form.pubblica_subito) {        // la sessione esiste gia': se la pubblicazione fallisce non se ne crea una seconda
+      try { await api.post(`/edizioni/${r.data.id}/pianifica`); }
+      catch (err) { window.alert(`Sessione creata in bozza, ma non pubblicata: ${erroreDi(err, "pubblicazione non riuscita")}. Puoi pubblicarla dalla sua pagina.`); }
+    }
+    load(); navigate(`/sessioni/${r.data.id}`);
+  }
+
+  const [daEliminare, setDaEliminare] = useState(null);
+
+  async function pubblica(id) {
+    try { await api.post(`/edizioni/${id}/pianifica`); load(); } catch (err) { setErrore(erroreDi(err, "Impossibile pubblicare la sessione")); }
   }
 
   async function duplica(id) {
@@ -90,6 +105,7 @@ export default function Edizioni() {
 
   return (
     <div>
+      {daEliminare && <EliminaSessione sessioneId={daEliminare.id} nome={daEliminare.corso_titolo || "questo corso"} onChiudi={() => setDaEliminare(null)} onEliminata={() => { setDaEliminare(null); load(); }} />}
       <div className="page-header"><div><h2>Sessioni</h2><p>Le singole edizioni di un corso: quando, dove, chi insegna e chi partecipa.</p></div></div>
       <div className="tabs">
         {SCHEDE.map((x) => <button type="button" aria-pressed={scheda === x.id} key={x.id} className={`tab ${scheda === x.id ? "active" : ""}`} onClick={() => setScheda(x.id)}>{x.label}</button>)}
@@ -175,7 +191,7 @@ export default function Edizioni() {
                 </label>
                 <p className="text-muted" style={{ fontSize: 12, margin: "4px 0 0" }}>
                   Chi vuole la guarda quando preferisce, dal Catalogo. Chi la completa (e supera il test finale, se c'è) riceve l'attestato in automatico.
-                  {corsoScelto && !corsoScelto.permetti_autoiscrizione && form.sempre_aperta && <strong style={{ color: "var(--red-text)" }}> Il corso non permette l'auto-iscrizione: attivala dalla pagina Corsi, altrimenti non comparirà nel Catalogo.</strong>}
+                  {" "}Una sessione sempre disponibile compare nel Catalogo per tutti, anche se il corso non ha l'auto-iscrizione.
                 </p>
               </div>
             )}
@@ -187,6 +203,13 @@ export default function Edizioni() {
                 {form.data_inizio && form.durata_minuti > 0 && form.durata_minuti < 24 * 60 && <button type="button" className="secondary btn-sm" style={{ marginTop: 4 }} onClick={fineSuggerita}>Imposta la fine in base alla durata</button>}
               </div>
             </div>}
+            <div className="field">
+              <label style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <input type="checkbox" style={{ width: "auto" }} checked={form.pubblica_subito} onChange={(e) => setForm({ ...form, pubblica_subito: e.target.checked })} />
+                Pubblica subito
+              </label>
+              <p className="text-muted" style={{ fontSize: 12, margin: "4px 0 0" }}>Se non la pubblichi resta in bozza: la prepari con calma e la pubblichi quando è pronta. Finché è in bozza nessuno la vede né può iscriversi.</p>
+            </div>
             <button type="submit">Crea sessione</button>
           </form>
         </div>
@@ -239,7 +262,9 @@ export default function Edizioni() {
                     <td>
                       <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", whiteSpace: "nowrap" }}>
                         <button type="button" className="btn-sm" onClick={() => navigate(`/sessioni/${e.id}`)}>Apri</button>
+                        {e.stato === "bozza" && <button type="button" className="btn-sm" onClick={() => pubblica(e.id)}>Pubblica</button>}
                         <button type="button" className="secondary btn-sm" onClick={() => duplica(e.id)}>Duplica</button>
+                        {e.stato !== "chiusa" && <button type="button" className="danger btn-sm" onClick={() => setDaEliminare(e)}>Elimina</button>}
                       </div>
                     </td>
                   </tr>

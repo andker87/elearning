@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import api, { downloadFile, erroreDi } from "../api";
 import VideoPlayer from "../components/VideoPlayer";
+import EliminaSessione from "../components/EliminaSessione";
 import CampoDurata from "../components/CampoDurata";
 import { SezioneDocenti, AggiungiDiscenti } from "../components/PersoneSessione";
 import { formattaDurata } from "../durata";
@@ -63,15 +64,18 @@ export default function EdizioneDetail() {
     try { await azione(); } catch (e) { setMsg(erroreDi(e, erroreDefault)); }
   }
   // La durata si cambia con lo stesso PUT della sessione (che riceve tutti i campi): si rimandano quelli attuali.
-  async function salvaDurata(minuti) {
+  async function salva(modifiche, erroreDefault, dopo) {
     const e = edizione;
     await tenta(async () => {
       await api.put(`/edizioni/${id}`, { corso_id: e.corso_id, modalita: e.modalita, data_inizio: e.data_inizio, data_fine: e.data_fine, luogo: e.luogo,
         posti_max: e.posti_max, lista_attesa_abilitata: e.lista_attesa_abilitata, checkin_mode: e.checkin_mode, teams_mode: e.teams_mode,
-        video_id: e.video_id, ente_erogatore: e.ente_erogatore, note: e.note, sempre_aperta: !!e.sempre_aperta, durata_minuti: minuti || null });
-      setModificaDurata(null); load();
-    }, "Impossibile cambiare la durata");
+        video_id: e.video_id, ente_erogatore: e.ente_erogatore, note: e.note, sempre_aperta: !!e.sempre_aperta, durata_minuti: e.durata_minuti || null, ...modifiche });
+      if (dopo) dopo();
+      load();
+    }, erroreDefault);
   }
+  const salvaDurata = (minuti) => salva({ durata_minuti: minuti || null }, "Impossibile cambiare la durata", () => setModificaDurata(null));
+  const [eliminando, setEliminando] = useState(false);
   async function iscriviSottoposto() {
     if (!selectedSottoposto) return;
     try {
@@ -188,6 +192,28 @@ export default function EdizioneDetail() {
           </div>
         )}
         {edizione.luogo && <p><strong>Luogo:</strong> {edizione.luogo}</p>}
+        {isAdmin && edizione.stato !== "chiusa" && edizione.modalita === "video" && (
+          <p>
+            <label style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
+              <input type="checkbox" style={{ width: "auto" }} checked={!!edizione.sempre_aperta}
+                onChange={(ev) => salva({ sempre_aperta: ev.target.checked }, "Impossibile cambiare la disponibilità")} />
+              <strong>Sempre disponibile (senza date)</strong>
+            </label>
+            <span className="text-muted" style={{ fontSize: 12, marginLeft: 8 }}>Chi vuole la guarda dal Catalogo; chi la completa riceve l'attestato in automatico. Attivandola si tolgono date e posti.</span>
+          </p>
+        )}
+        {isAdmin && (
+          <p>
+            <strong>Catalogo:</strong>{" "}
+            {edizione.in_catalogo ? <span className="badge green">visibile a tutti</span> : <span className="badge gray">non visibile</span>}
+            {!edizione.in_catalogo && <span className="text-muted" style={{ fontSize: 12, marginLeft: 8 }}>
+              {edizione.stato === "bozza" ? "La sessione è in bozza: pubblicala."
+                : edizione.stato === "chiusa" || edizione.stato === "annullata" ? "La sessione è conclusa."
+                : !edizione.corso_autoiscrizione_attiva && !edizione.sempre_aperta ? "Il corso non permette l'auto-iscrizione: attivala da Corsi → Modifica per aprirla a tutti (altrimenti si iscrive chi viene iscritto)."
+                : "La sessione non è più aperta alle iscrizioni."}
+            </span>}
+          </p>
+        )}
         {edizione.posti_max && (
           <p><strong>Posti:</strong> {edizione.n_iscritti}/{edizione.posti_max}
             {edizione.n_lista_attesa > 0 && <> — {edizione.n_lista_attesa} in lista d'attesa</>}</p>
@@ -197,12 +223,20 @@ export default function EdizioneDetail() {
         )}
       </div>
 
+      {isAdmin && edizione.stato !== "chiusa" && (
+        <p><button type="button" className="danger btn-sm" onClick={() => setEliminando(true)}>Elimina la sessione</button></p>
+      )}
+      {eliminando && <EliminaSessione sessioneId={id} nome={edizione.corso_titolo || "questo corso"} onChiudi={() => setEliminando(false)} onEliminata={() => navigate("/sessioni")} />}
       {isAdmin && edizione.stato === "bozza" && (
         <div className="card" style={{ borderColor: "var(--yellow)", background: "var(--yellow-bg)" }}>
           <h3>La sessione è in bozza</h3>
-          <p>Finché è in bozza nessuno la vede e non ci si può iscrivere (nemmeno dal Catalogo o dalle richieste di «Il mio team»). Quando è pronta, pianificala per renderla disponibile.</p>
-          <button type="button" onClick={() => tenta(async () => { await api.post(`/edizioni/${id}/pianifica`); setMsg("Sessione pianificata: ora è disponibile."); load(); }, "Impossibile pianificare la sessione")}>Pianifica e rendi disponibile</button>
+          <p>Finché è in bozza nessuno la vede e non ci si può iscrivere (nemmeno dal Catalogo o dalle richieste di «Il mio team»). Quando è pronta, pubblicala.</p>
+          <button type="button" onClick={() => tenta(async () => { await api.post(`/edizioni/${id}/pianifica`); setMsg("Sessione pubblicata: ora è disponibile."); load(); }, "Impossibile pubblicare la sessione")}>Pubblica</button>
         </div>
+      )}
+      {isAdmin && edizione.stato === "pianificata" && edizione.n_iscritti === 0 && edizione.n_lista_attesa === 0 && (
+        <p><button type="button" className="secondary btn-sm" onClick={() => tenta(async () => { await api.post(`/edizioni/${id}/bozza`); setMsg("Sessione riportata in bozza: non è più visibile a nessuno."); load(); }, "Impossibile riportare in bozza")}>Riporta in bozza</button>
+          <span className="text-muted" style={{ fontSize: 12, marginLeft: 8 }}>La ritira finché non è di nuovo pronta (possibile solo senza iscritti).</span></p>
       )}
       {edizione.sempre_aperta && <p className="text-muted">Sessione sempre disponibile: chi completa il video (e supera il test finale, se c'è) riceve l'attestato in automatico.</p>}
 
@@ -302,7 +336,7 @@ export default function EdizioneDetail() {
       </div>
       </div>
 
-      {(edizione.modalita === "presenza" || edizione.modalita === "ibrida") && edizione.checkin_mode === "discente_validato" && edizione.stato !== "chiusa" && (
+      {miaIscrizione && (edizione.modalita === "presenza" || edizione.modalita === "ibrida") && edizione.checkin_mode === "discente_validato" && edizione.stato !== "chiusa" && (
         <div className="card">
           <h3>Il mio check-in</h3>
           <button onClick={() => checkinDiscente("inizio")}>Segna inizio presenza</button>{" "}

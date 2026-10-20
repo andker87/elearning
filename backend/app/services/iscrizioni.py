@@ -19,6 +19,17 @@ def sessione_finita(e) -> bool:
     return fine < datetime.now(timezone.utc)
 
 
+def autoiscrizione_ammessa(e, corso) -> bool:
+    """Ci si puo' iscrivere da soli se il corso lo permette; una sessione «sempre disponibile» e' aperta a tutti per definizione."""
+    return bool(corso is not None and (corso.permetti_autoiscrizione or e.sempre_aperta))
+
+
+def in_catalogo(e, corso) -> bool:
+    """La sessione compare nel Catalogo: pubblicata, non finita, corso attivo e iscrizione da soli ammessa."""
+    return bool(corso is not None and corso.is_active and e.stato in (StatoEdizione.pianificata, StatoEdizione.in_corso)
+                and not sessione_finita(e) and autoiscrizione_ammessa(e, corso))
+
+
 def posti_occupati(db: Session, edizione_id: str) -> int:
     return db.query(Iscrizione).filter(Iscrizione.edizione_id == edizione_id,
                                         Iscrizione.stato.in_(STATI_OCCUPANO_POSTO)).count()
