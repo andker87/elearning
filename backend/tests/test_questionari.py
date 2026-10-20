@@ -126,3 +126,16 @@ def test_report_con_le_domande_aggiuntive_anche_se_poi_cambiano(client, auth, ut
     riga0 = csv_.splitlines()[0]
     assert "Il tono era adatto?" in riga0 and "Cosa cambieresti?" in riga0 and "Dora" in riga0
     assert client.get(f"/api/edizioni/{i.edizione_id}/gradimenti", headers=auth(utente)).status_code == 403
+
+
+def test_il_nome_gia_usato_in_parallelo_da_un_400_e_non_un_500(client, auth, formazione, db, monkeypatch):
+    """Il controllo del nome passa (due richieste insieme), ma il database ferma il secondo salvataggio."""
+    from app.api import questionari as modulo
+    crea_q(client, auth, formazione, "Doppio", predefinito=False)
+    monkeypatch.setattr(modulo, "_controlla_nome", lambda *a, **k: None)             # simula la corsa: il controllo non vede il doppione
+    r = crea_q(client, auth, formazione, "Doppio", predefinito=False)
+    assert r.status_code == 400 and "nome" in r.json()["detail"]
+    altro = crea_q(client, auth, formazione, "Altro", predefinito=False).json()
+    r = client.put(f"/api/questionari/{altro['id']}", headers=auth(formazione), json={"nome": "Doppio", "is_default": False, "domande": []})
+    assert r.status_code == 400 and "nome" in r.json()["detail"]
+    db.expire_all(); assert db.query(QuestionarioGradimento).count() == 2

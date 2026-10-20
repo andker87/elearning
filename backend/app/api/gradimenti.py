@@ -114,7 +114,7 @@ def crea_gradimento(iscrizione_id: str, data: GradimentoIn, db: Session = Depend
 def list_gradimenti(edizione_id: str, db: Session = Depends(get_db), user=Depends(require_training_admin)):
     """Vista aggregata e anonima: mai il nome di chi ha risposto - solo
     medie/distribuzioni e i commenti liberi, spaiati da chi li ha scritti."""
-    rows = (db.query(Gradimento).options(joinedload(Gradimento.voti_docenti))
+    rows = (db.query(Gradimento).options(joinedload(Gradimento.voti_docenti), joinedload(Gradimento.risposte))
             .join(Iscrizione, Gradimento.iscrizione_id == Iscrizione.id)
             .filter(Iscrizione.edizione_id == edizione_id).all())
 
