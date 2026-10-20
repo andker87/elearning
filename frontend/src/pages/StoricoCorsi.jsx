@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import api, { apriFile, downloadFile, erroreDi } from "../api";
 import { MODALITA } from "../sessioni";
@@ -12,10 +12,15 @@ export default function StoricoCorsi() {
   const [certificati, setCertificati] = useState(null);
   const [errore, setErrore] = useState(null);
 
+  const generazione = useRef(0);        // una risposta di un tentativo precedente (dopo «Riprova») non sovrascrive quella nuova
   function carica() {
+    const mia = ++generazione.current;
+    const attuale = () => mia === generazione.current;
     setErrore(null); setIscrizioni(null); setCertificati(null);
-    api.get("/edizioni/mie/iscrizioni").then((r) => setIscrizioni(r.data)).catch((e) => { setIscrizioni("errore"); setErrore(erroreDi(e, "Impossibile caricare lo storico")); });
-    api.get("/certificati/mie").then((r) => setCertificati(r.data)).catch((e) => { setCertificati("errore"); setErrore(erroreDi(e, "Impossibile caricare gli attestati")); });
+    api.get("/edizioni/mie/iscrizioni").then((r) => { if (attuale()) setIscrizioni(r.data); })
+      .catch((e) => { if (attuale()) { setIscrizioni("errore"); setErrore(erroreDi(e, "Impossibile caricare lo storico")); } });
+    api.get("/certificati/mie").then((r) => { if (attuale()) setCertificati(r.data); })
+      .catch((e) => { if (attuale()) { setCertificati("errore"); setErrore(erroreDi(e, "Impossibile caricare gli attestati")); } });
   }
   useEffect(carica, []);
 

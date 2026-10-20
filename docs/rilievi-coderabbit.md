@@ -330,3 +330,13 @@ Provati con test (creazione utente e CSV, corsa simulata). SSO ed Entra: modific
 | FATTO 2.7.4 | pages/StoricoCorsi.jsx | un errore in una delle due richieste lasciava «Caricamento...» o «nessun attestato»: i due caricamenti hanno ora ciascuno il proprio stato di errore |
 | FATTO 2.7.4 | pages/StoricoCorsi.jsx | di un'iscrizione con più attestati se ne vedeva uno: ora una riga per attestato |
 | FATTO 2.7.4 | requirements.txt | non è un rilievo di CodeRabbit ma il controllo `pip-audit` della CI è fallito: 8 vulnerabilità note di Pillow 12.3.0, corrette passando alla 13.0.0 (`Image.LANCZOS` → `Image.Resampling.LANCZOS`) |
+
+### PR #32, seconda lettura (commit della 2.7.4)
+
+| Stato | File | Rilievo |
+|---|---|---|
+| FATTO 2.7.4 | components/VideoPlayer.jsx | l'iscrizione corrente si scriveva in un riferimento durante la costruzione della pagina (React può scartare quella costruzione): ora si aggiorna in un effetto prima di quello dell'avanzamento |
+| FATTO 2.7.4 | pages/Catalogo.jsx | cercando una parola che esiste solo tra i corsi già completati comparivano due messaggi «nessun risultato» prima dei risultati: ora si nascondono se tra i completati c'è una corrispondenza |
+| FATTO 2.7.4 | pages/StoricoCorsi.jsx | dopo «Riprova» una vecchia richiesta in ritardo poteva sovrascrivere il risultato nuovo con un errore: ogni caricamento ha ora una sua generazione e le risposte vecchie si ignorano |
+| FATTO 2.7.4 | api.js | «Visualizza» apriva la scheda solo dopo aver scaricato il PDF e il browser poteva bloccarla senza avvisare: la scheda si apre subito nel gesto dell'utente, poi si carica il file, e si chiude se il file non arriva (vale anche per l'informativa privacy e le impostazioni) |
+| NON NECESSARIO | components/VideoPlayer.jsx | segnalazione già vista (salti brevi che avanzano il traguardo): CodeRabbit stesso nota che `saltoConsentito` rifiuta già i salti oltre il punto raggiunto; verificato con lo script di prova |

@@ -61,7 +61,7 @@ export default function Catalogo() {
       {esito && <div className="card card-muted" role="status">{esito}</div>}
 
       <h3>Sempre disponibili</h3>
-      {sempre.length === 0 && <p className="empty-state">{q ? "Nessun corso corrisponde alla ricerca." : "Nessun corso sempre disponibile per ora."}</p>}
+      {sempre.length === 0 && (!q || completati.length === 0) && <p className="empty-state">{q ? "Nessun corso corrisponde alla ricerca." : "Nessun corso sempre disponibile per ora."}</p>}
       {sempre.map((s) => (
         <div className="card" key={s.id}>
           <div className="flex-between" style={{ gap: 12, alignItems: "flex-start" }}>
@@ -79,7 +79,7 @@ export default function Catalogo() {
       ))}
 
       <h3>Sessioni in programma</h3>
-      {inProgramma.length === 0 && <p className="empty-state">{q ? "Nessuna sessione corrisponde alla ricerca." : "Nessuna sessione aperta alle iscrizioni."}</p>}
+      {inProgramma.length === 0 && (!q || completati.length === 0) && <p className="empty-state">{q ? "Nessuna sessione corrisponde alla ricerca." : "Nessuna sessione aperta alle iscrizioni."}</p>}
       {inProgramma.length > 0 && (
         <div className="table-wrap">
           <table>

@@ -30,7 +30,7 @@ export default function VideoPlayer({ video, iscrizioneId, onCompletato, grande 
   const raggiunto = useRef(0);        // punto piu' lontano toccato guardando (all'inizio: quello che il server ricorda)
   const inSalto = useRef(false);      // tra "seeking" e "seeked": quel punto non e' stato guardato, non fa avanzare il traguardo
   const iscrizioneCorrente = useRef(iscrizioneId);
-  iscrizioneCorrente.current = iscrizioneId;     // le risposte di un'altra iscrizione (si e' cambiato sessione) si scartano
+  React.useLayoutEffect(() => { iscrizioneCorrente.current = iscrizioneId; }, [iscrizioneId]);     // le risposte di un'altra iscrizione (si e' cambiato sessione) si scartano
   const [accesso, setAccesso] = useState(null);   // indirizzi a tempo del video
   const [erroreVideo, setErroreVideo] = useState(null);
   const [scelta, setScelta] = useState(() => {   // "auto" oppure l'altezza scelta (preferenza di questo browser)
