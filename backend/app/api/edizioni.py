@@ -194,6 +194,22 @@ def pianifica_edizione(edizione_id: str, request: Request, db: Session = Depends
             invia_invito_calendario(db, e, i.user_id)
     return {"ok": True}
 
+@router.post("/{edizione_id}/bozza")
+def riporta_in_bozza(edizione_id: str, request: Request, db: Session = Depends(get_db), user=Depends(require_training_admin)):
+    """Ritira una sessione pubblicata e la rimette in bozza (per continuare a prepararla), solo se nessuno vi e' iscritto."""
+    e = db.query(Edizione).filter(Edizione.id == edizione_id).first()
+    if not e: raise HTTPException(404)
+    if e.stato == StatoEdizione.bozza:
+        return {"ok": True}
+    if e.stato != StatoEdizione.pianificata:
+        raise HTTPException(400, "Si riporta in bozza solo una sessione pubblicata e non ancora iniziata")
+    if db.query(Iscrizione).filter(Iscrizione.edizione_id == edizione_id, Iscrizione.stato != StatoIscrizione.annullato).count():
+        raise HTTPException(400, "Qualcuno è già iscritto: annulla prima le iscrizioni, oppure lascia la sessione pubblicata")
+    e.stato = StatoEdizione.bozza
+    audit_svc.log_from_request(db, request, user, "UNPUBLISH", entity_type="edizione", entity_id=str(e.id), entity_name=_nome_edizione(db, e))
+    db.commit()
+    return {"ok": True}
+
 @router.get("/{edizione_id}/calendario.ics")
 def calendario_ics(edizione_id: str, db: Session = Depends(get_db), user=Depends(get_current_user)):
     e = db.query(Edizione).filter(Edizione.id == edizione_id).first()

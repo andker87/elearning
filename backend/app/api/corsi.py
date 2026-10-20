@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, Request
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 from pydantic import BaseModel, model_validator
 from typing import Optional, List
@@ -10,7 +11,8 @@ from ..models.user import User
 from ..services.notifiche import _crea_se_assente, _escalation_responsabili
 from ..services import audit as audit_svc
 from ..services import etichette as etichette_svc
-from .deps import require_training_admin, get_current_user
+from ..services import elimina_corso as elimina_corso_svc
+from .deps import require_training_admin, require_admin_tecnico, get_current_user
 
 router = APIRouter(prefix="/api/corsi", tags=["corsi"])
 
@@ -156,6 +158,41 @@ def nuova_versione(corso_id: str, data: NuovaVersioneIn, request: Request,
                                 detail=f"Nuova versione {c.versione} (richiedi_ripetizione={data.richiedi_ripetizione})" + (f" - {data.nota}" if data.nota else ""))
     db.commit()
     return {"versione": c.versione, "versione_minima_valida": c.versione_minima_valida, "notificati": notificati}
+
+class EliminaCorsoIn(BaseModel):
+    conferma: str       # il titolo del corso, scritto per intero: nessuna eliminazione per sbaglio
+
+
+@router.get("/{corso_id}/eliminazione")
+def esame_eliminazione(corso_id: str, db: Session = Depends(get_db), user=Depends(require_admin_tecnico)):
+    """Cosa succederebbe eliminando il corso (solo admin tecnico): se si puo' e che cosa verrebbe tolto."""
+    c = db.query(Corso).filter(Corso.id == corso_id).first()
+    if not c: raise HTTPException(404)
+    return elimina_corso_svc.esame(db, c)
+
+
+@router.post("/{corso_id}/elimina")
+def elimina_corso(corso_id: str, data: EliminaCorsoIn, request: Request, db: Session = Depends(get_db), user=Depends(require_admin_tecnico)):
+    """Eliminazione definitiva: solo admin tecnico, solo se il corso non ha lasciato tracce di formazione, e solo
+    scrivendo il titolo. Altrimenti il corso si disattiva (resta lo storico)."""
+    c = db.query(Corso).filter(Corso.id == corso_id).first()
+    if not c: raise HTTPException(404)
+    if data.conferma.strip() != c.titolo.strip():
+        raise HTTPException(400, "Per confermare scrivi il titolo del corso esattamente com'è")
+    esito = elimina_corso_svc.esame(db, c)
+    if not esito["eliminabile"]:
+        raise HTTPException(409, "Il corso non si può eliminare (" + "; ".join(esito["motivi"]) + "): disattivalo, così resta lo storico")
+    titolo, cid = c.titolo, str(c.id)
+    try:
+        elimina_corso_svc.elimina(db, c)
+        audit_svc.log_from_request(db, request, user, "DELETE", entity_type="corso", entity_id=cid, entity_name=titolo,
+                                    detail=f"eliminato definitivamente (sessioni: {esito['sessioni']}, test: {esito['test']})")
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(409, "Il corso ha dati collegati che non si possono togliere: disattivalo, così resta lo storico")
+    return {"ok": True}
+
 
 @router.delete("/{corso_id}")
 def delete_corso(corso_id: str, request: Request, db: Session = Depends(get_db), user=Depends(require_training_admin)):

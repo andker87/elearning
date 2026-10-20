@@ -200,9 +200,13 @@ export default function EdizioneDetail() {
       {isAdmin && edizione.stato === "bozza" && (
         <div className="card" style={{ borderColor: "var(--yellow)", background: "var(--yellow-bg)" }}>
           <h3>La sessione è in bozza</h3>
-          <p>Finché è in bozza nessuno la vede e non ci si può iscrivere (nemmeno dal Catalogo o dalle richieste di «Il mio team»). Quando è pronta, pianificala per renderla disponibile.</p>
-          <button type="button" onClick={() => tenta(async () => { await api.post(`/edizioni/${id}/pianifica`); setMsg("Sessione pianificata: ora è disponibile."); load(); }, "Impossibile pianificare la sessione")}>Pianifica e rendi disponibile</button>
+          <p>Finché è in bozza nessuno la vede e non ci si può iscrivere (nemmeno dal Catalogo o dalle richieste di «Il mio team»). Quando è pronta, pubblicala.</p>
+          <button type="button" onClick={() => tenta(async () => { await api.post(`/edizioni/${id}/pianifica`); setMsg("Sessione pubblicata: ora è disponibile."); load(); }, "Impossibile pubblicare la sessione")}>Pubblica</button>
         </div>
+      )}
+      {isAdmin && edizione.stato === "pianificata" && edizione.n_iscritti === 0 && edizione.n_lista_attesa === 0 && (
+        <p><button type="button" className="secondary btn-sm" onClick={() => tenta(async () => { await api.post(`/edizioni/${id}/bozza`); setMsg("Sessione riportata in bozza: non è più visibile a nessuno."); load(); }, "Impossibile riportare in bozza")}>Riporta in bozza</button>
+          <span className="text-muted" style={{ fontSize: 12, marginLeft: 8 }}>La ritira finché non è di nuovo pronta (possibile solo senza iscritti).</span></p>
       )}
       {edizione.sempre_aperta && <p className="text-muted">Sessione sempre disponibile: chi completa il video (e supera il test finale, se c'è) riceve l'attestato in automatico.</p>}
 
@@ -302,7 +306,7 @@ export default function EdizioneDetail() {
       </div>
       </div>
 
-      {(edizione.modalita === "presenza" || edizione.modalita === "ibrida") && edizione.checkin_mode === "discente_validato" && edizione.stato !== "chiusa" && (
+      {miaIscrizione && (edizione.modalita === "presenza" || edizione.modalita === "ibrida") && edizione.checkin_mode === "discente_validato" && edizione.stato !== "chiusa" && (
         <div className="card">
           <h3>Il mio check-in</h3>
           <button onClick={() => checkinDiscente("inizio")}>Segna inizio presenza</button>{" "}

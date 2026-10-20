@@ -17,6 +17,11 @@ PACCHETTI = ["fastapi", "uvicorn", "sqlalchemy", "pydantic", "pyjwt", "httpx", "
              "reportlab", "openpyxl", "pywebpush", "psycopg2-binary"]
 
 CHANGELOG = [
+    {"version": "2.7.1", "date": "2026-10", "label": "Eliminare i corsi, pubblicare le sessioni", "changes": [
+        "Corsi: pulsante «Elimina» (solo per l'admin tecnico, non per l'Ufficio Formazione). Si può eliminare un corso solo se non ha lasciato tracce di formazione (nessuna iscrizione attiva o conclusa, nessun attestato, non è in un percorso né in una richiesta di corso): in quel caso una finestra spiega cosa verrà tolto (corso, sessioni vuote, test, iscrizioni annullate) e chiede di riscrivere il titolo. Altrimenti la finestra elenca i motivi e invita a disattivarlo, così resta lo storico. L'eliminazione è registrata nel registro attività",
+        "Sessioni: «Pubblica» al posto di «Pianifica». Una sessione nasce in bozza (la prepari e la salvi) e si pubblica quando è pronta: dalla pagina della sessione, dall'elenco o con la casella «Pubblica subito» alla creazione. Una sessione pubblicata e senza iscritti si può riportare in bozza. Lo stato «Pianificata» si chiama ora «Pubblicata»",
+        "Pagina della sessione: «Il mio check-in» (segna inizio e fine presenza) compare solo a chi è iscritto alla sessione, non più a chi la gestisce",
+    ]},
     {"version": "2.7.0", "date": "2026-10", "label": "Catalogo e corsi sempre disponibili", "changes": [
         "Nuova pagina «Catalogo» per tutti: i corsi a cui ci si iscrive da soli (corsi con auto-iscrizione) divisi in «Sempre disponibili» e «Sessioni in programma», con ricerca, posti liberi e pulsante per iscriversi o chiedere l'iscrizione (se serve l'approvazione del responsabile). Le sessioni già finite, in bozza o di corsi non attivi non compaiono",
         "Sessioni «sempre disponibili» (solo modalità video): senza date né posti, la guarda chi vuole quando vuole. Chi raggiunge la soglia di visione del video (80%) e, se il corso ha un test finale, lo supera, risulta completato e riceve l'attestato subito, senza che la Formazione chiuda la sessione. Con la regola del corso «concludi comunque» un test non superato non blocca; con «rifai il corso» in queste sessioni si può sempre riprovare. Compare in «I miei corsi» tra i corsi che stai seguendo",

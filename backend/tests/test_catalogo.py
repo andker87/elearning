@@ -4,7 +4,7 @@ from datetime import timedelta
 import pytest
 
 from app.models.certificato import Certificato
-from app.models.edizione import ModalitaErogazione as M, StatoEdizione as SE
+from app.models.edizione import Edizione, ModalitaErogazione as M, StatoEdizione as SE
 from app.models.evidenza import Evidenza
 from app.models.iscrizione import Iscrizione, StatoIscrizione as S
 from app.models.test import Domanda, OpzioneRisposta, Test
@@ -144,3 +144,57 @@ def test_con_la_regola_concludi_comunque_il_test_sbagliato_non_blocca(client, au
     db.expire_all(); assert db.get(Iscrizione, i.id).stato == S.iscritto                    # senza tentativi il test manca ancora
     client.post(f"/api/test/{t.id}/tenta", headers=auth(utente), json={"iscrizione_id": str(i.id), "risposte": {str(d.id): str(sbagliata.id)}})
     db.expire_all(); assert db.get(Iscrizione, i.id).stato == S.completato                  # come alla chiusura di una sessione normale
+
+
+# --- 2.7.1: eliminare un corso, pubblicare e ritirare le sessioni --------------------------------
+
+def test_solo_l_admin_tecnico_elimina_un_corso_e_scrivendo_il_titolo(client, auth, admin, formazione, db, crea_corso, crea_edizione):
+    from app.models.corso import Corso
+    c = crea_corso("Creato per sbaglio"); crea_edizione(c, stato=SE.bozza); db.commit()
+    cid = str(c.id); uuid_c = c.id
+    assert client.get(f"/api/corsi/{cid}/eliminazione", headers=auth(formazione)).status_code == 403
+    assert client.post(f"/api/corsi/{cid}/elimina", headers=auth(formazione), json={"conferma": "Creato per sbaglio"}).status_code == 403     # la Formazione disattiva soltanto
+    esame = client.get(f"/api/corsi/{cid}/eliminazione", headers=auth(admin)).json()
+    assert esame["eliminabile"] is True and esame["sessioni"] == 1
+    assert client.post(f"/api/corsi/{cid}/elimina", headers=auth(admin), json={"conferma": "creato"}).status_code == 400                       # titolo diverso
+    assert db.get(Corso, uuid_c) is not None
+    assert client.post(f"/api/corsi/{cid}/elimina", headers=auth(admin), json={"conferma": "Creato per sbaglio"}).status_code == 200
+    db.expire_all(); assert db.get(Corso, uuid_c) is None and db.query(Edizione).count() == 0
+
+
+def test_un_corso_con_formazione_registrata_non_si_elimina(client, auth, admin, utente, db, crea_corso, crea_edizione, crea_iscrizione, crea_percorso):
+    from app.models.corso import Corso
+    usato = crea_corso("Con iscritti"); crea_iscrizione(crea_edizione(usato, stato=SE.pianificata), utente)
+    r = client.post(f"/api/corsi/{usato.id}/elimina", headers=auth(admin), json={"conferma": "Con iscritti"})
+    assert r.status_code == 409 and "1 iscrizione attiva o conclusa" in r.json()["detail"] and "disattivalo" in r.json()["detail"]
+    in_percorso = crea_corso("In un percorso"); crea_percorso([in_percorso], [utente])
+    r = client.post(f"/api/corsi/{in_percorso.id}/elimina", headers=auth(admin), json={"conferma": "In un percorso"})
+    assert r.status_code == 409 and "percorso" in r.json()["detail"]
+    db.expire_all(); assert db.query(Corso).count() == 2
+
+
+def test_le_iscrizioni_annullate_non_impediscono_l_eliminazione(client, auth, admin, utente, db, crea_corso, crea_edizione, crea_iscrizione):
+    from app.models.corso import Corso
+    from app.models.iscrizione import Iscrizione
+    c = crea_corso("Provato e annullato"); e = crea_edizione(c, stato=SE.pianificata)
+    i = crea_iscrizione(e, utente, stato=S.annullato)
+    t = Test(corso_id=c.id, titolo="Finale"); db.add(t); db.commit()
+    uuid_c, uuid_i = c.id, i.id
+    assert client.post(f"/api/corsi/{c.id}/elimina", headers=auth(admin), json={"conferma": "Provato e annullato"}).status_code == 200
+    db.expire_all()
+    assert db.get(Corso, uuid_c) is None and db.get(Iscrizione, uuid_i) is None and db.query(Test).count() == 0
+
+
+def test_una_sessione_pubblicata_torna_in_bozza_solo_se_vuota(client, auth, formazione, utente, db, crea_corso, crea_edizione, crea_iscrizione):
+    from app.models.edizione import Edizione
+    e = crea_edizione(crea_corso("Corso"), stato=SE.bozza)
+    assert client.post(f"/api/edizioni/{e.id}/pianifica", headers=auth(formazione)).status_code == 200
+    db.expire_all(); assert db.get(Edizione, e.id).stato == SE.pianificata
+    i = crea_iscrizione(e, utente)
+    assert client.post(f"/api/edizioni/{e.id}/bozza", headers=auth(formazione)).status_code == 400
+    assert client.post(f"/api/edizioni/{e.id}/bozza", headers=auth(utente)).status_code == 403
+    i.stato = S.annullato; db.commit()
+    assert client.post(f"/api/edizioni/{e.id}/bozza", headers=auth(formazione)).status_code == 200
+    db.expire_all(); assert db.get(Edizione, e.id).stato == SE.bozza
+    chiusa = crea_edizione(crea_corso("Altro"), stato=SE.chiusa)
+    assert client.post(f"/api/edizioni/{chiusa.id}/bozza", headers=auth(formazione)).status_code == 400
