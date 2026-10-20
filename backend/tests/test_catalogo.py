@@ -250,3 +250,14 @@ def test_una_sessione_chiusa_o_con_attestati_non_si_elimina(client, auth, admin,
     r = client.post(f"/api/edizioni/{aperta.id}/elimina", headers=auth(admin), json={"conferma": "ELIMINA"})
     assert r.status_code == 409 and "attestat" in r.json()["detail"]
     assert db.query(Edizione).count() == 2
+
+
+def test_una_sessione_chiusa_blocca_anche_l_eliminazione_del_corso(client, auth, admin, utente, db, crea_corso, crea_edizione, crea_iscrizione):
+    from app.models.corso import Corso
+    c = crea_corso("Con sessione chiusa"); chiusa = crea_edizione(c, stato=SE.chiusa)
+    crea_iscrizione(chiusa, utente, stato=S.annullato)                      # solo iscrizioni annullate: prima il corso risultava eliminabile
+    esame = client.get(f"/api/corsi/{c.id}/eliminazione", headers=auth(admin)).json()
+    assert esame["eliminabile"] is False and "1 sessione chiusa" in esame["motivi"]
+    r = client.post(f"/api/corsi/{c.id}/elimina", headers=auth(admin), json={"conferma": "Con sessione chiusa"})
+    assert r.status_code == 409 and "sessione chiusa" in r.json()["detail"]
+    db.expire_all(); assert db.query(Corso).count() == 1 and db.query(Edizione).count() == 1

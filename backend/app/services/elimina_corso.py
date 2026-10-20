@@ -27,9 +27,12 @@ def _ids(db: Session, modello, colonna, valori):
 def esame(db: Session, corso: Corso) -> dict:
     """Cosa impedisce l'eliminazione e cosa verrebbe eliminato."""
     sessioni = _ids(db, Edizione, Edizione.corso_id, [corso.id])
+    chiuse = db.query(Edizione).filter(Edizione.corso_id == corso.id, Edizione.stato == StatoEdizione.chiusa).count()
     iscrizioni = db.query(Iscrizione).filter(Iscrizione.edizione_id.in_(sessioni)).all() if sessioni else []
     vive = [i for i in iscrizioni if i.stato != StatoIscrizione.annullato]
     motivi = []
+    if chiuse:       # una sessione chiusa e' storico, come per l'eliminazione della singola sessione
+        motivi.append(f"{chiuse} {'sessione chiusa' if chiuse == 1 else 'sessioni chiuse'}")
     if vive:
         motivi.append(f"{len(vive)} {'iscrizione attiva o conclusa' if len(vive) == 1 else 'iscrizioni attive o concluse'}")
     attestati = db.query(Certificato).filter(Certificato.iscrizione_id.in_([i.id for i in iscrizioni])).count() if iscrizioni else 0
