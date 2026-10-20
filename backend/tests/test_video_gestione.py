@@ -77,10 +77,18 @@ def test_un_video_usato_non_si_elimina_uno_libero_si_con_i_suoi_file(client, aut
     assert db.query(VideoVersione).count() == 0
 
 
-def test_un_video_in_elaborazione_non_si_elimina(client, auth, formazione, db):
-    v = VideoContenuto(titolo="In corso", stato=StatoVideo.in_elaborazione)
+@pytest.mark.parametrize("stato,altre", [(StatoVideo.in_elaborazione, False), (StatoVideo.caricato, False), (StatoVideo.pronto, True)])
+def test_un_video_che_si_sta_elaborando_non_si_elimina(client, auth, formazione, db, stato, altre):
+    """In elaborazione, appena caricato (il lavoro sta per partire) o pronto ma con altre qualita' ancora in preparazione."""
+    v = VideoContenuto(titolo="In corso", stato=stato, altre_versioni_in_corso=altre)
     db.add(v); db.commit()
-    assert client.delete(f"/api/video/{v.id}", headers=auth(formazione)).status_code == 400
+    r = client.delete(f"/api/video/{v.id}", headers=auth(formazione))
+    assert r.status_code == 400 and "elaborazione" in r.json()["detail"]
+    assert db.get(VideoContenuto, v.id) is not None
+    v.altre_versioni_in_corso = False
+    v.stato = StatoVideo.pronto
+    db.commit()
+    assert client.delete(f"/api/video/{v.id}", headers=auth(formazione)).status_code == 200      # finito: si puo'
 
 
 def test_solo_chi_gestisce_la_formazione_gestisce_i_video(client, auth, utente, video):

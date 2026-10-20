@@ -283,3 +283,9 @@ Provati con test (creazione utente e CSV, corsa simulata). SSO ed Entra: modific
 | FATTO 2.4.0 | services/etichette.py | la conversione del vecchio campo Categoria in etichette si saltava se esisteva già una qualunque famiglia: ora i corsi con una categoria si convertono comunque, nella famiglia «Tematica» (creata o riusata senza toccare le altre, e senza duplicare i collegamenti); fatta la conversione il vecchio campo si svuota, così non si ripete e chi toglie l'etichetta non se la ritrova |
 | FATTO 2.4.0 | api/video.py | un docente assegnato alla sessione (senza il permesso Formazione) vedeva nella pagina il pulsante di anteprima del video ma il server rispondeva «non trovato»: ora i docenti della sessione possono vedere il video e ottenerne l'accesso; un docente di un'altra sessione o un utente qualunque no (errore mio della 2.4.0) |
 | FATTO 2.4.0 | tests/test_iscrizioni.py (nota) | il test sulle iscrizioni annullate passava anche se l'elenco restituiva solo quelle «iscritto»: ora controlla che lista d'attesa e corsi completati restino visibili |
+
+## PR #27 (2.4.1, sezione Video a schede)
+
+| Stato | File | Rilievo |
+|---|---|---|
+| FATTO 2.4.1 | api/video.py, pages/Video.jsx | l'eliminazione si bloccava solo con il video «in elaborazione»: eliminando appena caricato (il lavoro sta per partire) o a video pronto mentre si preparano le qualità più alte si lasciavano file orfani o si faceva fallire il lavoro. Ora è bloccata anche con «caricato» e con le altre qualità in preparazione (server e pulsante, con la spiegazione); se un riavvio interrompe il lavoro, all'avvio il video viene già sistemato e torna eliminabile |
