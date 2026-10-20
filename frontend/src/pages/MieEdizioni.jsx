@@ -7,7 +7,7 @@ export default function MieEdizioni() {
 
   useEffect(() => { api.get("/edizioni?mie_come_docente=true").then((r) => setList(r.data)); }, []);
 
-  const daTenere = list.filter((e) => e.stato !== "chiusa");
+  const daSvolgere = list.filter((e) => e.stato !== "chiusa");
   const storico = list.filter((e) => e.stato === "chiusa");
 
   return (
@@ -15,9 +15,9 @@ export default function MieEdizioni() {
       <div className="page-header"><div><h2>Le mie sessioni</h2><p>Le formazioni che tieni come docente.</p></div></div>
 
       <div className="card">
-        <h3>Da tenere</h3>
-        {daTenere.length === 0 && <p className="empty-state">Nessuna sessione in programma.</p>}
-        {daTenere.map((e) => (
+        <h3>Da svolgere</h3>
+        {daSvolgere.length === 0 && <p className="empty-state">Nessuna sessione in programma.</p>}
+        {daSvolgere.map((e) => (
           <div key={e.id} className="flex-between" style={{ padding: "10px 0", borderBottom: "1px solid var(--border)" }}>
             <div>
               <strong>{e.corso_titolo}</strong>

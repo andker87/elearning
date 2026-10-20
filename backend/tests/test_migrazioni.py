@@ -192,3 +192,38 @@ def test_0009_con_la_cifratura_attiva_scrive_nome_e_cognome_cifrati(monkeypatch)
     finally:
         monkeypatch.undo()
         ricrea_schema()
+
+
+def test_0010_le_ore_dichiarate_diventano_la_durata_in_minuti():
+    import uuid
+    from datetime import datetime, timezone
+    from app.database import SessionLocal
+    from app.models.corso import Corso
+    from app.models.edizione import Edizione, ModalitaErogazione, StatoEdizione
+    s = None
+    try:
+        ricrea_schema()
+        s = SessionLocal()
+        c = Corso(titolo="Esterno"); s.add(c); s.flush()
+        e1 = Edizione(corso_id=c.id, modalita=ModalitaErogazione.esterna, stato=StatoEdizione.chiusa, data_inizio=datetime.now(timezone.utc))
+        e2 = Edizione(corso_id=c.id, modalita=ModalitaErogazione.esterna, stato=StatoEdizione.chiusa, data_inizio=datetime.now(timezone.utc))
+        s.add_all([e1, e2]); s.commit()
+        ids = (e1.id, e2.id)
+        s.close(); s = None
+        with engine.begin() as conn:     # la forma della 2.4.x: «ore dichiarate», niente durata
+            conn.execute(sa.text("ALTER TABLE edizioni ADD COLUMN ore_dichiarate integer"))
+            conn.execute(sa.text("UPDATE edizioni SET ore_dichiarate = 3 WHERE id = :i"), {"i": ids[0]})
+            conn.execute(sa.text("ALTER TABLE edizioni DROP COLUMN durata_minuti"))
+            conn.execute(sa.text("ALTER TABLE corsi DROP COLUMN durata_minuti"))
+            conn.execute(sa.text("UPDATE alembic_version SET version_num = '0009'"))
+        esegui_migrazioni()
+        assert versione_corrente() == ultima_migrazione()
+        with engine.connect() as conn:
+            dati = dict(conn.execute(sa.text("SELECT id, durata_minuti FROM edizioni")).fetchall())
+            assert dati[ids[0]] == 180 and dati[ids[1]] is None                 # 3 ore -> 180 minuti; chi non aveva ore resta senza
+            assert not conn.execute(sa.text("SELECT 1 FROM information_schema.columns WHERE table_name = 'edizioni' AND column_name = 'ore_dichiarate'")).first()
+            assert conn.execute(sa.text("SELECT 1 FROM information_schema.columns WHERE table_name = 'corsi' AND column_name = 'durata_minuti'")).first()
+    finally:
+        if s is not None:
+            s.close()
+        ricrea_schema()

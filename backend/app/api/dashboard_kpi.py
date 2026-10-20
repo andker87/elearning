@@ -3,6 +3,7 @@ from collections import Counter
 from datetime import datetime
 from fastapi import APIRouter, Depends, HTTPException, Query
 from ..services.etichette import corsi_con_etichette
+from ..services.durata import durata_effettiva
 from sqlalchemy.orm import Session
 from typing import Optional, List
 from ..database import get_db
@@ -21,12 +22,12 @@ router = APIRouter(prefix="/api/dashboard/kpi", tags=["dashboard-kpi"])
 def _media(valori: List[float], cifre=1):
     return round(sum(valori) / len(valori), cifre) if valori else None
 
-def _ore_edizione(e: Edizione) -> float:
-    """Non tutte le modalità hanno ore dichiarate esplicitamente (solo
-    'esterna' le richiede) - per le altre si stima dalla durata della
-    sessione, quando nota. Approssimazione dichiarata, non un dato certo."""
-    if e.ore_dichiarate:
-        return float(e.ore_dichiarate)
+def _ore_edizione(e: Edizione, corso: Optional[Corso] = None) -> float:
+    """Le ore di una sessione: la durata (propria o del corso). Se manca, si stima dalle date
+    di inizio e fine della sessione: approssimazione dichiarata, non un dato certo."""
+    minuti = durata_effettiva(e, corso)
+    if minuti:
+        return minuti / 60
     if e.data_inizio and e.data_fine:
         return max(0.0, (e.data_fine - e.data_inizio).total_seconds() / 3600)
     return 0.0
@@ -99,7 +100,8 @@ def _metriche(db: Session, edizioni: List[Edizione], ufficio_id: Optional[str] =
     voti_docenti = voti_docenti_q.all() if voti_docenti_q is not None else []
     gradimento_docenti_medio = _media([v.voto for v in voti_docenti], 2)
 
-    ore_erogate = sum(_ore_edizione(e) for e in edizioni if e.stato == StatoEdizione.chiusa)
+    corsi_per_id = {c.id: c for c in db.query(Corso).filter(Corso.id.in_({e.corso_id for e in edizioni})).all()} if edizioni else {}
+    ore_erogate = sum(_ore_edizione(e, corsi_per_id.get(e.corso_id)) for e in edizioni if e.stato == StatoEdizione.chiusa)
 
     return {
         "n_edizioni": len(edizioni), "n_iscrizioni": len(iscr),

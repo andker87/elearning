@@ -20,6 +20,7 @@ class Corso(Base):
     categoria     = Column(String, nullable=True)  # libera: "sicurezza", "compliance", "onboarding", ...
     # Se valorizzato, il corso richiede un rinnovo periodico (refresh) ogni N mesi.
     validita_mesi = Column(Integer, nullable=True)
+    durata_minuti = Column(Integer, nullable=True)   # quanto dura il corso; le sessioni la ereditano (services/durata.py)
 
     # Non tutti i corsi hanno un test finale: la policy sotto ha senso solo se attivo.
     ha_test_finale = Column(Boolean, nullable=False, default=False)

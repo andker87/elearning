@@ -238,8 +238,15 @@ def list_users_simple(docenti: bool = False, db: Session = Depends(get_db), user
     users = sorted(db.query(User).filter(User.is_active == True).all(), key=lambda u: u.chiave_ordine)
     if docenti:
         users = [u for u in users if u.puo_essere_docente]
+    # ufficio e mansioni servono ai filtri per iscrivere i discenti: solo a chi gestisce la formazione
+    uffici, mansioni = {}, {}
+    if user.ha_poteri_formazione:
+        uffici = {r.user_id: str(r.group_id) for r in db.query(UserGroup).all()}
+        for r in db.query(UserMansione).all():
+            mansioni.setdefault(r.user_id, []).append(str(r.mansione_id))
     return [{"id": str(u.id), "full_name": u.full_name, "email": u.email, "is_external": u.is_external,
-             "is_formatore": bool(u.is_formatore or u.is_external)} for u in users]
+             "is_formatore": bool(u.is_formatore or u.is_external),
+             "ufficio_id": uffici.get(u.id), "mansione_ids": mansioni.get(u.id, [])} for u in users]
 
 @router.post("/users")
 def create_user(data: UserCreate, request: Request, db: Session = Depends(get_db), user=Depends(require_admin_tecnico)):

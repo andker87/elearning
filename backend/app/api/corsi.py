@@ -19,6 +19,7 @@ class CorsoIn(BaseModel):
     descrizione: Optional[str] = None
     categoria: Optional[str] = None
     validita_mesi: Optional[int] = None
+    durata_minuti: Optional[int] = None   # quanto dura il corso (le sessioni la ereditano)
     ha_test_finale: bool = False
     azione_test_non_superato: AzioneTestNonSuperato = AzioneTestNonSuperato.concludi_comunque
     giorni_scadenza_breve: Optional[int] = None
@@ -33,6 +34,8 @@ class CorsoIn(BaseModel):
 
     @model_validator(mode="after")
     def _rinnovo_coerente(self):
+        if self.durata_minuti is not None and not 1 <= self.durata_minuti <= 100000:
+            raise ValueError("La durata deve essere di almeno 1 minuto (e non oltre 100000)")
         if self.rinnovo_automatico and not self.validita_mesi:
             raise ValueError("Il rinnovo automatico richiede una validità del corso (mesi)")
         if not 1 <= self.rinnovo_giorni_anticipo <= 365:
@@ -46,7 +49,7 @@ class NuovaVersioneIn(BaseModel):
 def _serialize(c: Corso, db: Session = None, famiglie=None):
     extra = etichette_svc.descrivi(db, c, famiglie) if db is not None else {}
     return {**extra, "id": str(c.id), "titolo": c.titolo, "descrizione": c.descrizione,
-            "categoria": c.categoria, "validita_mesi": c.validita_mesi,
+            "categoria": c.categoria, "validita_mesi": c.validita_mesi, "durata_minuti": c.durata_minuti,
             "ha_test_finale": c.ha_test_finale,
             "azione_test_non_superato": c.azione_test_non_superato,
             "giorni_scadenza_breve": c.giorni_scadenza_breve,

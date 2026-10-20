@@ -2,6 +2,9 @@ import React, { useEffect, useState } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import api, { downloadFile, erroreDi } from "../api";
 import VideoPlayer from "../components/VideoPlayer";
+import CampoDurata from "../components/CampoDurata";
+import { SezioneDocenti, AggiungiDiscenti } from "../components/PersoneSessione";
+import { formattaDurata } from "../durata";
 import TestPlayer from "../components/TestPlayer";
 import Gradimento from "../components/Gradimento";
 
@@ -10,12 +13,12 @@ export default function EdizioneDetail() {
   const navigate = useNavigate();
   const segui = new URLSearchParams(useLocation().search).get("segui") === "1";   // si arriva da «I miei corsi»: si sta seguendo il corso
   const [anteprimaVideo, setAnteprimaVideo] = useState(false);
+  const [modificaDurata, setModificaDurata] = useState(null);   // { valore } mentre si cambia la durata della sessione
   const [edizione, setEdizione] = useState(null);
   const [iscrizioni, setIscrizioni] = useState([]);
   const [utenti, setUtenti] = useState([]);
   const [video, setVideo] = useState(null);
   const [tests, setTests] = useState([]);
-  const [selectedUser, setSelectedUser] = useState("");
   const [teamsUrl, setTeamsUrl] = useState("");
   const [msg, setMsg] = useState(null);
   const [sottoposti, setSottoposti] = useState([]);
@@ -59,20 +62,15 @@ export default function EdizioneDetail() {
     setMsg(null);
     try { await azione(); } catch (e) { setMsg(erroreDi(e, erroreDefault)); }
   }
-  async function assegnaDocente() {
-    if (!selectedUser) return;
+  // La durata si cambia con lo stesso PUT della sessione (che riceve tutti i campi): si rimandano quelli attuali.
+  async function salvaDurata(minuti) {
+    const e = edizione;
     await tenta(async () => {
-      await api.post(`/edizioni/${id}/docenti`, { user_id: selectedUser, ruolo: "titolare" });
-      setSelectedUser(""); load();
-    }, "Impossibile assegnare il docente");
-  }
-  async function iscrivi() {
-    if (!selectedUser) return;
-    await tenta(async () => {
-      const r = await api.post(`/edizioni/${id}/iscrizioni`, [selectedUser]);
-      if (r.data.non_iscritti?.length) window.alert(`Iscrizione non effettuata: ${r.data.non_iscritti[0].motivo}`);
-      setSelectedUser(""); load();
-    }, "Iscrizione non riuscita");
+      await api.put(`/edizioni/${id}`, { corso_id: e.corso_id, modalita: e.modalita, data_inizio: e.data_inizio, data_fine: e.data_fine, luogo: e.luogo,
+        posti_max: e.posti_max, lista_attesa_abilitata: e.lista_attesa_abilitata, checkin_mode: e.checkin_mode, teams_mode: e.teams_mode,
+        video_id: e.video_id, ente_erogatore: e.ente_erogatore, note: e.note, durata_minuti: minuti || null });
+      setModificaDurata(null); load();
+    }, "Impossibile cambiare la durata");
   }
   async function iscriviSottoposto() {
     if (!selectedSottoposto) return;
@@ -164,6 +162,23 @@ export default function EdizioneDetail() {
             </button>
           )}
         </p>
+        <p>
+          <strong>Durata:</strong> {edizione.durata_effettiva_minuti ? formattaDurata(edizione.durata_effettiva_minuti) : "non indicata"}
+          {edizione.durata_modificata && <span className="badge yellow" style={{ marginLeft: 8 }} title="Diversa da quella del corso">modificata (il corso prevede {formattaDurata(edizione.durata_corso_minuti)})</span>}
+          {!edizione.durata_modificata && edizione.durata_effettiva_minuti && edizione.durata_minuti == null && <span className="text-muted" style={{ marginLeft: 8, fontSize: 12 }}>dal corso</span>}
+          {isAdmin && edizione.stato !== "chiusa" && !modificaDurata && (
+            <button type="button" className="secondary btn-sm" style={{ marginLeft: 10 }} onClick={() => setModificaDurata({ valore: edizione.durata_effettiva_minuti || null })}>Modifica</button>
+          )}
+        </p>
+        {modificaDurata && (
+          <div className="card card-muted">
+            <CampoDurata valore={modificaDurata.valore} id="edizione-durata" etichetta="Durata di questa sessione" onChange={(v) => setModificaDurata({ valore: v })}
+              suggerimento={edizione.durata_corso_minuti ? `Il corso prevede ${formattaDurata(edizione.durata_corso_minuti)}: cambiando il valore forzi la durata solo di questa sessione.` : "Il corso non ha una durata: questo valore vale solo per questa sessione."} />
+            <button type="button" onClick={() => salvaDurata(modificaDurata.valore)}>Salva</button>{" "}
+            {edizione.durata_corso_minuti && <><button type="button" className="secondary" onClick={() => salvaDurata(edizione.durata_corso_minuti)}>Ripristina quella del corso</button>{" "}</>}
+            <button type="button" className="secondary" onClick={() => setModificaDurata(null)}>Annulla</button>
+          </div>
+        )}
         {edizione.luogo && <p><strong>Luogo:</strong> {edizione.luogo}</p>}
         {edizione.posti_max && (
           <p><strong>Posti:</strong> {edizione.n_iscritti}/{edizione.posti_max}
@@ -181,20 +196,7 @@ export default function EdizioneDetail() {
         </div>
       )}
 
-      <div className="card">
-        <h3>Docenti</h3>
-        <ul>{edizione.docenti.map((d) => <li key={d.user_id}>{nome(d.user_id)} ({d.ruolo})</li>)}</ul>
-        {isAdmin && edizione.stato !== "chiusa" && (
-          <div className="row">
-            <select value={selectedUser} onChange={(e) => setSelectedUser(e.target.value)}>
-              <option value="">-- utente --</option>
-              {utenti.map((u) => <option key={u.id} value={u.id}>{u.full_name}{u.is_external ? " (esterno)" : ""}{!u.is_formatore ? " - non abilitato come docente" : ""}</option>)}
-            </select>
-            <button onClick={assegnaDocente}>Assegna come docente</button>
-            <button className="secondary" onClick={iscrivi}>Iscrivi come discente</button>
-          </div>
-        )}
-      </div>
+      <SezioneDocenti edizione={edizione} utenti={utenti} puoModificare={isAdmin && edizione.stato !== "chiusa"} ricarica={load} />
 
       {!isAdmin && sottopostiNonIscritti.length > 0 && edizione.stato !== "chiusa" && (
         <div className="card">
@@ -251,7 +253,10 @@ export default function EdizioneDetail() {
         </div>
       ))}
 
-      <div className="table-wrap" style={{ marginBottom: "1.1rem" }}>
+      <div className="card">
+        <h3>Discenti <span className="text-muted" style={{ fontSize: 13, fontWeight: 400 }}>({iscrizioni.filter((i) => i.stato !== "annullato").length}{edizione.posti_max ? ` su ${edizione.posti_max} posti` : ""})</span></h3>
+        {isAdmin && edizione.stato !== "chiusa" && <AggiungiDiscenti edizione={edizione} utenti={utenti} iscrizioni={iscrizioni} ricarica={load} />}
+      <div className="table-wrap" style={{ marginBottom: ".2rem" }}>
         <table>
           <thead><tr><th>Nome</th><th>Stato</th><th>Evidenze</th><th></th></tr></thead>
           <tbody>
@@ -271,8 +276,10 @@ export default function EdizioneDetail() {
                 </tr>
               );
             })}
+            {iscrizioni.filter((i) => i.stato !== "annullato").length === 0 && <tr><td colSpan={4} className="text-muted">Nessun discente iscritto.</td></tr>}
           </tbody>
         </table>
+      </div>
       </div>
 
       {(edizione.modalita === "presenza" || edizione.modalita === "ibrida") && edizione.checkin_mode === "discente_validato" && edizione.stato !== "chiusa" && (

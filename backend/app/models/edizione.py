@@ -58,7 +58,10 @@ class Edizione(Base):
 
     # esterna
     ente_erogatore   = Column(String, nullable=True)
-    ore_dichiarate   = Column(Integer, nullable=True)
+
+    # Durata in minuti. Vuota = segue quella del corso; compilata = durata forzata da chi organizza la sessione
+    # (e, alla chiusura, valore congelato). Vedi services/durata.py.
+    durata_minuti = Column(Integer, nullable=True)
 
     note = Column(Text, nullable=True)
 

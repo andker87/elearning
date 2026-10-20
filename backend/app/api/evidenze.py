@@ -11,6 +11,7 @@ from ..models.evidenza import Evidenza, FonteEvidenza
 from ..models.user import User
 from ..models.corso import Corso
 from ..services import certificati as cert_svc
+from ..services.durata import congela as congela_durata
 from ..services import audit as audit_svc
 from ..services import graph as graph_svc
 from ..services import cifratura
@@ -246,6 +247,7 @@ def chiudi_edizione(edizione_id: str, request: Request, db: Session = Depends(ge
     now = datetime.now(timezone.utc)
     iscrizioni = db.query(Iscrizione).filter(Iscrizione.edizione_id == edizione_id).all()
     corso = db.query(Corso).filter(Corso.id == e.corso_id).first()
+    congela_durata(e, corso)   # la durata di oggi resta quella della sessione: gli attestati che emettiamo ora non cambiano piu'
     esito = []
     for i in iscrizioni:
         evidenze = db.query(Evidenza).filter(Evidenza.iscrizione_id == i.id).all()
