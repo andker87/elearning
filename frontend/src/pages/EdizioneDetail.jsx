@@ -8,8 +8,28 @@ import { SezioneDocenti, AggiungiDiscenti } from "../components/PersoneSessione"
 import { formattaDurata } from "../durata";
 import TestPlayer from "../components/TestPlayer";
 import Gradimento from "../components/Gradimento";
+import SessioneDiscente from "./SessioneDiscente";
 
+// Una sessione ha due volti: chi la segue (discente) e chi la gestisce (Formazione, docenti della sessione).
+// Chi non gestisce vede sempre e solo la vista del discente; chi gestisce vede quella di gestione, tranne quando
+// arriva per seguire il corso (da «I miei corsi», dal Catalogo): allora vede quella del discente, con un rimando per gestirla.
 export default function EdizioneDetail() {
+  const { id } = useParams();
+  const segui = new URLSearchParams(useLocation().search).get("segui") === "1";
+  const user = (() => { try { return JSON.parse(localStorage.getItem("user") || "null"); } catch { return null; } })();
+  const [docenti, setDocenti] = useState(undefined);
+  const [errore, setErrore] = useState(null);
+  useEffect(() => {
+    setDocenti(undefined); setErrore(null);
+    api.get(`/edizioni/${id}`).then((r) => setDocenti((r.data.docenti || []).map((d) => d.user_id))).catch((e) => setErrore(erroreDi(e, "Impossibile caricare la sessione")));
+  }, [id]);
+  if (errore) return <div className="error-msg">{errore}</div>;
+  if (docenti === undefined) return <p className="text-muted">Caricamento...</p>;
+  const gestisce = !!user?.poteri_formazione || docenti.includes(user?.id);
+  return gestisce && !segui ? <GestioneSessione /> : <SessioneDiscente id={id} gestisce={gestisce} />;
+}
+
+function GestioneSessione() {
   const { id } = useParams();
   const navigate = useNavigate();
   const segui = new URLSearchParams(useLocation().search).get("segui") === "1";   // si arriva da «I miei corsi»: si sta seguendo il corso
@@ -23,7 +43,6 @@ export default function EdizioneDetail() {
   const [teamsUrl, setTeamsUrl] = useState("");
   const [msg, setMsg] = useState(null);
   const [sottoposti, setSottoposti] = useState([]);
-  const [selectedSottoposto, setSelectedSottoposto] = useState("");
   const [comunicazioni, setComunicazioni] = useState([]);
   const [oggettoCom, setOggettoCom] = useState("");
   const [messaggioCom, setMessaggioCom] = useState("");
@@ -56,7 +75,6 @@ export default function EdizioneDetail() {
   const puoGestire = isAdmin || !!isDocente;       // chi gestisce la sessione non la sta seguendo
   const nome = (uid) => utenti.find((u) => u.id === uid)?.full_name || uid;
   const miaIscrizione = iscrizioni.find((i) => i.user_id === user?.id && i.stato !== "annullato");
-  const sottopostiNonIscritti = sottoposti.filter((s) => !iscrizioni.some((i) => i.user_id === s.id && i.stato !== "annullato"));
 
   // Esegue un'azione e, se il server la rifiuta, mostra il motivo invece di non dire niente.
   async function tenta(azione, erroreDefault) {
@@ -76,29 +94,6 @@ export default function EdizioneDetail() {
   }
   const salvaDurata = (minuti) => salva({ durata_minuti: minuti || null }, "Impossibile cambiare la durata", () => setModificaDurata(null));
   const [eliminando, setEliminando] = useState(false);
-  async function iscriviSottoposto() {
-    if (!selectedSottoposto) return;
-    try {
-      const r = await api.post(`/edizioni/${id}/iscrizioni`, [selectedSottoposto]);
-      if (r.data.non_iscritti?.length) window.alert(`Iscrizione non effettuata: ${r.data.non_iscritti[0].motivo}`);
-    } catch (err) { window.alert(erroreDi(err, "Iscrizione non riuscita")); }
-    setSelectedSottoposto(""); load();
-  }
-  async function chiediSottoposto() {
-    if (!selectedSottoposto) return;
-    try {
-      const r = await api.post("/team/richieste", { edizione_id: id, user_ids: [selectedSottoposto] });
-      window.alert(r.data.richieste ? "Richiesta inviata alla Formazione." : "Nessuna nuova richiesta: la persona è già iscritta o la richiesta è già in attesa.");
-    } catch (err) { window.alert(erroreDi(err, "Richiesta non riuscita")); }
-    setSelectedSottoposto("");
-  }
-  async function autoiscriviti() {
-    try {
-      const r = await api.post(`/autoiscrizioni/edizioni/${id}`);
-      setMsg(r.data.stato === "in_attesa_approvazione" ? "Richiesta inviata: in attesa di approvazione del tuo responsabile." : "Iscrizione effettuata.");
-      load();
-    } catch (e) { setMsg(erroreDi(e, "Errore")); }
-  }
   async function annulla(iscrizioneId) {
     if (!window.confirm("Annullare questa iscrizione?")) return;
     await tenta(async () => { await api.post(`/edizioni/${id}/iscrizioni/${iscrizioneId}/annulla`); load(); }, "Impossibile annullare l'iscrizione");
@@ -240,30 +235,7 @@ export default function EdizioneDetail() {
       )}
       {edizione.sempre_aperta && <p className="text-muted">Sessione sempre disponibile: chi completa il video (e supera il test finale, se c'è) riceve l'attestato in automatico.</p>}
 
-      {!isAdmin && !miaIscrizione && edizione.corso_permetti_autoiscrizione && edizione.stato !== "chiusa" && (
-        <div className="card">
-          <h3>Vuoi partecipare?</h3>
-          <button onClick={autoiscriviti}>Iscrivimi a questa sessione</button>
-        </div>
-      )}
-
       <SezioneDocenti edizione={edizione} utenti={utenti} puoModificare={isAdmin && edizione.stato !== "chiusa"} ricarica={load} />
-
-      {!isAdmin && sottopostiNonIscritti.length > 0 && edizione.stato !== "chiusa" && edizione.corso_iscrizione_responsabili !== "solo_formazione" && (
-        <div className="card">
-          <h3>{edizione.corso_iscrizione_responsabili === "su_richiesta" ? "Chiedi l'iscrizione di una tua risorsa" : "Iscrivi una tua risorsa"}</h3>
-          <div className="row">
-            <select value={selectedSottoposto} onChange={(e) => setSelectedSottoposto(e.target.value)}>
-              <option value="">-- persona --</option>
-              {sottopostiNonIscritti.map((s) => <option key={s.id} value={s.id}>{s.full_name}</option>)}
-            </select>
-            {edizione.corso_iscrizione_responsabili === "su_richiesta"
-              ? <button className="secondary" onClick={chiediSottoposto}>Chiedi l'iscrizione</button>
-              : <button className="secondary" onClick={iscriviSottoposto}>Iscrivi</button>}
-          </div>
-          {edizione.corso_iscrizione_responsabili === "su_richiesta" && <p className="text-muted" style={{ fontSize: 12, margin: "6px 0 0" }}>Per questo corso la richiesta arriva alla Formazione, che la approva o la rifiuta. Trovi l'esito in «Il mio team».</p>}
-        </div>
-      )}
 
       {(edizione.modalita === "ibrida" || edizione.modalita === "remoto") && edizione.stato !== "chiusa" && (
         <div className="card">

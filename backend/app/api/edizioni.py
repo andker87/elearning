@@ -82,6 +82,7 @@ def _serialize(e: Edizione, db: Session):
     nomi = {u.id: u.full_name for u in db.query(User).filter(User.id.in_([d.user_id for d in e.docenti])).all()} if e.docenti else {}
     return {
         "id": str(e.id), "corso_id": str(e.corso_id), "corso_titolo": corso.titolo if corso else None,
+        "corso_descrizione": corso.descrizione if corso else None,
         "corso_permetti_autoiscrizione": autoiscrizione_ammessa(e, corso),     # ci si puo' iscrivere da soli (anche per una sessione sempre disponibile)
         "corso_autoiscrizione_attiva": bool(corso and corso.permetti_autoiscrizione), "in_catalogo": in_catalogo(e, corso),
         "corso_iscrizione_responsabili": corso.iscrizione_responsabili if corso else "solo_formazione",
@@ -299,7 +300,14 @@ def rimuovi_docente(edizione_id: str, user_id: str, request: Request, db: Sessio
 
 @router.get("/{edizione_id}/iscrizioni")
 def list_iscrizioni(edizione_id: str, db: Session = Depends(get_db), user=Depends(get_current_user)):
-    rows = db.query(Iscrizione).options(joinedload(Iscrizione.evidenze)).filter(Iscrizione.edizione_id == edizione_id).all()
+    """Chi gestisce la sessione (Formazione, docenti della sessione) vede tutti; chiunque altro solo la propria iscrizione:
+    un collega non deve poter vedere chi ha seguito cosa."""
+    e = db.query(Edizione).options(joinedload(Edizione.docenti)).filter(Edizione.id == edizione_id).first()
+    if not e: raise HTTPException(404)
+    q = db.query(Iscrizione).options(joinedload(Iscrizione.evidenze)).filter(Iscrizione.edizione_id == edizione_id)
+    if not (user.ha_poteri_formazione or _is_docente(e, user)):
+        q = q.filter(Iscrizione.user_id == user.id)
+    rows = q.all()
     out = []
     for i in rows:
         u = db.query(User).filter(User.id == i.user_id).first()

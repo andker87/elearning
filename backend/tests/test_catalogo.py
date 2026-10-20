@@ -250,3 +250,19 @@ def test_una_sessione_chiusa_o_con_attestati_non_si_elimina(client, auth, admin,
     r = client.post(f"/api/edizioni/{aperta.id}/elimina", headers=auth(admin), json={"conferma": "ELIMINA"})
     assert r.status_code == 409 and "attestat" in r.json()["detail"]
     assert db.query(Edizione).count() == 2
+
+
+# --- 2.7.2: chi non gestisce la sessione non vede gli altri iscritti ---------------------------------
+
+def test_un_collega_non_vede_chi_e_iscritto(client, auth, formazione, utente, db, crea_utente, crea_corso, crea_edizione, crea_iscrizione):
+    from app.models.edizione import EdizioneDocente, RuoloDocente
+    collega, docente = crea_utente("collega@t.it"), crea_utente("doc@t.it")
+    e = crea_edizione(crea_corso("Corso"), stato=SE.pianificata)
+    db.add(EdizioneDocente(edizione_id=e.id, user_id=docente.id, ruolo=RuoloDocente.titolare)); db.commit()
+    crea_iscrizione(e, utente); crea_iscrizione(e, collega)
+    mie = client.get(f"/api/edizioni/{e.id}/iscrizioni", headers=auth(utente)).json()
+    assert [i["user_id"] for i in mie] == [str(utente.id)]                                       # solo la propria
+    assert client.get(f"/api/edizioni/{e.id}/iscrizioni", headers=auth(crea_utente("estraneo@t.it"))).json() == []
+    assert len(client.get(f"/api/edizioni/{e.id}/iscrizioni", headers=auth(formazione)).json()) == 2
+    assert len(client.get(f"/api/edizioni/{e.id}/iscrizioni", headers=auth(docente)).json()) == 2     # il docente della sessione vede tutti
+    assert client.get("/api/edizioni/00000000-0000-0000-0000-000000000000/iscrizioni", headers=auth(utente)).status_code == 404
