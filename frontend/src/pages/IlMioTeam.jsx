@@ -164,7 +164,9 @@ function Sessione({ s, team, ricarica, setErrore }) {
         setEsito(`Iscritte ${r.data.iscritti.length} ${r.data.iscritti.length === 1 ? "persona" : "persone"}.` + (r.data.non_iscritti.length ? ` Non iscritte: ${r.data.non_iscritti.map((x) => x.motivo).join("; ")}.` : ""));
       } else {
         const r = await api.post("/team/richieste", { edizione_id: s.id, user_ids: ids });
-        setEsito(r.data.richieste ? `Richiesta inviata alla Formazione per ${r.data.richieste} ${r.data.richieste === 1 ? "persona" : "persone"}.` : "Nessuna nuova richiesta.");
+        const bloccati = (r.data.bloccati || []).map((x) => `${x.nome} (${x.motivo})`);
+        setEsito((r.data.richieste ? `Richiesta inviata alla Formazione per ${r.data.richieste} ${r.data.richieste === 1 ? "persona" : "persone"}.` : "Nessuna nuova richiesta.")
+          + (bloccati.length ? ` Non richieste, hanno ancora dei corsi da completare: ${bloccati.join("; ")}.` : ""));
       }
       setScelte(new Set()); await ricarica();
     } catch (e) { setErrore(erroreDi(e, diretta ? "Iscrizione non riuscita" : "Richiesta non riuscita")); }

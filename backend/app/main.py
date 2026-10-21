@@ -102,6 +102,10 @@ def _job_rinnovi_automatici():
     from .services.rinnovo import esegui_rinnovi
     esegui_tracciato("rinnovi_automatici", esegui_rinnovi)
 
+def _job_percorsi_iscrizioni():
+    from .services.percorsi_iscrizioni import esegui_percorsi
+    esegui_tracciato("percorsi_iscrizioni", esegui_percorsi)
+
 def _job_manutenzione_audit():
     from .services.audit_manutenzione import manutenzione
     esegui_tracciato("manutenzione_audit", manutenzione)
@@ -119,6 +123,7 @@ async def startup():
     _ensure_etichette()
     scheduler.add_job(_job_genera_notifiche, "interval", hours=24, id="notifiche_giornaliere", replace_existing=True)
     scheduler.add_job(_job_rinnovi_automatici, "cron", hour=2, minute=0, id="rinnovi_automatici", replace_existing=True)
+    scheduler.add_job(_job_percorsi_iscrizioni, "cron", hour=2, minute=15, id="percorsi_iscrizioni", replace_existing=True)
     scheduler.add_job(_job_manutenzione_audit, "cron", hour=3, minute=0, id="manutenzione_audit", replace_existing=True)
     if settings.entra_sync_enabled and settings.ENTRA_SYNC_AUTO:
         scheduler.add_job(_job_sync_entra, "cron", hour=2, minute=30, id="sync_entra", replace_existing=True)

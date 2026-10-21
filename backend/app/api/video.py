@@ -22,6 +22,7 @@ from ..services import video_elaborazione
 from .deps import get_current_user, require_training_admin
 
 from ..services.completamento import completa_se_dovuto
+from ..services.percorsi_iscrizioni import avanza_e_invita
 from ..services.iscrizioni import disponibilita_video
 from .evidenze import SOGLIA_COMPLETAMENTO_VIDEO_PCT  # una sola soglia, condivisa con il completamento delle evidenze
 
@@ -376,8 +377,10 @@ def aggiorna_progresso(iscrizione_id: str, data: ProgressoIn, request: Request, 
     certificato = None
     if percentuale is not None and percentuale >= soglia:
         db.flush()
-        certificato = completa_se_dovuto(db, request, i)         # sessione sempre aperta: completata e attestato subito
+        certificato = completa_se_dovuto(db, request, i)         # video completato: attestato subito
     db.commit()
+    if certificato is not None:
+        avanza_e_invita(db, user_ids=[user.id])                  # un corso di un percorso e' fatto: si sbloccano e si iscrivono i successivi
     return {"secondo_massimo_raggiunto": prog.secondo_massimo_raggiunto, "percentuale_completamento": percentuale,
             "completato": certificato is not None, "certificato_id": str(certificato.id) if certificato else None}
 

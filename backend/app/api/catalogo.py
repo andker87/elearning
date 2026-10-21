@@ -15,6 +15,7 @@ from ..services.durata import durata_effettiva
 from ..services.etichette import etichette_del_corso
 from ..services.gerarchia import responsabili_di
 from .autoiscrizione import chi_approva
+from ..services.percorsi_iscrizioni import corso_bloccato, messaggio_blocco
 from ..services.iscrizioni import posti_occupati, in_catalogo
 from .deps import get_current_user
 
@@ -52,6 +53,7 @@ def catalogo(db: Session = Depends(get_db), user: User = Depends(get_current_use
             "lista_attesa": bool(e.lista_attesa_abilitata),
             "approva": approva, "richiede_approvazione": approva is not None,
             "mio_stato": stato,
+            "bloccato": (lambda b: messaggio_blocco(b) if b else None)(corso_bloccato(db, user.id, c.id)) if stato is None else None,
         })
     out.sort(key=lambda r: (not r["sempre_aperta"], r["data_inizio"] is None, r["data_inizio"].timestamp() if r["data_inizio"] else 0, r["corso_titolo"].lower()))
     return out

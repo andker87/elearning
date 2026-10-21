@@ -1,6 +1,10 @@
 import React, { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import api from "../api";
+import { STATO_PASSO } from "../components/PersonePercorso";
+import { quando } from "../sessioni";
+
+const MODALITA_PERCORSO = { libero: "libero", sequenziale: "uno dopo l'altro", propedeuticita: "con propedeuticità" };
 
 function addMonths(date, months) {
   const d = new Date(date);
@@ -76,13 +80,24 @@ export default function MieCorsi() {
         {percorsiInCorso.length === 0 && <p className="empty-state">Nessun percorso in corso.</p>}
         {percorsiInCorso.map((p) => (
           <div key={p.assegnazione_id} style={{ marginBottom: 14 }}>
-            <strong>{p.nome}</strong>
-            <ul style={{ marginTop: 6 }}>
-              {p.steps.map((s) => (
-                <li key={s.step_id} style={{ color: s.completato ? "var(--green-text)" : s.sbloccato ? "var(--text)" : "var(--text3)" }}>
-                  {s.completato ? "✓" : s.sbloccato ? "○" : "🔒"} {s.corso_titolo}
-                </li>
-              ))}
+            <strong>{p.nome}</strong> <span className="text-muted" style={{ fontSize: 12 }}>({MODALITA_PERCORSO[p.modalita] || p.modalita})</span>
+            <ul style={{ marginTop: 6, listStyle: "none", paddingLeft: 0 }}>
+              {p.steps.map((s) => {
+                const [classe, testo] = STATO_PASSO[s.stato] || ["gray", s.stato];
+                return (
+                  <li key={s.step_id} style={{ padding: "3px 0", color: s.stato === "bloccato" ? "var(--text3)" : "var(--text)" }}>
+                    {s.completato ? "✓" : s.stato === "bloccato" ? "🔒" : "○"} {s.corso_titolo}{" "}
+                    <span className={`badge ${classe}`}>{testo}</span>{" "}
+                    {s.edizione_id && !s.completato && <>
+                      <span className="text-muted" style={{ fontSize: 12 }}>{quando({ data_inizio: s.data_inizio, sempre_aperta: s.sempre_aperta })} </span>
+                      <Link to={`/sessioni/${s.edizione_id}?segui=1`}>{s.sempre_aperta ? "Inizia" : "Apri"}</Link>
+                    </>}
+                    {s.stato === "bloccato" && s.richiede_titoli.length > 0 && <span className="text-muted" style={{ fontSize: 12 }}> — prima: {s.richiede_titoli.join(", ")}</span>}
+                    {s.stato === "in_attesa_sessione" && <span className="text-muted" style={{ fontSize: 12 }}> — appena c'è una sessione verrai iscritto</span>}
+                    {s.stato === "da_rifare" && <span className="text-muted" style={{ fontSize: 12 }}> — la Formazione ti iscriverà di nuovo</span>}
+                  </li>
+                );
+              })}
             </ul>
           </div>
         ))}
