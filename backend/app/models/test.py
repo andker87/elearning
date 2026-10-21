@@ -63,6 +63,21 @@ class Gradimento(Base):
     created_at    = Column(DateTime(timezone=True), server_default=func.now())
 
     voti_docenti  = relationship("GradimentoDocente", cascade="all, delete-orphan", back_populates="gradimento")
+    risposte      = relationship("RispostaGradimento", cascade="all, delete-orphan", back_populates="gradimento")
+
+
+class RispostaGradimento(Base):
+    """Risposta a una domanda aggiuntiva del questionario. Il testo della domanda si conserva qui: se la Formazione la
+    cambia o la toglie dopo, i report passati restano leggibili."""
+    __tablename__ = "risposte_gradimento"
+    id            = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    gradimento_id = Column(UUID(as_uuid=True), ForeignKey("gradimenti.id", ondelete="CASCADE"), nullable=False, index=True)
+    domanda_id    = Column(UUID(as_uuid=True), nullable=True)      # senza vincolo: la domanda puo' sparire, la risposta resta
+    testo_domanda = Column(String, nullable=False)
+    tipo          = Column(String, nullable=False)
+    valore_num    = Column(Integer, nullable=True)                 # stelle (1-5)
+    valore_testo  = Column(Text, nullable=True)                    # testo libero, «si»/«no», opzione scelta
+    gradimento    = relationship("Gradimento", back_populates="risposte")
 
 class GradimentoDocente(Base):
     """Valutazione separata per ciascun docente dell'edizione (chiarezza/

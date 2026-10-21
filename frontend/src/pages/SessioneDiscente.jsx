@@ -57,7 +57,6 @@ export default function SessioneDiscente({ id, gestisce }) {
   const completato = mia?.stato === "completato";
   const puoIscriversi = !mia && !chiusa && edizione.stato !== "bozza" && edizione.corso_permetti_autoiscrizione;
   const docenti = (edizione.docenti || []).map((d) => d.nome).filter(Boolean);
-  const gradimentoDocenti = (edizione.docenti || []).map((d) => ({ id: d.user_id, nome: d.nome }));
   const inLista = mia?.stato === "in_lista_attesa";
   const segue = mia && !inLista;
   const eVideo = edizione.modalita === "video";
@@ -128,7 +127,7 @@ export default function SessioneDiscente({ id, gestisce }) {
           <p style={{ marginTop: 0 }}>Hai completato questo corso. Il tuo attestato è nello <Link to="/storico-corsi">storico dei corsi</Link>.</p>
         </div>
       )}
-      {completato && <Gradimento iscrizioneId={mia.id} docenti={gradimentoDocenti} />}
+      {completato && <Gradimento iscrizioneId={mia.id} />}
       {mia && !completato && !chiusa && (
         <p><button type="button" className="secondary btn-sm" onClick={annulla}>Annulla la mia iscrizione</button></p>
       )}

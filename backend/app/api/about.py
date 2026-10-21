@@ -17,6 +17,12 @@ PACCHETTI = ["fastapi", "uvicorn", "sqlalchemy", "pydantic", "pyjwt", "httpx", "
              "reportlab", "openpyxl", "pywebpush", "psycopg2-binary"]
 
 CHANGELOG = [
+    {"version": "2.8.0", "date": "2026-10", "label": "Questionari di gradimento personalizzabili", "changes": [
+        "Nuova pagina «Questionari di gradimento» (Ufficio Training): la Formazione decide quali domande aggiuntive fare, di tipo stelle (1-5), sì/no, scelta tra opzioni o testo libero, obbligatorie o no, con ordine modificabile. Restano sempre le domande fisse: voto complessivo del corso, commento e voto a ogni docente. I questionari hanno un nome; uno è il predefinito per tutti i corsi, e nella scheda del corso si può sceglierne un altro",
+        "Chi ha completato un corso trova in fondo alla pagina il link «Compila il test di gradimento», che apre una finestra con il modulo (anonimo, una sola volta). Prima il modulo occupava la pagina e aveva domande fisse",
+        "Report: nel riepilogo di una sessione e nel CSV dei gradimenti compaiono anche le risposte alle domande aggiuntive (media delle stelle, conteggi per sì/no e per scelta, testi liberi, sempre senza nome). Se la Formazione cambia il questionario, i report già fatti restano leggibili perché il testo della domanda si conserva con la risposta",
+        "Corsi: la scelta di chi può iscriversi è raggruppata e più chiara. «Aperto a tutti» (auto-iscrizione, compare nel Catalogo) è separato da «i responsabili possono iscrivere il team» (direttamente o su richiesta); nella tabella le capsule dicono «aperto a tutti» o «su iscrizione», e «i responsabili iscrivono il team» (prima «aperto ai responsabili», che faceva pensare a un corso aperto a tutti)",
+    ]},
     {"version": "2.7.4", "date": "2026-10", "label": "Il video al centro", "changes": [
         "Pagina di un corso video: il video è il protagonista, grande (formato 16:9, fino al 72% dell'altezza dello schermo) subito sotto il titolo e senza cornici; sotto ci sono le informazioni (descrizione, docenti), poi il test e il parere. Chi non è ancora iscritto trova al suo posto il pulsante «Inizia il corso»",
         "Catalogo: i corsi già completati vanno in una sezione «Già completati» in fondo, così in alto restano quelli da fare",

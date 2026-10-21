@@ -74,6 +74,7 @@ function buildSections(user, haSottoposti, uffici) {
       { to: "/registro-formazione", label: "Registro formazione", icon: "📋" },
       { to: "/template-attestati", label: "Template attestati", icon: "🎨" },
       { to: "/etichette", label: "Etichette dei corsi", icon: "🏷️" },
+      { to: "/questionari", label: "Questionari di gradimento", icon: "📝" },
     ]});
   }
   if (isAdminTecnico) {

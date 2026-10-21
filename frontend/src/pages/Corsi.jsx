@@ -18,7 +18,7 @@ const VUOTO = {
   titolo: "", descrizione: "", validita_mesi: "", durata_minuti: null,
   ha_test_finale: false, azione_test_non_superato: "concludi_comunque", giorni_scadenza_breve: "",
   confronta_pre_post_test: false, permetti_autoiscrizione: false, richiedi_approvazione_responsabile: false,
-  rinnovo_automatico: false, rinnovo_giorni_anticipo: 30, certificato_template_id: "", is_active: true, etichette: [], iscrizione_responsabili: "solo_formazione",
+  rinnovo_automatico: false, rinnovo_giorni_anticipo: 30, certificato_template_id: "", is_active: true, etichette: [], iscrizione_responsabili: "solo_formazione", questionario_gradimento_id: "",
 };
 
 // Dal corso come lo restituisce il server ai valori del modulo (testi per i campi numerici).
@@ -30,7 +30,7 @@ function valoriDa(c) {
     richiedi_approvazione_responsabile: c.richiedi_approvazione_responsabile,
     rinnovo_automatico: c.rinnovo_automatico, rinnovo_giorni_anticipo: c.rinnovo_giorni_anticipo,
     certificato_template_id: c.certificato_template_id || "", is_active: c.is_active, etichette: c.etichette.map((e) => e.id),
-    iscrizione_responsabili: c.iscrizione_responsabili || "solo_formazione",
+    iscrizione_responsabili: c.iscrizione_responsabili || "solo_formazione", questionario_gradimento_id: c.questionario_gradimento_id || "",
   };
 }
 
@@ -48,7 +48,7 @@ function corpoDa(v, categoria = null) {
 }
 
 // Campi del corso, uguali per «Nuovo corso» e per «Modifica».
-function CampiCorso({ v, set, famiglie, templates, modifica, anteprima, onAnteprima }) {
+function CampiCorso({ v, set, famiglie, templates, questionari = [], modifica, anteprima, onAnteprima }) {
   const spunta = (campo, testo, extra) => (
     <label style={{ display: "flex", alignItems: "center", gap: 8 }}>
       <input type="checkbox" style={{ width: "auto" }} checked={v[campo]} onChange={(e) => set({ ...v, [campo]: e.target.checked, ...(extra ? extra(e.target.checked) : {}) })} />
@@ -118,16 +118,28 @@ function CampiCorso({ v, set, famiglie, templates, modifica, anteprima, onAntepr
         </div>
       )}
       <div className="field">{spunta("confronta_pre_post_test", "Confronta test iniziale/finale (misura il delta di apprendimento, se il corso ha entrambi)")}</div>
+      <fieldset style={{ border: "1px solid var(--border)", borderRadius: "var(--radius)", padding: "10px 14px", margin: "0 0 14px" }}>
+        <legend style={{ padding: "0 6px", fontWeight: 600 }}>Chi può iscriversi</legend>
+        <p className="text-muted" style={{ fontSize: 13, margin: "0 0 8px" }}>La Formazione iscrive sempre. Le due scelte qui sotto si sommano.</p>
+        <div className="field">{spunta("permetti_autoiscrizione", "Aperto a tutti: ognuno si iscrive da solo (le sue sessioni pubblicate compaiono nel Catalogo)", (on) => (on ? {} : { richiedi_approvazione_responsabile: false }))}</div>
+        {v.permetti_autoiscrizione && <div className="field" style={{ marginLeft: 24 }}>{spunta("richiedi_approvazione_responsabile", "L'iscrizione di chi ha un responsabile va approvata dal responsabile")}</div>}
+        <div className="field" style={{ marginBottom: 0 }}>
+          <label htmlFor="c-modo">I responsabili possono iscrivere le persone del loro team?</label>
+          <select id="c-modo" value={v.iscrizione_responsabili} onChange={(e) => set({ ...v, iscrizione_responsabili: e.target.value })}>
+            <option value="solo_formazione">No: la Formazione, oltre a chi si iscrive da solo</option>
+            <option value="diretta">Sì, direttamente</option>
+            <option value="su_richiesta">Sì, chiedendo l'iscrizione: la Formazione approva</option>
+          </select>
+        </div>
+      </fieldset>
       <div className="field">
-        <label htmlFor="c-modo">Come si iscrivono le persone (oltre alla Formazione, che iscrive sempre)</label>
-        <select id="c-modo" value={v.iscrizione_responsabili} onChange={(e) => set({ ...v, iscrizione_responsabili: e.target.value })}>
-          <option value="solo_formazione">Solo la Formazione iscrive (corso chiuso)</option>
-          <option value="diretta">I responsabili iscrivono direttamente le persone del loro team</option>
-          <option value="su_richiesta">I responsabili chiedono l'iscrizione e la Formazione approva</option>
+        <label htmlFor="c-questionario">Questionario di gradimento</label>
+        <select id="c-questionario" value={v.questionario_gradimento_id} onChange={(e) => set({ ...v, questionario_gradimento_id: e.target.value })}>
+          <option value="">{questionari.find((q) => q.is_default) ? `Quello predefinito (${questionari.find((q) => q.is_default).nome})` : "Solo le domande fisse (nessun questionario predefinito)"}</option>
+          {questionari.map((q) => <option key={q.id} value={q.id}>{q.nome}</option>)}
         </select>
+        <span className="text-muted" style={{ fontSize: 12 }}>Le domande si decidono in <Link to="/questionari">Questionari di gradimento</Link>.</span>
       </div>
-      <div className="field">{spunta("permetti_autoiscrizione", "Permetti auto-iscrizione (le sue sessioni pubblicate compaiono nel Catalogo e il discente si iscrive da sé, se ci sono posti)", (on) => (on ? {} : { richiedi_approvazione_responsabile: false }))}</div>
-      {v.permetti_autoiscrizione && <div className="field">{spunta("richiedi_approvazione_responsabile", "Richiedi approvazione del responsabile")}</div>}
       {modifica && <div className="field">{spunta("is_active", "Corso attivo (se lo spegni non si può più assegnare, lo storico resta)")}</div>}
     </>
   );
@@ -138,6 +150,7 @@ export default function Corsi() {
   const [scheda, setScheda] = useState("elenco");
   const [list, setList] = useState([]);
   const [templates, setTemplates] = useState([]);
+  const [questionari, setQuestionari] = useState([]);
   const [form, setForm] = useState(VUOTO);
   const famiglie = useFamiglie();
   const [filtroEtichette, setFiltroEtichette] = useState([]);
@@ -164,6 +177,7 @@ export default function Corsi() {
   }
   function load() { api.get("/corsi").then((r) => setList(r.data)).catch((e) => setErrore(erroreDi(e, "Impossibile caricare i corsi"))); }
   useEffect(load, []);
+  useEffect(() => { api.get("/questionari").then((r) => setQuestionari(r.data)).catch(() => setQuestionari([])); }, []);
   useEffect(() => { api.get("/certificato-templates").then((r) => setTemplates(r.data)).catch((e) => setErrore(erroreDi(e, "Impossibile caricare i template degli attestati"))); }, []);
   useEffect(() => { if (modifica?.id) document.getElementById("c-form-modifica")?.scrollIntoView({ block: "nearest", behavior: "smooth" }); }, [modifica?.id]);
 
@@ -268,7 +282,7 @@ export default function Corsi() {
         <div className="card">
           <h3>Nuovo corso</h3>
           <form onSubmit={submit}>
-            <CampiCorso v={form} set={setForm} famiglie={famiglie} templates={templates} />
+            <CampiCorso v={form} set={setForm} famiglie={famiglie} templates={templates} questionari={questionari} />
             <button type="submit">Crea</button>
           </form>
         </div>
@@ -287,9 +301,11 @@ export default function Corsi() {
                       <div style={{ display: "flex", gap: 4, flexWrap: "wrap", marginTop: 4 }}>
                         {c.ha_test_finale && <span className="badge gray">test finale</span>}
                         {c.rinnovo_automatico && <span className="badge gray">rinnovo automatico ({c.rinnovo_giorni_anticipo} gg prima)</span>}
-                        {c.iscrizione_responsabili === "diretta" && <span className="badge gray" title="I responsabili iscrivono direttamente le loro persone">aperto ai responsabili</span>}
-                        {c.iscrizione_responsabili === "su_richiesta" && <span className="badge gray" title="I responsabili chiedono l'iscrizione, approva la Formazione">iscrizione su richiesta</span>}
-                        {c.permetti_autoiscrizione && <span className="badge gray">{c.richiedi_approvazione_responsabile ? "auto-iscrizione con approvazione" : "auto-iscrizione"}</span>}
+                        {c.permetti_autoiscrizione
+                          ? <span className="badge green" title="Compare nel Catalogo: ognuno si iscrive da solo">{c.richiedi_approvazione_responsabile ? "aperto a tutti, con approvazione del responsabile" : "aperto a tutti"}</span>
+                          : <span className="badge gray" title="Non compare nel Catalogo: si iscrive chi viene iscritto">su iscrizione</span>}
+                        {c.iscrizione_responsabili === "diretta" && <span className="badge gray" title="I responsabili iscrivono direttamente le persone del loro team">i responsabili iscrivono il team</span>}
+                        {c.iscrizione_responsabili === "su_richiesta" && <span className="badge gray" title="I responsabili chiedono l'iscrizione, approva la Formazione">i responsabili chiedono l'iscrizione</span>}
                       </div>
                     </td>
                     <td style={{ minWidth: 180 }}>
@@ -313,7 +329,7 @@ export default function Corsi() {
                       <td colSpan={7} style={{ background: "var(--bg3)" }}>
                         <form id="c-form-modifica" onSubmit={salvaModifica}>
                           <h4 style={{ margin: "8px 0" }}>Modifica «{c.titolo}»</h4>
-                          <CampiCorso v={modifica.valori} set={(valori) => setModifica({ ...modifica, valori })} famiglie={famiglie} templates={templates}
+                          <CampiCorso v={modifica.valori} set={(valori) => setModifica({ ...modifica, valori })} famiglie={famiglie} templates={templates} questionari={questionari}
                             modifica anteprima={anteprimaId === c.id ? anteprima : null} onAnteprima={mostraAnteprima} />
                           {erroreModifica && <div className="error-msg">{erroreModifica}</div>}
                           <button type="submit">Salva</button>{" "}
