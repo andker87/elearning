@@ -59,7 +59,12 @@ def _pulisci(domande: List[DomandaIn]) -> List[dict]:
     if len(domande) > MAX_DOMANDE:
         raise HTTPException(400, f"Al massimo {MAX_DOMANDE} domande per questionario")
     out = []
+    viste = set()
     for d in domande:
+        chiave = " ".join(d.testo.split()).casefold()
+        if chiave in viste:        # il testo e' l'identita' della domanda nei report: due domande uguali ne fonderebbero le risposte
+            raise HTTPException(400, f"Due domande hanno lo stesso testo: «{d.testo}»")
+        viste.add(chiave)
         opzioni = []
         if d.tipo == "scelta":
             opzioni = [o.strip() for o in d.opzioni if o and o.strip()]

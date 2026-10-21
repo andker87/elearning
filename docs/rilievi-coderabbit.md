@@ -347,3 +347,10 @@ Provati con test (creazione utente e CSV, corsa simulata). SSO ed Entra: modific
 |---|---|---|
 | FATTO 2.8.0 | api/questionari.py | due salvataggi in parallelo con lo stesso nome passavano entrambi il controllo e uno dava errore 500 al salvataggio: ora il vincolo del database è gestito (anche alla modifica) e la risposta è lo stesso 400 «Esiste già un questionario con questo nome» |
 | FATTO 2.8.0 | api/gradimenti.py | nel riepilogo dei gradimenti le risposte aggiuntive si leggevano una query per volta: ora si caricano insieme alle altre |
+
+### PR #33, seconda lettura (commento fuori dal diff)
+
+| Stato | File | Rilievo |
+|---|---|---|
+| FATTO 2.8.0 | api/gradimenti.py | un doppio invio in parallelo del gradimento poteva dare errore 500: l'errore del database usciva prima del blocco che lo gestisce. Ora inserimenti e salvataggio sono dentro lo stesso blocco e la risposta è il solito 400 |
+| FATTO 2.8.0 in modo diverso dal suggerito | api/questionari.py | due domande con lo stesso testo fondevano le risposte nei report e nel CSV. Il suggerimento (usare l'identificativo della domanda) avrebbe spezzato i report a ogni modifica del questionario, perché a ogni salvataggio le domande si ricreano con nuovi identificativi; si è scelto di non ammettere due domande con lo stesso testo nello stesso questionario |

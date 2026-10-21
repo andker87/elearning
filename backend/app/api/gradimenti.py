@@ -97,13 +97,13 @@ def crea_gradimento(iscrizione_id: str, data: GradimentoIn, db: Session = Depend
 
     righe = _valida_risposte(_domande_del_corso(db, i), data.risposte)
     g = Gradimento(iscrizione_id=iscrizione_id, voto_corso=data.voto_corso, commento_corso=data.commento_corso)
-    db.add(g); db.flush()
-    for r in righe:
-        r.gradimento_id = g.id
-        db.add(r)
-    for docente_id, voto in data.voti_docenti.items():
-        db.add(GradimentoDocente(gradimento_id=g.id, docente_id=docente_id, voto=voto))
     try:
+        db.add(g); db.flush()                         # e' qui che il vincolo del database ferma un doppio invio in parallelo
+        for r in righe:
+            r.gradimento_id = g.id
+            db.add(r)
+        for docente_id, voto in data.voti_docenti.items():
+            db.add(GradimentoDocente(gradimento_id=g.id, docente_id=docente_id, voto=voto))
         db.commit()
     except IntegrityError as err:  # due invii in parallelo: il vincolo del database lascia passare il primo
         db.rollback()
