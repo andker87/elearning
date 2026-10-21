@@ -12,6 +12,7 @@ from typing import Optional
 from ..config import settings
 from ..database import get_db, SessionLocal
 from ..models.video import VideoContenuto, VideoCapitolo, VideoProgresso, StatoVideo
+from ..models.user import User
 from ..models.iscrizione import Iscrizione, StatoIscrizione
 from ..models.edizione import Edizione, EdizioneDocente
 from ..models.evidenza import Evidenza, FonteEvidenza
@@ -163,6 +164,15 @@ def _verifica_indirizzo(video_id: str, tipo: str, t: str) -> dict:
         raise HTTPException(401, "Indirizzo scaduto o non valido")
     return dati
 
+def _riverifica_accesso(db: Session, dati: dict, video_id: str):
+    """Gli indirizzi firmati durano un paio d'ore: finita la sessione (o annullata l'iscrizione) non devono continuare a servire il video."""
+    user = db.query(User).filter(User.id == dati.get("uid")).first() if dati.get("uid") else None
+    if user is None or not _puo_vedere(db, user, video_id):
+        raise HTTPException(403, "Non hai più accesso a questo video")
+    if not _gestisce_video(db, user, video_id) and _aperto_a_chi_segue(db, user, video_id):
+        raise HTTPException(403, "Il video non è più disponibile")
+
+
 def _risposta_a_intervalli(request: Request, percorso: str, media_type: str):
     """Invia il file (decifrato al volo) rispettando le richieste parziali del player: chi guarda da remoto
     scarica solo cio' che serve e puo' saltare avanti e indietro."""
@@ -192,15 +202,18 @@ def file_video(video_id: str, request: Request, t: str, altezza: Optional[int] =
     h = dati.get("h", 0) if altezza is None else altezza
     v = db.query(VideoContenuto).options(joinedload(VideoContenuto.versioni)).filter(VideoContenuto.id == video_id).first()
     if not v: raise HTTPException(404)
+    _riverifica_accesso(db, dati, video_id)
     percorso = next((x.file_path for x in v.versioni if x.altezza == h), None) if h else v.file_path
     if not percorso or not os.path.isfile(percorso): raise HTTPException(404)
     return _risposta_a_intervalli(request, percorso, "video/mp4")
 
 @router.get("/api/video/{video_id}/sottotitoli")
 def file_sottotitoli(video_id: str, t: str, db: Session = Depends(get_db)):
-    _verifica_indirizzo(video_id, "sottotitoli", t)
+    dati = _verifica_indirizzo(video_id, "sottotitoli", t)
     v = db.query(VideoContenuto).filter(VideoContenuto.id == video_id).first()
-    if not v or not v.sottotitoli_path or not os.path.isfile(v.sottotitoli_path): raise HTTPException(404)
+    if not v: raise HTTPException(404)
+    _riverifica_accesso(db, dati, video_id)
+    if not v.sottotitoli_path or not os.path.isfile(v.sottotitoli_path): raise HTTPException(404)
     return Response(cifratura.leggi_file(v.sottotitoli_path), media_type="text/vtt", headers={"Cache-Control": "private, no-store"})
 
 class VideoUpdate(BaseModel):

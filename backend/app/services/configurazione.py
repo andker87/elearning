@@ -312,12 +312,19 @@ def _corsi(db, elenco, rapporto):
         valori["azione_test_non_superato"] = azione
         if valori.get("iscrizione_responsabili") not in MODI_ISCRIZIONE_RESPONSABILI:
             valori.pop("iscrizione_responsabili", None)       # valore sconosciuto: si tiene quello del corso (o il predefinito, chiuso)
-        if valori.get("richiedi_approvazione_responsabile") and valori.get("richiedi_approvazione_formazione"):
-            valori["richiedi_approvazione_formazione"] = False      # le due approvazioni non si sommano: resta quella del responsabile
         if valori.get("rinnovo_automatico") and not valori.get("validita_mesi"):
             valori["rinnovo_automatico"] = False
         c = esistenti.get(_chiave(d["titolo"]))
         nuovo = c is None
+        # Le due approvazioni non si sommano, valutando anche quella gia' impostata sul corso che c'e': se il file ne imposta una
+        # sola, vince quella e l'altra si spegne; se le imposta entrambe resta quella del responsabile.
+        resp = valori.get("richiedi_approvazione_responsabile", False if nuovo else c.richiedi_approvazione_responsabile)
+        form = valori.get("richiedi_approvazione_formazione", False if nuovo else c.richiedi_approvazione_formazione)
+        if resp and form:
+            if "richiedi_approvazione_formazione" in valori and "richiedi_approvazione_responsabile" not in valori:
+                valori["richiedi_approvazione_responsabile"] = False
+            else:
+                valori["richiedi_approvazione_formazione"] = False
         if nuovo:
             c = Corso(titolo=d["titolo"], versione=d.get("versione", 1), versione_minima_valida=d.get("versione_minima_valida", 1), **valori)
             db.add(c)

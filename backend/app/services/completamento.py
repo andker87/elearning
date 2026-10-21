@@ -56,5 +56,5 @@ def completa_se_dovuto(db: Session, request, iscrizione: Iscrizione) -> Optional
     azienda_nome, logo_path = cert_svc.azienda_info(db)
     cert = cert_svc.crea_certificato(db, iscrizione, corso, u.full_name if u else "", azienda_nome, logo_path, e)
     audit_svc.log_from_request(db, request, u, "COMPLETE_AUTO", entity_type="edizione", entity_id=str(e.id),
-                                entity_name=audit_svc.nome_edizione(db, e), detail="completata in automatico (sessione sempre aperta)")
+                                entity_name=audit_svc.nome_edizione(db, e), detail="completata in automatico (video seguito fino alla fine)")
     return cert

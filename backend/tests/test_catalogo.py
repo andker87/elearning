@@ -387,3 +387,81 @@ def test_le_due_approvazioni_non_si_sommano(client, auth, formazione):
     assert r.status_code == 422
     ok = client.post("/api/corsi", headers=auth(formazione), json={"titolo": "Y", "permetti_autoiscrizione": True, "richiedi_approvazione_formazione": True})
     assert ok.status_code == 200 and ok.json()["richiedi_approvazione_formazione"] is True
+
+
+# --- 2.9.0, rilievi della review ----------------------------------------------------------------------
+
+def test_i_link_del_video_smettono_di_funzionare_a_fine_sessione(client, auth, utente, formazione, db, crea_corso, crea_edizione, crea_iscrizione, tmp_path):
+    """L'indirizzo firmato dura un paio d'ore: finita la sessione (o annullata l'iscrizione) non deve piu' servire il video."""
+    from app.services import cifratura
+    f, sub = tmp_path / "v.mp4", tmp_path / "v.vtt"
+    cifratura.scrivi_file(str(f), b"0" * 100); cifratura.scrivi_file(str(sub), b"WEBVTT\n")
+    v = VideoContenuto(titolo="Con file", stato=StatoVideo.pronto, durata_secondi=100, file_path=str(f), sottotitoli_path=str(sub))
+    db.add(v); db.commit()
+    e = crea_edizione(crea_corso("Corso"), stato=SE.pianificata, modalita=M.video, video_id=v.id, data_inizio=adesso() - timedelta(hours=1))
+    i = crea_iscrizione(e, utente)
+    acc = client.get(f"/api/video/{v.id}/accesso", headers=auth(utente)).json()
+    assert client.get(acc["video"]).status_code == 200 and client.get(acc["sottotitoli"]).status_code == 200
+    e.data_fine = adesso() - timedelta(seconds=5); db.commit()                                 # la sessione finisce con il link ancora valido
+    assert client.get(acc["video"]).status_code == 403 and client.get(acc["sottotitoli"]).status_code == 403
+    gest = client.get(f"/api/video/{v.id}/accesso", headers=auth(formazione)).json()
+    assert client.get(gest["video"]).status_code == 200                                         # chi gestisce non e' toccato
+    e.data_fine = None; db.commit()
+    assert client.get(acc["video"]).status_code == 200
+    i.stato = S.annullato; db.commit()                                                          # iscrizione annullata
+    assert client.get(acc["video"]).status_code == 403
+
+
+def test_un_video_di_una_sessione_chiusa_o_in_bozza_non_si_apre_a_chi_segue(client, auth, utente, db, crea_corso, crea_edizione, crea_iscrizione, video_corto):
+    from app.models.edizione import StatoEdizione
+    from app.services.iscrizioni import disponibilita_video
+    c = crea_corso("Corso")
+    e = crea_edizione(c, stato=SE.pianificata, modalita=M.video, video_id=video_corto.id, data_inizio=None, sempre_aperta=True)
+    i = crea_iscrizione(e, utente)
+    assert disponibilita_video(e)["ok"] is True
+    e.stato = SE.chiusa; db.commit()                                                            # chiusa senza data di fine
+    assert disponibilita_video(e) == {**disponibilita_video(e), "ok": False, "motivo": "scaduto"}
+    assert guarda(client, auth, utente, i.id, 5).status_code == 403                              # nemmeno l'avanzamento
+    e.stato = SE.bozza; db.commit()
+    assert disponibilita_video(e)["ok"] is False and disponibilita_video(e)["motivo"] == "non_ancora"
+    e.stato = SE.annullata; db.commit()
+    assert disponibilita_video(e)["ok"] is False
+
+
+def test_non_ci_si_iscrive_a_una_sessione_in_corso_gia_finita(client, auth, utente, db, crea_corso, crea_edizione, video_corto):
+    c = crea_corso("Scaduto"); c.permetti_autoiscrizione = True; db.commit()
+    scaduta = crea_edizione(c, stato=SE.in_corso, modalita=M.video, video_id=video_corto.id,
+                            data_inizio=adesso() - timedelta(days=3), data_fine=adesso() - timedelta(days=1))
+    assert client.post(f"/api/autoiscrizioni/edizioni/{scaduta.id}", headers=auth(utente)).status_code == 400
+    assert client.get("/api/catalogo", headers=auth(utente)).json() == []
+    assert client.get(f"/api/edizioni/{scaduta.id}", headers=auth(utente)).json()["da_chiudere"] is True
+    # una in corso e non finita si
+    viva = crea_edizione(c, stato=SE.in_corso, modalita=M.video, video_id=video_corto.id, data_inizio=adesso() - timedelta(days=1), data_fine=adesso() + timedelta(days=1))
+    assert client.post(f"/api/autoiscrizioni/edizioni/{viva.id}", headers=auth(utente)).status_code == 200
+
+
+def test_l_audit_del_completamento_automatico_non_dice_sempre_aperta_per_un_video_con_data(client, auth, utente, db, crea_corso, crea_edizione, crea_iscrizione, video_corto):
+    from app.models.audit import AuditLog
+    e = crea_edizione(crea_corso("Con data"), stato=SE.in_corso, modalita=M.video, video_id=video_corto.id, data_inizio=adesso() - timedelta(hours=2))
+    i = crea_iscrizione(e, utente)
+    secondo = 0
+    while secondo < 90:
+        secondo += 10; guarda(client, auth, utente, i.id, secondo)
+    voce = db.query(AuditLog).filter(AuditLog.action == "COMPLETE_AUTO").one()
+    assert "sempre aperta" not in (voce.detail or "") and "video" in (voce.detail or "")
+
+
+def test_l_importazione_non_somma_le_due_approvazioni_su_un_corso_esistente(client, auth, admin, db):
+    from app.models.corso import Corso
+    base = client.get("/api/admin/configurazione/export", headers=auth(admin)).json()
+    esistente = Corso(titolo="Gia' presente", permetti_autoiscrizione=True, richiedi_approvazione_responsabile=True); db.add(esistente); db.commit()
+    # il file imposta solo l'approvazione della Formazione: vince, e quella del responsabile si spegne
+    file = {**base, "corsi": [{"titolo": "Gia' presente", "permetti_autoiscrizione": True, "richiedi_approvazione_formazione": True}]}
+    assert client.post("/api/admin/configurazione/import", headers=auth(admin), json={"contenuto": file, "applica": True}).status_code == 200
+    db.expire_all(); c = db.query(Corso).filter(Corso.titolo == "Gia' presente").one()
+    assert (c.richiedi_approvazione_formazione, c.richiedi_approvazione_responsabile) == (True, False)
+    # entrambe nel file: resta quella del responsabile
+    file["corsi"] = [{"titolo": "Gia' presente", "richiedi_approvazione_responsabile": True, "richiedi_approvazione_formazione": True}]
+    client.post("/api/admin/configurazione/import", headers=auth(admin), json={"contenuto": file, "applica": True})
+    db.expire_all(); c = db.query(Corso).filter(Corso.titolo == "Gia' presente").one()
+    assert (c.richiedi_approvazione_formazione, c.richiedi_approvazione_responsabile) == (False, True)

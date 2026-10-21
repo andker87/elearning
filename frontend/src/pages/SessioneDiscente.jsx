@@ -30,6 +30,16 @@ export default function SessioneDiscente({ id, gestisce }) {
   }
   useEffect(carica, [id]); // eslint-disable-line
 
+  // Aperta prima dell'inizio di un video e lasciata li': all'ora di inizio si ricarica da sola, senza che serva aggiornare la pagina.
+  const dal = edizione?.disponibilita && !edizione.disponibilita.ok && edizione.disponibilita.motivo === "non_ancora" ? edizione.disponibilita.dal : null;
+  useEffect(() => {
+    if (!dal) return undefined;
+    const attesa = new Date(dal).getTime() - Date.now() + 1500;
+    if (attesa > 2147483000) return undefined;          // oltre ~24 giorni il timer del browser non regge: ci si aggiornera' alla prossima visita
+    const timer = setTimeout(carica, Math.max(attesa, 0));
+    return () => clearTimeout(timer);
+  }, [dal]); // eslint-disable-line
+
   async function iscriviti() {
     setInvio(true); setMsg(null);
     try {

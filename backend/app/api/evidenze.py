@@ -251,6 +251,7 @@ def chiudi_edizione(edizione_id: str, request: Request, db: Session = Depends(ge
     congela_durata(e, corso)   # la durata di oggi resta quella della sessione: gli attestati che emettiamo ora non cambiano piu'
     esito = []
     for i in iscrizioni:
+        db.refresh(i, with_for_update=True)        # se in quel momento un video si sta completando da solo, aspetta e ne vede l'esito
         evidenze = db.query(Evidenza).filter(Evidenza.iscrizione_id == i.id).all()
         for ev in evidenze:
             if not ev.attestata_da_id:

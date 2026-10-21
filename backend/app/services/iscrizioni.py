@@ -24,9 +24,9 @@ def fine_prevista(e):
 
 
 def sessione_finita(e) -> bool:
-    """Una sessione pubblicata la cui fine e' passata: non accetta piu' iscrizioni."""
+    """Una sessione aperta (pubblicata o in corso) la cui fine e' passata: non accetta piu' iscrizioni."""
     fine = fine_prevista(e)
-    return bool(fine is not None and e.stato == StatoEdizione.pianificata and fine < datetime.now(timezone.utc))
+    return bool(fine is not None and e.stato in (StatoEdizione.pianificata, StatoEdizione.in_corso) and fine < datetime.now(timezone.utc))
 
 
 def da_chiudere(e) -> bool:
@@ -39,7 +39,13 @@ def disponibilita_video(e, adesso=None) -> dict:
     """Quando chi segue puo' guardare il video di una sessione: sempre disponibile = sempre; con data, dall'ora di inizio
     (e fino alla fine, se c'e'). `ok` dice se adesso si puo'; `dal`/`fino` servono a spiegarlo."""
     adesso = adesso or datetime.now(timezone.utc)
-    if e.sempre_aperta or e.modalita != ModalitaErogazione.video:
+    if e.modalita != ModalitaErogazione.video:
+        return {"ok": True, "dal": None, "fino": None, "motivo": None}
+    if e.stato in (StatoEdizione.chiusa, StatoEdizione.annullata):        # chiusa dalla Formazione (anche prima della fine) o annullata
+        return {"ok": False, "dal": _aware(e.data_inizio), "fino": _aware(e.data_fine), "motivo": "scaduto"}
+    if e.stato == StatoEdizione.bozza:
+        return {"ok": False, "dal": _aware(e.data_inizio), "fino": _aware(e.data_fine), "motivo": "non_ancora"}
+    if e.sempre_aperta:
         return {"ok": True, "dal": None, "fino": None, "motivo": None}
     dal, fino = _aware(e.data_inizio), _aware(e.data_fine)
     if dal is not None and adesso < dal:
