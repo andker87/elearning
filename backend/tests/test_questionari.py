@@ -139,3 +139,35 @@ def test_il_nome_gia_usato_in_parallelo_da_un_400_e_non_un_500(client, auth, for
     r = client.put(f"/api/questionari/{altro['id']}", headers=auth(formazione), json={"nome": "Doppio", "is_default": False, "domande": []})
     assert r.status_code == 400 and "nome" in r.json()["detail"]
     db.expire_all(); assert db.query(QuestionarioGradimento).count() == 2
+
+
+def test_due_domande_con_lo_stesso_testo_non_sono_ammesse(client, auth, formazione):
+    doppie = [{"testo": "Il tono?", "tipo": "stelle"}, {"testo": "  il   TONO? ", "tipo": "testo"}]
+    r = crea_q(client, auth, formazione, "Doppie", predefinito=False, domande=doppie)
+    assert r.status_code == 400 and "stesso testo" in r.json()["detail"]
+    ok = crea_q(client, auth, formazione, "Singole", predefinito=False, domande=[doppie[0], {"testo": "Altro?", "tipo": "testo"}])
+    assert ok.status_code == 200
+    r = client.put(f"/api/questionari/{ok.json()['id']}", headers=auth(formazione), json={"nome": "Singole", "is_default": False, "domande": doppie})
+    assert r.status_code == 400
+
+
+def test_un_doppio_invio_del_gradimento_in_parallelo_da_400(client, auth, utente, db, iscrizione, monkeypatch):
+    """Il controllo «gia' inviato» non vede il primo invio (corsa), ma il vincolo del database ferma il secondo."""
+    i, corso, docente = iscrizione
+    url = f"/api/iscrizioni/{i.id}/gradimento"
+    assert client.post(url, headers=auth(utente), json={"voto_corso": 4, "voti_docenti": {str(docente.id): 5}}).status_code == 200
+
+    from app.api import gradimenti as modulo
+    saltati = []
+    class SenzaDoppione:                       # il controllo preventivo non trova il gradimento gia' presente
+        def __init__(self, q): self.q = q
+        def filter(self, *a, **k): return SenzaDoppione(self.q.filter(*a, **k))
+        def first(self): saltati.append(True); return None
+    from sqlalchemy.orm import Session
+    originale = Session.query
+    monkeypatch.setattr(Session, "query", lambda self, *a, **k: SenzaDoppione(originale(self, *a, **k)) if a and a[0] is modulo.Gradimento else originale(self, *a, **k))
+    r = client.post(url, headers=auth(utente), json={"voto_corso": 3, "voti_docenti": {str(docente.id): 4}})
+    monkeypatch.undo()
+    assert saltati, "il controllo preventivo doveva essere aggirato per provare la corsa"
+    assert r.status_code == 400 and "già inviato" in r.json()["detail"]
+    assert db.query(modulo.Gradimento).count() == 1
