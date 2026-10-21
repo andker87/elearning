@@ -12,6 +12,7 @@ from typing import Optional
 from ..config import settings
 from ..database import get_db, SessionLocal
 from ..models.video import VideoContenuto, VideoCapitolo, VideoProgresso, StatoVideo
+from ..models.user import User
 from ..models.iscrizione import Iscrizione, StatoIscrizione
 from ..models.edizione import Edizione, EdizioneDocente
 from ..models.evidenza import Evidenza, FonteEvidenza
@@ -21,6 +22,7 @@ from ..services import video_elaborazione
 from .deps import get_current_user, require_training_admin
 
 from ..services.completamento import completa_se_dovuto
+from ..services.iscrizioni import disponibilita_video
 from .evidenze import SOGLIA_COMPLETAMENTO_VIDEO_PCT  # una sola soglia, condivisa con il completamento delle evidenze
 
 router = APIRouter(tags=["video"])
@@ -95,13 +97,32 @@ def get_video(video_id: str, db: Session = Depends(get_db), user=Depends(get_cur
     if not v or not _puo_vedere(db, user, v.id): raise HTTPException(404)
     return _serialize(v, _usi_dei_video(db, [v.id]).get(v.id, 0))
 
+def _gestisce_video(db: Session, user, video_id) -> bool:
+    """Chi gestisce la formazione, o e' docente di una sessione con questo video: lo vede sempre (anche in anteprima)."""
+    if user.ha_poteri_formazione:
+        return True
+    return db.query(EdizioneDocente.id).join(Edizione, Edizione.id == EdizioneDocente.edizione_id).filter(
+        EdizioneDocente.user_id == user.id, Edizione.video_id == video_id).first() is not None
+
+
+def _aperto_a_chi_segue(db: Session, user, video_id) -> Optional[str]:
+    """Chi segue il corso guarda il video solo nel periodo della sessione (da quando inizia, fino alla fine se c'e').
+    None = si puo' guardare ora; altrimenti il motivo («non_ancora» / «scaduto»)."""
+    sessioni = (db.query(Edizione).join(Iscrizione, Iscrizione.edizione_id == Edizione.id)
+                .filter(Iscrizione.user_id == user.id, Iscrizione.stato.in_(STATI_CON_ACCESSO), Edizione.video_id == video_id).all())
+    motivi = []
+    for e in sessioni:
+        d = disponibilita_video(e)
+        if d["ok"]:
+            return None
+        motivi.append(d["motivo"])
+    return "non_ancora" if "non_ancora" in motivi else (motivi[0] if motivi else None)
+
+
 def _puo_vedere(db: Session, user, video_id) -> bool:
     """Chi gestisce la formazione vede tutto; i docenti di una sessione vedono il suo video (anche in anteprima);
     gli altri solo i video delle sessioni a cui sono iscritti."""
-    if user.ha_poteri_formazione:
-        return True
-    if db.query(EdizioneDocente.id).join(Edizione, Edizione.id == EdizioneDocente.edizione_id).filter(
-            EdizioneDocente.user_id == user.id, Edizione.video_id == video_id).first() is not None:
+    if _gestisce_video(db, user, video_id):
         return True
     return db.query(Iscrizione.id).join(Edizione, Edizione.id == Iscrizione.edizione_id).filter(
         Iscrizione.user_id == user.id, Iscrizione.stato.in_(STATI_CON_ACCESSO), Edizione.video_id == video_id).first() is not None
@@ -119,6 +140,10 @@ def accesso_video(video_id: str, db: Session = Depends(get_db), user=Depends(get
     """Indirizzi a tempo per guardare il video, uno per ogni qualita': senza di essi il file non si apre."""
     v = db.query(VideoContenuto).options(joinedload(VideoContenuto.versioni)).filter(VideoContenuto.id == video_id).first()
     if not v or not v.file_path or not _puo_vedere(db, user, v.id): raise HTTPException(404)
+    if not _gestisce_video(db, user, v.id):
+        motivo = _aperto_a_chi_segue(db, user, v.id)
+        if motivo:
+            raise HTTPException(403, "Il video sarà disponibile all'inizio della sessione" if motivo == "non_ancora" else "Il video non è più disponibile: la sessione è terminata")
     versioni = sorted(v.versioni, key=lambda x: x.altezza)
     if versioni:
         predefinita = next((x for x in versioni if x.file_path == v.file_path), versioni[0])
@@ -138,6 +163,15 @@ def _verifica_indirizzo(video_id: str, tipo: str, t: str) -> dict:
     if dati.get("typ") != "video" or dati.get("vid") != video_id or dati.get("k") != tipo:
         raise HTTPException(401, "Indirizzo scaduto o non valido")
     return dati
+
+def _riverifica_accesso(db: Session, dati: dict, video_id: str):
+    """Gli indirizzi firmati durano un paio d'ore: finita la sessione (o annullata l'iscrizione) non devono continuare a servire il video."""
+    user = db.query(User).filter(User.id == dati.get("uid")).first() if dati.get("uid") else None
+    if user is None or not _puo_vedere(db, user, video_id):
+        raise HTTPException(403, "Non hai più accesso a questo video")
+    if not _gestisce_video(db, user, video_id) and _aperto_a_chi_segue(db, user, video_id):
+        raise HTTPException(403, "Il video non è più disponibile")
+
 
 def _risposta_a_intervalli(request: Request, percorso: str, media_type: str):
     """Invia il file (decifrato al volo) rispettando le richieste parziali del player: chi guarda da remoto
@@ -168,15 +202,18 @@ def file_video(video_id: str, request: Request, t: str, altezza: Optional[int] =
     h = dati.get("h", 0) if altezza is None else altezza
     v = db.query(VideoContenuto).options(joinedload(VideoContenuto.versioni)).filter(VideoContenuto.id == video_id).first()
     if not v: raise HTTPException(404)
+    _riverifica_accesso(db, dati, video_id)
     percorso = next((x.file_path for x in v.versioni if x.altezza == h), None) if h else v.file_path
     if not percorso or not os.path.isfile(percorso): raise HTTPException(404)
     return _risposta_a_intervalli(request, percorso, "video/mp4")
 
 @router.get("/api/video/{video_id}/sottotitoli")
 def file_sottotitoli(video_id: str, t: str, db: Session = Depends(get_db)):
-    _verifica_indirizzo(video_id, "sottotitoli", t)
+    dati = _verifica_indirizzo(video_id, "sottotitoli", t)
     v = db.query(VideoContenuto).filter(VideoContenuto.id == video_id).first()
-    if not v or not v.sottotitoli_path or not os.path.isfile(v.sottotitoli_path): raise HTTPException(404)
+    if not v: raise HTTPException(404)
+    _riverifica_accesso(db, dati, video_id)
+    if not v.sottotitoli_path or not os.path.isfile(v.sottotitoli_path): raise HTTPException(404)
     return Response(cifratura.leggi_file(v.sottotitoli_path), media_type="text/vtt", headers={"Cache-Control": "private, no-store"})
 
 class VideoUpdate(BaseModel):
@@ -296,6 +333,8 @@ def aggiorna_progresso(iscrizione_id: str, data: ProgressoIn, request: Request, 
     if not e or not e.video_id:
         raise HTTPException(400, "Questa edizione non ha un contenuto video associato")
     video = db.query(VideoContenuto).filter(VideoContenuto.id == e.video_id).first()
+    if not disponibilita_video(e)["ok"]:
+        raise HTTPException(403, "Il video non è disponibile in questo momento")
 
     prog = db.query(VideoProgresso).filter(VideoProgresso.iscrizione_id == iscrizione_id).first()
     prima_visione = prog is None

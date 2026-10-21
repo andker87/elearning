@@ -9,10 +9,12 @@ from ..models.autoiscrizione import AutoIscrizioneRichiesta, StatoAutoIscrizione
 from ..models.corso import Corso
 from ..models.edizione import Edizione, StatoEdizione
 from ..models.iscrizione import Iscrizione, StatoIscrizione
+from ..models.richiesta_iscrizione import RichiestaIscrizione
 from ..models.user import User
 from ..services.durata import durata_effettiva
 from ..services.etichette import etichette_del_corso
 from ..services.gerarchia import responsabili_di
+from .autoiscrizione import chi_approva
 from ..services.iscrizioni import posti_occupati, in_catalogo
 from .deps import get_current_user
 
@@ -34,10 +36,13 @@ def catalogo(db: Session = Depends(get_db), user: User = Depends(get_current_use
         attesa = {r.edizione_id for r in db.query(AutoIscrizioneRichiesta).filter(
             AutoIscrizioneRichiesta.user_id == user.id, AutoIscrizioneRichiesta.edizione_id.in_(ids),
             AutoIscrizioneRichiesta.stato == StatoAutoIscrizione.in_attesa).all()}
-    ho_responsabili = bool(responsabili_di(db, user.id))
+        attesa |= {r.edizione_id for r in db.query(RichiestaIscrizione).filter(                    # richieste alla Formazione (fatte da me o per me)
+            RichiestaIscrizione.user_id == user.id, RichiestaIscrizione.edizione_id.in_(ids), RichiestaIscrizione.stato == "in_attesa").all()}
+    ho_responsabili = bool(responsabili_di(db, user.id))      # (chi_approva decide se serve il responsabile o la Formazione)
     out = []
     for e, c in righe:
         stato = mie.get(e.id) or ("richiesta_in_attesa" if e.id in attesa else None)
+        approva = chi_approva(c, db, user, ho_responsabili)
         out.append({
             "id": str(e.id), "corso_titolo": c.titolo, "corso_descrizione": c.descrizione,
             "etichette": [{"id": str(x.id), "nome": x.nome, "famiglia": x.famiglia.nome} for x in etichette_del_corso(db, c.id)],
@@ -45,7 +50,7 @@ def catalogo(db: Session = Depends(get_db), user: User = Depends(get_current_use
             "luogo": e.luogo, "durata_effettiva_minuti": durata_effettiva(e, c),
             "posti_liberi": (max(0, e.posti_max - posti_occupati(db, e.id)) if e.posti_max else None),
             "lista_attesa": bool(e.lista_attesa_abilitata),
-            "richiede_approvazione": bool(c.permetti_autoiscrizione and c.richiedi_approvazione_responsabile and ho_responsabili),
+            "approva": approva, "richiede_approvazione": approva is not None,
             "mio_stato": stato,
         })
     out.sort(key=lambda r: (not r["sempre_aperta"], r["data_inizio"] is None, r["data_inizio"].timestamp() if r["data_inizio"] else 0, r["corso_titolo"].lower()))

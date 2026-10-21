@@ -1,11 +1,12 @@
 """Video (1.9.4): piu' qualita', cifratura su disco, riproduzione a intervalli, originale eliminato."""
 import os
+from datetime import datetime, timedelta, timezone
 import subprocess
 
 import pytest
 
 from app.config import settings
-from app.models.edizione import ModalitaErogazione
+from app.models.edizione import ModalitaErogazione, StatoEdizione
 from app.models.iscrizione import StatoIscrizione
 from app.models.video import StatoVideo, VideoContenuto, VideoVersione
 from app.services import cifratura as c
@@ -103,7 +104,8 @@ def video_con_qualita(db, cartelle, chiave, crea_corso, crea_edizione):
     ve.transcodifica(str(v.id), str(originale))
     db.expire_all()
     v = db.get(VideoContenuto, v.id)
-    ed = crea_edizione(crea_corso(), modalita=ModalitaErogazione.video, video_id=v.id)
+    ed = crea_edizione(crea_corso(), stato=StatoEdizione.pianificata, modalita=ModalitaErogazione.video, video_id=v.id,
+                       data_inizio=datetime.now(timezone.utc) - timedelta(days=1))     # gia' iniziata: da quando inizia il video si apre
     return v, ed
 
 

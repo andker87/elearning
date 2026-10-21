@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, Request
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 from datetime import datetime, timezone
 from ..database import get_db
@@ -6,9 +7,12 @@ from ..models.autoiscrizione import AutoIscrizioneRichiesta, StatoAutoIscrizione
 from ..models.edizione import Edizione, StatoEdizione
 from ..models.corso import Corso
 from ..models.iscrizione import Iscrizione, StatoIscrizione
+from ..models.notification import Notification
+from ..models.richiesta_iscrizione import RichiestaIscrizione
 from ..models.user import User
 from ..services.gerarchia import responsabili_di, sottoposti_di
-from ..services.iscrizioni import autoiscrizione_ammessa, crea_iscrizione_con_capacita
+from ..services.email import dopo_il_commit, invia_email
+from ..services.iscrizioni import autoiscrizione_ammessa, crea_iscrizione_con_capacita, sessione_finita
 from ..services.notifiche import invia_invito_calendario
 from ..services import audit as audit_svc
 from .deps import get_current_user
@@ -25,11 +29,25 @@ def _serialize(r: AutoIscrizioneRichiesta, db: Session):
         "stato": r.stato, "created_at": r.created_at,
     }
 
+def chi_approva(corso, db: Session, user: User, ha_responsabili=None):
+    """Chi decide sull'iscrizione che la persona chiede da sola: nessuno (libera), il suo responsabile o la Formazione.
+    Se serve il responsabile e la persona non ne ha uno, decide la Formazione: la porta non resta aperta."""
+    if not corso.permetti_autoiscrizione:
+        return None
+    if corso.richiedi_approvazione_formazione:
+        return "formazione"
+    if corso.richiedi_approvazione_responsabile:
+        if ha_responsabili is None:
+            ha_responsabili = bool(responsabili_di(db, user.id))
+        return "responsabile" if ha_responsabili else "formazione"
+    return None
+
+
 @router.post("/edizioni/{edizione_id}")
 def richiedi_autoiscrizione(edizione_id: str, request: Request, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
     e = db.query(Edizione).filter(Edizione.id == edizione_id).first()
     if not e: raise HTTPException(404)
-    if e.stato not in (StatoEdizione.pianificata, StatoEdizione.in_corso):
+    if e.stato not in (StatoEdizione.pianificata, StatoEdizione.in_corso) or sessione_finita(e):
         raise HTTPException(400, "Questa sessione non è aperta alle iscrizioni")
     corso = db.query(Corso).filter(Corso.id == e.corso_id).first()
     if not autoiscrizione_ammessa(e, corso):
@@ -39,15 +57,34 @@ def richiedi_autoiscrizione(edizione_id: str, request: Request, db: Session = De
     if gia: raise HTTPException(400, "Sei già iscritto a questa sessione")
     gia_richiesta = db.query(AutoIscrizioneRichiesta).filter(AutoIscrizioneRichiesta.edizione_id == edizione_id,
                              AutoIscrizioneRichiesta.user_id == user.id, AutoIscrizioneRichiesta.stato == StatoAutoIscrizione.in_attesa).first()
-    if gia_richiesta: raise HTTPException(400, "Richiesta già in attesa di approvazione")
+    gia_alla_formazione = db.query(RichiestaIscrizione).filter(RichiestaIscrizione.edizione_id == edizione_id,
+                             RichiestaIscrizione.user_id == user.id, RichiestaIscrizione.stato == "in_attesa").first()
+    if gia_richiesta or gia_alla_formazione: raise HTTPException(400, "Richiesta già in attesa di approvazione")
 
-    if corso.permetti_autoiscrizione and corso.richiedi_approvazione_responsabile and responsabili_di(db, user.id):
+    approva = chi_approva(corso, db, user)
+    if approva == "formazione":
+        db.add(RichiestaIscrizione(edizione_id=e.id, user_id=user.id, richiedente_id=user.id))        # richiesta fatta dalla persona stessa
+        try:
+            db.flush()
+        except IntegrityError:
+            db.rollback()
+            raise HTTPException(400, "Richiesta già in attesa di approvazione")
+        quando = f" del {e.data_inizio.strftime('%d/%m/%Y')}" if e.data_inizio else ""
+        testo = f"{user.full_name} chiede di iscriversi alla sessione{quando} di «{corso.titolo}»."
+        for f in db.query(User).filter(User.is_active == True, (User.is_admin == True) | (User.is_formazione == True)).all():  # noqa: E712
+            db.add(Notification(user_id=f.id, tipo="richiesta_iscrizione", testo=testo, link="/richieste-iscrizione"))
+            dopo_il_commit(db, invia_email, f.email, "Nuova richiesta di iscrizione", testo)
+        audit_svc.log_from_request(db, request, user, "SELF_ENROLL_REQUEST", entity_type="edizione", entity_id=edizione_id,
+                                    entity_name=audit_svc.nome_edizione(db, e), detail="in attesa della Formazione")
+        db.commit()
+        return {"ok": True, "stato": "in_attesa_approvazione", "approva": "formazione"}
+    if approva == "responsabile":
         r = AutoIscrizioneRichiesta(edizione_id=edizione_id, user_id=user.id)
         db.add(r); db.flush()
         audit_svc.log_from_request(db, request, user, "SELF_ENROLL_REQUEST", entity_type="edizione", entity_id=edizione_id,
                                     entity_name=audit_svc.nome_edizione(db, e), detail="in attesa di approvazione")
         db.commit(); db.refresh(r)
-        return {"ok": True, "stato": "in_attesa_approvazione"}
+        return {"ok": True, "stato": "in_attesa_approvazione", "approva": "responsabile"}
 
     i = crea_iscrizione_con_capacita(db, e, user.id)
     audit_svc.log_from_request(db, request, user, "SELF_ENROLL", entity_type="edizione", entity_id=edizione_id,

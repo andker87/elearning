@@ -34,7 +34,7 @@ CAMPI_AZIENDA = ["ragione_sociale", "partita_iva", "codice_fiscale", "indirizzo"
                  "nome_piattaforma", "url_pubblico", "privacy_testo"]
 CAMPI_ORGANIZZAZIONE = ["tipo", "partita_iva", "accreditamento", "referente", "email", "telefono", "note"]
 CAMPI_CORSO = ["descrizione", "validita_mesi", "durata_minuti", "iscrizione_responsabili", "ha_test_finale", "giorni_scadenza_breve", "confronta_pre_post_test",
-               "permetti_autoiscrizione", "richiedi_approvazione_responsabile", "rinnovo_automatico", "rinnovo_giorni_anticipo", "is_active"]
+               "permetti_autoiscrizione", "richiedi_approvazione_responsabile", "richiedi_approvazione_formazione", "rinnovo_automatico", "rinnovo_giorni_anticipo", "is_active"]
 ESCLUSI = ["utenti, permessi, uffici e mansioni di ciascuno", "iscrizioni, esiti e attestati", "video, immagini, loghi e icone", "template degli attestati",
            "test e domande", "informativa privacy in PDF", "credenziali e chiavi (SMTP, SSO, Graph, notifiche push)"]
 
@@ -316,6 +316,15 @@ def _corsi(db, elenco, rapporto):
             valori["rinnovo_automatico"] = False
         c = esistenti.get(_chiave(d["titolo"]))
         nuovo = c is None
+        # Le due approvazioni non si sommano, valutando anche quella gia' impostata sul corso che c'e': se il file ne imposta una
+        # sola, vince quella e l'altra si spegne; se le imposta entrambe resta quella del responsabile.
+        resp = valori.get("richiedi_approvazione_responsabile", False if nuovo else c.richiedi_approvazione_responsabile)
+        form = valori.get("richiedi_approvazione_formazione", False if nuovo else c.richiedi_approvazione_formazione)
+        if resp and form:
+            if "richiedi_approvazione_formazione" in valori and "richiedi_approvazione_responsabile" not in valori:
+                valori["richiedi_approvazione_responsabile"] = False
+            else:
+                valori["richiedi_approvazione_formazione"] = False
         if nuovo:
             c = Corso(titolo=d["titolo"], versione=d.get("versione", 1), versione_minima_valida=d.get("versione_minima_valida", 1), **valori)
             db.add(c)

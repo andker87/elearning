@@ -3,20 +3,56 @@ from datetime import datetime, timezone
 from fastapi import HTTPException
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
-from ..models.edizione import Edizione, StatoEdizione
+from ..models.edizione import Edizione, ModalitaErogazione, StatoEdizione
 from ..models.iscrizione import Iscrizione, StatoIscrizione
 from ..models.user import User
 
 STATI_OCCUPANO_POSTO = (StatoIscrizione.iscritto, StatoIscrizione.completato, StatoIscrizione.non_completato)
 
+def _aware(d):
+    return d if d is None or d.tzinfo is not None else d.replace(tzinfo=timezone.utc)
+
+
+def fine_prevista(e):
+    """Quando finisce la sessione, se si sa. Sempre disponibile: mai. Un video con la sola data di inizio resta disponibile
+    «da quell'ora» finche' la Formazione non chiude; le altre modalita' finiscono alla data di fine (o, senza, di inizio)."""
+    if e.sempre_aperta:
+        return None
+    if e.modalita == ModalitaErogazione.video:
+        return _aware(e.data_fine)
+    return _aware(e.data_fine or e.data_inizio)
+
+
 def sessione_finita(e) -> bool:
-    """Una sessione pianificata la cui data (fine, o inizio se manca) e' passata: non accetta piu' iscrizioni."""
-    fine = e.data_fine or e.data_inizio
-    if fine is None or e.stato != StatoEdizione.pianificata:
-        return False
-    if fine.tzinfo is None:
-        fine = fine.replace(tzinfo=timezone.utc)
-    return fine < datetime.now(timezone.utc)
+    """Una sessione aperta (pubblicata o in corso) la cui fine e' passata: non accetta piu' iscrizioni."""
+    fine = fine_prevista(e)
+    return bool(fine is not None and e.stato in (StatoEdizione.pianificata, StatoEdizione.in_corso) and fine < datetime.now(timezone.utc))
+
+
+def da_chiudere(e) -> bool:
+    """Passata la fine prevista e ancora aperta: la Formazione deve chiuderla (il sistema non la chiude da solo)."""
+    fine = fine_prevista(e)
+    return bool(fine is not None and e.stato in (StatoEdizione.pianificata, StatoEdizione.in_corso) and fine < datetime.now(timezone.utc))
+
+
+def disponibilita_video(e, adesso=None) -> dict:
+    """Quando chi segue puo' guardare il video di una sessione: sempre disponibile = sempre; con data, dall'ora di inizio
+    (e fino alla fine, se c'e'). `ok` dice se adesso si puo'; `dal`/`fino` servono a spiegarlo."""
+    adesso = adesso or datetime.now(timezone.utc)
+    if e.modalita != ModalitaErogazione.video:
+        return {"ok": True, "dal": None, "fino": None, "motivo": None}
+    if e.stato in (StatoEdizione.chiusa, StatoEdizione.annullata):        # chiusa dalla Formazione (anche prima della fine) o annullata
+        return {"ok": False, "dal": _aware(e.data_inizio), "fino": _aware(e.data_fine), "motivo": "scaduto"}
+    if e.stato == StatoEdizione.bozza:
+        return {"ok": False, "dal": _aware(e.data_inizio), "fino": _aware(e.data_fine), "motivo": "non_ancora"}
+    if e.sempre_aperta:
+        return {"ok": True, "dal": None, "fino": None, "motivo": None}
+    dal, fino = _aware(e.data_inizio), _aware(e.data_fine)
+    if dal is not None and adesso < dal:
+        return {"ok": False, "dal": dal, "fino": fino, "motivo": "non_ancora"}
+    if fino is not None and adesso > fino:
+        return {"ok": False, "dal": dal, "fino": fino, "motivo": "scaduto"}
+    return {"ok": True, "dal": dal, "fino": fino, "motivo": None}
 
 
 def autoiscrizione_ammessa(e, corso) -> bool:

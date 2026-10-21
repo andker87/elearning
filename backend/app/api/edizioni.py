@@ -12,7 +12,7 @@ from ..models.corso import Corso
 from ..services.gerarchia import sottoposti_di
 from ..services.etichette import corsi_con_etichette, etichette_del_corso
 from ..services.durata import durata_effettiva
-from ..services.iscrizioni import autoiscrizione_ammessa, crea_iscrizione_con_capacita, in_catalogo, promuovi_da_lista_attesa, posti_occupati
+from ..services.iscrizioni import autoiscrizione_ammessa, crea_iscrizione_con_capacita, da_chiudere, disponibilita_video, in_catalogo, promuovi_da_lista_attesa, posti_occupati
 from ..services.notifiche import invia_comunicazione_edizione, invia_invito_calendario
 from ..services.calendario import evento_edizione, costruisci_ics
 from ..models.comunicazione_edizione import ComunicazioneEdizione
@@ -92,7 +92,8 @@ def _serialize(e: Edizione, db: Session):
         "posti_max": e.posti_max, "lista_attesa_abilitata": e.lista_attesa_abilitata, "n_lista_attesa": n_lista_attesa,
         "checkin_mode": e.checkin_mode, "teams_mode": e.teams_mode,
         "teams_join_url": e.teams_join_url, "video_id": str(e.video_id) if e.video_id else None,
-        "ente_erogatore": e.ente_erogatore, "sempre_aperta": e.sempre_aperta,
+        "ente_erogatore": e.ente_erogatore, "sempre_aperta": e.sempre_aperta, "da_chiudere": da_chiudere(e),
+        "disponibilita": disponibilita_video(e) if e.modalita == ModalitaErogazione.video else None,
         "durata_minuti": e.durata_minuti, "durata_corso_minuti": corso.durata_minuti if corso else None,
         "durata_effettiva_minuti": durata_effettiva(e, corso),
         "durata_modificata": bool(e.durata_minuti and corso and corso.durata_minuti and e.durata_minuti != corso.durata_minuti),
@@ -145,7 +146,16 @@ def mie_iscrizioni(db: Session = Depends(get_db), user=Depends(get_current_user)
 def get_edizione(edizione_id: str, db: Session = Depends(get_db), user=Depends(get_current_user)):
     e = db.query(Edizione).options(joinedload(Edizione.docenti)).filter(Edizione.id == edizione_id).first()
     if not e: raise HTTPException(404)
-    return _serialize(e, db)
+    out = _serialize(e, db)
+    # ho gia' chiesto di iscrivermi e aspetto la risposta (del mio responsabile o della Formazione)?
+    from ..models.autoiscrizione import AutoIscrizioneRichiesta, StatoAutoIscrizione
+    from ..models.richiesta_iscrizione import RichiestaIscrizione
+    out["mia_richiesta_in_attesa"] = (
+        db.query(AutoIscrizioneRichiesta.id).filter(AutoIscrizioneRichiesta.edizione_id == e.id, AutoIscrizioneRichiesta.user_id == user.id,
+                                                    AutoIscrizioneRichiesta.stato == StatoAutoIscrizione.in_attesa).first() is not None
+        or db.query(RichiestaIscrizione.id).filter(RichiestaIscrizione.edizione_id == e.id, RichiestaIscrizione.user_id == user.id,
+                                                   RichiestaIscrizione.stato == "in_attesa").first() is not None)
+    return out
 
 @router.post("")
 def create_edizione(data: EdizioneIn, request: Request, db: Session = Depends(get_db), user=Depends(require_training_admin)):

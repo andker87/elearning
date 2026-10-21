@@ -190,15 +190,17 @@ export default function Edizioni() {
                   Sempre disponibile (senza date)
                 </label>
                 <p className="text-muted" style={{ fontSize: 12, margin: "4px 0 0" }}>
-                  Chi vuole la guarda quando preferisce, dal Catalogo. Chi la completa (e supera il test finale, se c'è) riceve l'attestato in automatico.
-                  {" "}Una sessione sempre disponibile compare nel Catalogo per tutti, anche se il corso non ha l'auto-iscrizione.
+                  {form.sempre_aperta
+                    ? "Chi vuole la guarda quando preferisce, dal Catalogo, anche se il corso non ha l'auto-iscrizione."
+                    : "Senza questa scelta il video si apre dall'ora che indichi (e fino alla data di fine, se la indichi; altrimenti resta disponibile finché la Formazione non chiude la sessione)."}
+                  {" "}Chi lo completa (e supera il test finale, se c'è) riceve l'attestato in automatico.
                 </p>
               </div>
             )}
             {!(form.modalita === "video" && form.sempre_aperta) && <div className="row">
-              <div className="field"><label>Data/ora inizio</label><input type="datetime-local" value={form.data_inizio} onChange={(e) => setForm({ ...form, data_inizio: e.target.value })} /></div>
+              <div className="field"><label>{form.modalita === "video" ? "Disponibile dal (data e ora)" : "Data/ora inizio"}</label><input type="datetime-local" value={form.data_inizio} onChange={(e) => setForm({ ...form, data_inizio: e.target.value })} /></div>
               <div className="field">
-                <label>Data/ora fine</label>
+                <label>{form.modalita === "video" ? "Disponibile fino al (facoltativo)" : "Data/ora fine"}</label>
                 <input type="datetime-local" value={form.data_fine} onChange={(e) => setForm({ ...form, data_fine: e.target.value })} />
                 {form.data_inizio && form.durata_minuti > 0 && form.durata_minuti < 24 * 60 && <button type="button" className="secondary btn-sm" style={{ marginTop: 4 }} onClick={fineSuggerita}>Imposta la fine in base alla durata</button>}
               </div>
@@ -258,7 +260,7 @@ export default function Edizioni() {
                     <td>{dove(e)}</td>
                     <td>{e.docenti?.length ? e.docenti.map((d) => d.nome).join(", ") : <span className="text-muted">—</span>}</td>
                     <td>{e.n_iscritti}{e.posti_max ? `/${e.posti_max}` : ""}{e.n_lista_attesa > 0 && <div className="text-muted" style={{ fontSize: 11 }}>{e.n_lista_attesa} in attesa</div>}</td>
-                    <td><span className={`badge ${classeStato}`}>{etichettaStato}</span></td>
+                    <td><span className={`badge ${classeStato}`}>{etichettaStato}</span>{e.da_chiudere && <span className="badge yellow" style={{ marginLeft: 6 }} title="La fine è passata: va chiusa dalla Formazione">da chiudere</span>}</td>
                     <td>
                       <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", whiteSpace: "nowrap" }}>
                         <button type="button" className="btn-sm" onClick={() => navigate(`/sessioni/${e.id}`)}>Apri</button>

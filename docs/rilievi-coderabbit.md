@@ -354,3 +354,15 @@ Provati con test (creazione utente e CSV, corsa simulata). SSO ed Entra: modific
 |---|---|---|
 | FATTO 2.8.0 | api/gradimenti.py | un doppio invio in parallelo del gradimento poteva dare errore 500: l'errore del database usciva prima del blocco che lo gestisce. Ora inserimenti e salvataggio sono dentro lo stesso blocco e la risposta è il solito 400 |
 | FATTO 2.8.0 in modo diverso dal suggerito | api/questionari.py | due domande con lo stesso testo fondevano le risposte nei report e nel CSV. Il suggerimento (usare l'identificativo della domanda) avrebbe spezzato i report a ogni modifica del questionario, perché a ogni salvataggio le domande si ricreano con nuovi identificativi; si è scelto di non ammettere due domande con lo stesso testo nello stesso questionario |
+
+## PR #34 (2.9.0, come si accede e quando è disponibile)
+
+| Stato | File | Rilievo |
+|---|---|---|
+| FATTO 2.9.0 | services/iscrizioni.py | `sessione_finita` valeva solo per le sessioni «pubblicate»: una sessione «in corso» oltre la data di fine accettava ancora richieste e iscrizioni. Ora vale per entrambe le fasi aperte (senza chiudere la sessione) |
+| FATTO 2.9.0 | api/evidenze.py | la chiusura di una sessione e il completamento automatico di un video potevano incrociarsi sulla stessa iscrizione (doppio attestato): la chiusura rilegge e blocca ogni iscrizione prima di trattarla, e il completamento automatico fa lo stesso. Nessun test riproduce la corsa; resta il test sull'assenza di doppi attestati alla chiusura |
+| FATTO 2.9.0 | api/video.py | gli indirizzi firmati durano due ore e, finita la sessione, continuavano a servire video e sottotitoli: ora si ricontrolla a ogni richiesta (sessione finita o chiusa, iscrizione annullata); chi gestisce non è toccato. Un video inesistente risponde sempre 404 |
+| FATTO 2.9.0 | services/completamento.py | l'audit del completamento automatico diceva «sessione sempre aperta» anche per i video con data: ora «video seguito fino alla fine» |
+| FATTO 2.9.0 | services/configurazione.py | l'importazione valutava le due approvazioni solo sui valori del file, non sul corso già presente: poteva lasciarle entrambe attive. Ora se il file ne imposta una sola vince quella (l'altra si spegne); se le imposta entrambe resta quella del responsabile |
+| FATTO 2.9.0 | services/iscrizioni.py | per un video il blocco non copriva le sessioni chiuse prima della fine o senza data di fine, né quelle annullate o ancora in bozza: ora non sono disponibili a chi segue (chi gestisce vede sempre) |
+| FATTO 2.9.0 | pages/SessioneDiscente.jsx | una pagina aperta prima dell'inizio del video restava senza video dopo l'ora di inizio: ora si ricarica da sola all'ora (timer ripulito allo smontaggio) |

@@ -222,6 +222,12 @@ function GestioneSessione() {
         <p><button type="button" className="danger btn-sm" onClick={() => setEliminando(true)}>Elimina la sessione</button></p>
       )}
       {eliminando && <EliminaSessione sessioneId={id} nome={edizione.corso_titolo || "questo corso"} onChiudi={() => setEliminando(false)} onEliminata={() => navigate("/sessioni")} />}
+      {isAdmin && edizione.da_chiudere && (
+        <div className="card" style={{ borderColor: "var(--yellow)", background: "var(--yellow-bg)" }}>
+          <h3>La sessione è finita</h3>
+          <p style={{ margin: 0 }}>La data di fine è passata ma la sessione è ancora aperta: il sistema non la chiude da solo. Quando hai controllato tutto, chiudila: chi non ha completato risulterà non completato.</p>
+        </div>
+      )}
       {isAdmin && edizione.stato === "bozza" && (
         <div className="card" style={{ borderColor: "var(--yellow)", background: "var(--yellow-bg)" }}>
           <h3>La sessione è in bozza</h3>

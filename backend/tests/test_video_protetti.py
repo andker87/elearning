@@ -7,7 +7,7 @@ import jwt
 
 from app.api import video as api_video
 from app.config import settings
-from app.models.edizione import ModalitaErogazione
+from app.models.edizione import ModalitaErogazione, StatoEdizione
 from app.models.iscrizione import StatoIscrizione
 from app.models.video import StatoVideo, VideoContenuto
 
@@ -25,7 +25,8 @@ def video_pronto(db, tmp_path):
 
 @pytest.fixture
 def edizione_video(crea_corso, crea_edizione, video_pronto):
-    return crea_edizione(crea_corso(), modalita=ModalitaErogazione.video, video_id=video_pronto.id)
+    return crea_edizione(crea_corso(), stato=StatoEdizione.pianificata, modalita=ModalitaErogazione.video, video_id=video_pronto.id,
+                         data_inizio=datetime.now(timezone.utc) - timedelta(days=1))     # gia' iniziata: da quando inizia il video si apre
 
 
 def test_cartella_pubblica_dei_video_non_esiste_piu(client):
@@ -70,9 +71,9 @@ def test_elenco_video_solo_per_la_formazione(client, auth, utente, formazione, v
     assert r.status_code == 200 and "file_path" not in r.json()[0] and r.json()[0]["ha_file"] is True
 
 
-def test_indirizzo_scaduto_o_di_altro_video_rifiutato(client, video_pronto, db):
+def test_indirizzo_scaduto_o_di_altro_video_rifiutato(client, video_pronto, db, formazione):
     def tok(**kw):
-        d = {"typ": "video", "vid": str(video_pronto.id), "k": "file", "exp": datetime.now(timezone.utc) + timedelta(hours=1)}
+        d = {"typ": "video", "vid": str(video_pronto.id), "k": "file", "uid": str(formazione.id), "exp": datetime.now(timezone.utc) + timedelta(hours=1)}
         d.update(kw)
         return jwt.encode(d, settings.SECRET_KEY, algorithm="HS256")
     url = f"/api/video/{video_pronto.id}/file?t="

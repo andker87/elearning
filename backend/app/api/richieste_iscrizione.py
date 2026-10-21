@@ -32,7 +32,7 @@ def _riga(r: RichiestaIscrizione, db: Session) -> dict:
     ufficio = db.query(UserGroup).filter(UserGroup.user_id == r.user_id).first()
     return {"id": str(r.id), "stato": r.stato, "created_at": r.created_at, "valutata_at": r.valutata_at, "motivo_rifiuto": r.motivo_rifiuto,
             "persona": persona.full_name if persona else None, "ufficio": ufficio.group.name if ufficio and ufficio.group else None,
-            "richiedente": richiedente.full_name if richiedente else None,
+            "richiedente": richiedente.full_name if richiedente else None, "autorichiesta": _autorichiesta(r),
             "edizione_id": str(r.edizione_id), "corso_titolo": c.titolo if c else None,
             "edizione_stato": e.stato if e else None, "modalita": e.modalita if e else None,
             "data_inizio": e.data_inizio if e else None, "data_fine": e.data_fine if e else None, "luogo": e.luogo if e else None,
@@ -61,10 +61,15 @@ def _nome(db: Session, user_id) -> str:
     return u.full_name if u else "la persona"
 
 
+def _autorichiesta(r: RichiestaIscrizione) -> bool:
+    """La persona ha chiesto per se' (iscrizione «con approvazione della Formazione»), non un responsabile per lei."""
+    return str(r.richiedente_id) == str(r.user_id)
+
+
 def _avvisa_richiedente(db: Session, r: RichiestaIscrizione, testo: str, oggetto: str):
     richiedente = db.query(User).filter(User.id == r.richiedente_id).first()
     if richiedente:
-        db.add(Notification(user_id=richiedente.id, tipo="richiesta_iscrizione_esito", testo=testo, link="/risorse"))
+        db.add(Notification(user_id=richiedente.id, tipo="richiesta_iscrizione_esito", testo=testo, link="/miei-corsi" if _autorichiesta(r) else "/risorse"))
         dopo_il_commit(db, invia_email, richiedente.email, oggetto, testo)
 
 
@@ -85,7 +90,8 @@ def approva(richiesta_id: str, request: Request, db: Session = Depends(get_db), 
     nome = _nome(db, r.user_id)
     in_attesa = " (in lista d'attesa)" if i.stato != StatoIscrizione.iscritto else ""
     c = db.query(Corso).filter(Corso.id == e.corso_id).first()
-    _avvisa_richiedente(db, r, f"Richiesta approvata: l'iscrizione di {nome} alla sessione di «{c.titolo if c else ''}» è confermata{in_attesa}.", "Richiesta di iscrizione approvata")
+    soggetto = "la tua iscrizione" if _autorichiesta(r) else f"l'iscrizione di {nome}"
+    _avvisa_richiedente(db, r, f"Richiesta approvata: {soggetto} alla sessione di «{c.titolo if c else ''}» è confermata{in_attesa}.", "Richiesta di iscrizione approvata")
     audit_svc.log_from_request(db, request, user, "TEAM_REQUEST_APPROVE", entity_type="edizione", entity_id=str(e.id),
                                 entity_name=audit_svc.nome_edizione(db, e), detail=f"persona: {persona} - stato: {i.stato.value}")
     db.commit()
@@ -108,7 +114,8 @@ def rifiuta(richiesta_id: str, data: RifiutoIn, request: Request, db: Session = 
     e = db.query(Edizione).filter(Edizione.id == r.edizione_id).first()
     c = db.query(Corso).filter(Corso.id == e.corso_id).first() if e else None
     persona = audit_svc.nome_utente(db, r.user_id)
-    _avvisa_richiedente(db, r, f"Richiesta rifiutata: l'iscrizione di {_nome(db, r.user_id)} alla sessione di «{c.titolo if c else ''}»" + (f" ({r.motivo_rifiuto})." if r.motivo_rifiuto else "."),
+    soggetto = "la tua iscrizione" if _autorichiesta(r) else f"l'iscrizione di {_nome(db, r.user_id)}"
+    _avvisa_richiedente(db, r, f"Richiesta rifiutata: {soggetto} alla sessione di «{c.titolo if c else ''}»" + (f" ({r.motivo_rifiuto})." if r.motivo_rifiuto else "."),
                         "Richiesta di iscrizione rifiutata")
     audit_svc.log_from_request(db, request, user, "TEAM_REQUEST_REJECT", entity_type="edizione", entity_id=str(r.edizione_id),
                                 entity_name=audit_svc.nome_edizione(db, e) if e else None, detail=f"persona: {persona}")
