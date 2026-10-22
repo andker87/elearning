@@ -117,6 +117,17 @@ def list_edizioni(corso_id: Optional[str] = None, mie_come_docente: bool = False
         q = q.join(EdizioneDocente, EdizioneDocente.edizione_id == Edizione.id).filter(EdizioneDocente.user_id == user.id)
     return [_serialize(e, db) for e in q.order_by(Edizione.data_inizio.desc().nullslast()).all()]
 
+def _video_pct(db: Session, iscrizione, e) -> Optional[float]:
+    """Quanto del video e' stato visto (per «continua da dove eri» nella Home); None se non e' un video."""
+    if not e or e.modalita != ModalitaErogazione.video or not e.video_id:
+        return None
+    from ..models.video import VideoContenuto, VideoProgresso
+    v = db.query(VideoContenuto).filter(VideoContenuto.id == e.video_id).first()
+    prog = db.query(VideoProgresso).filter(VideoProgresso.iscrizione_id == iscrizione.id).first()
+    if not v or not v.durata_secondi:
+        return None
+    return round(min(100.0, (prog.secondo_massimo_raggiunto if prog else 0) / v.durata_secondi * 100), 1)
+
 @router.get("/mie/iscrizioni")
 def mie_iscrizioni(db: Session = Depends(get_db), user=Depends(get_current_user)):
     # Le iscrizioni annullate non sono piu' mie: non compaiono in «I miei corsi» ne' nello storico (restano nel registro attivita')
@@ -140,6 +151,9 @@ def mie_iscrizioni(db: Session = Depends(get_db), user=Depends(get_current_user)
             "edizione_stato": e.stato if e else None,
             "edizione_data_inizio": e.data_inizio if e else None,
             "edizione_sempre_aperta": bool(e and e.sempre_aperta),
+            "edizione_data_fine": e.data_fine if e else None, "edizione_luogo": e.luogo if e else None,
+            "video_pct": _video_pct(db, i, e),
+            "video_disponibile": bool(e and e.modalita == ModalitaErogazione.video and disponibilita_video(e)["ok"]),
             "durata_effettiva_minuti": durata_effettiva(e, corso) if e else None,
             "aggiornamento_contenuto": aggiornamento,
         })

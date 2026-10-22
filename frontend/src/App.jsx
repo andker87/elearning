@@ -11,6 +11,9 @@ import Shell from "./components/Shell";
 import Corsi from "./pages/Corsi";
 import Catalogo from "./pages/Catalogo";
 import Questionari from "./pages/Questionari";
+import DaGestire from "./pages/DaGestire";
+import Amministrazione from "./pages/Amministrazione";
+import { paginaIniziale } from "./spazi";
 import TestCorso from "./pages/TestCorso";
 import Percorsi from "./pages/Percorsi";
 import Edizioni from "./pages/Edizioni";
@@ -58,7 +61,12 @@ function Root() {
     api.get("/setup/status").then((r) => {
       setStatus(r.data.configured);
       if (!r.data.configured) navigate("/setup");
-      else navigate(localStorage.getItem("token") ? "/miei-corsi" : "/login");
+      else if (!localStorage.getItem("token")) navigate("/login");
+      else {
+        let user = null;
+        try { user = JSON.parse(localStorage.getItem("user") || "null"); } catch { /* profilo illeggibile: si parte dalla Home */ }
+        navigate(paginaIniziale(user));      // l'ultimo spazio usato; la prima volta Gestione per la Formazione, la Home per gli altri
+      }
     });
   }, [navigate]);
   return null;
@@ -81,6 +89,8 @@ export default function App() {
         <Route path="/reimposta-password" element={<ReimpostaPassword />} />
         <Route path="/miei-corsi" element={<RequireAuth><Shell><MieCorsi /></Shell></RequireAuth>} />
         <Route path="/catalogo" element={<RequireAuth><Shell><Catalogo /></Shell></RequireAuth>} />
+        <Route path="/da-gestire" element={<RequireAuth><Shell><DaGestire /></Shell></RequireAuth>} />
+        <Route path="/amministrazione" element={<RequireAuth><Shell><Amministrazione /></Shell></RequireAuth>} />
         <Route path="/questionari" element={<RequireAuth><Shell><Questionari /></Shell></RequireAuth>} />
         <Route path="/storico-corsi" element={<RequireAuth><Shell><StoricoCorsi /></Shell></RequireAuth>} />
         <Route path="/impostazioni" element={<RequireAuth><Shell><ImpostazioniUtente /></Shell></RequireAuth>} />
