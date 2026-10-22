@@ -1,3 +1,4 @@
+import uuid
 from fastapi import APIRouter, Depends, HTTPException, Response, Request, Query
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, joinedload
@@ -12,8 +13,10 @@ from ..models.corso import Corso
 from ..services.gerarchia import sottoposti_di
 from ..services.etichette import corsi_con_etichette, etichette_del_corso
 from ..services.durata import durata_effettiva
-from ..services.iscrizioni import autoiscrizione_ammessa, crea_iscrizione_con_capacita, da_chiudere, disponibilita_video, in_catalogo, promuovi_da_lista_attesa, posti_occupati
+from ..services.iscrizioni import autoiscrizione_ammessa, crea_iscrizione_con_capacita, da_chiudere, disponibilita_video, in_catalogo, promuovi_da_lista_attesa, posti_occupati, sessione_finita
 from ..services.notifiche import invia_comunicazione_edizione, invia_invito_calendario
+from ..services.percorsi_iscrizioni import avanza_e_invita, corso_bloccato, messaggio_blocco
+from ..services.notifiche import _crea_se_assente
 from ..services.calendario import evento_edizione, costruisci_ics
 from ..models.comunicazione_edizione import ComunicazioneEdizione
 from ..services import audit as audit_svc
@@ -147,6 +150,8 @@ def get_edizione(edizione_id: str, db: Session = Depends(get_db), user=Depends(g
     e = db.query(Edizione).options(joinedload(Edizione.docenti)).filter(Edizione.id == edizione_id).first()
     if not e: raise HTTPException(404)
     out = _serialize(e, db)
+    blocco = corso_bloccato(db, user.id, e.corso_id)          # il corso fa parte di un mio percorso e non e' ancora sbloccato
+    out["mio_blocco"] = messaggio_blocco(blocco) if blocco else None
     # ho gia' chiesto di iscrivermi e aspetto la risposta (del mio responsabile o della Formazione)?
     from ..models.autoiscrizione import AutoIscrizioneRichiesta, StatoAutoIscrizione
     from ..models.richiesta_iscrizione import RichiestaIscrizione
@@ -207,6 +212,8 @@ def pianifica_edizione(edizione_id: str, request: Request, db: Session = Depends
     if e.data_inizio:
         for i in db.query(Iscrizione).filter(Iscrizione.edizione_id == edizione_id, Iscrizione.stato == StatoIscrizione.iscritto).all():
             invia_invito_calendario(db, e, i.user_id)
+    # Poi i percorsi: chi aspettava una sessione di questo corso viene iscritto e riceve il suo invito (una volta sola)
+    avanza_e_invita(db, corso_ids=[e.corso_id])
     return {"ok": True}
 
 @router.post("/{edizione_id}/bozza")
@@ -360,6 +367,11 @@ def iscrivi(edizione_id: str, user_ids: List[str], request: Request, db: Session
         esiste = db.query(Iscrizione).filter(Iscrizione.edizione_id == edizione_id, Iscrizione.user_id == uid,
                                               Iscrizione.stato != StatoIscrizione.annullato).first()
         if esiste: continue
+        if not e_formazione:      # un corso di un percorso ancora bloccato non si anticipa (la Formazione puo' farlo di proposito)
+            blocco = corso_bloccato(db, uid, e.corso_id)
+            if blocco:
+                esclusi.append({"user_id": uid, "motivo": messaggio_blocco(blocco)})
+                continue
         try:
             i = crea_iscrizione_con_capacita(db, e, uid)
         except HTTPException as ex:  # posti finiti: questa persona no, le altre gia' iscritte restano
@@ -408,6 +420,51 @@ def annulla_iscrizione(edizione_id: str, iscrizione_id: str, request: Request, d
     if promosso and e.data_inizio:
         invia_invito_calendario(db, e, promosso.user_id)
     return {"ok": True}
+
+class SpostaIn(BaseModel):
+    edizione_id: str         # la sessione di arrivo (dello stesso corso)
+
+@router.post("/{edizione_id}/iscrizioni/{iscrizione_id}/sposta")
+def sposta_iscrizione(edizione_id: str, iscrizione_id: str, data: SpostaIn, request: Request, db: Session = Depends(get_db), user=Depends(require_training_admin)):
+    """La Formazione sposta una persona su un'altra sessione dello stesso corso (per esempio quella scelta in automatico da un
+    percorso non va bene). Se la nuova sessione non puo' accoglierla non cambia niente; il posto lasciato si libera."""
+    i = db.query(Iscrizione).filter(Iscrizione.id == iscrizione_id, Iscrizione.edizione_id == edizione_id).first()
+    if not i: raise HTTPException(404)
+    if i.stato not in (StatoIscrizione.iscritto, StatoIscrizione.in_lista_attesa):
+        raise HTTPException(400, "Si sposta solo chi è iscritto o in lista d'attesa")
+    try:
+        uuid.UUID(str(data.edizione_id))
+    except ValueError:
+        raise HTTPException(404, "Sessione di arrivo non trovata")
+    nuova = db.query(Edizione).filter(Edizione.id == data.edizione_id).first()
+    vecchia = db.query(Edizione).filter(Edizione.id == edizione_id).first()
+    if not nuova or not vecchia: raise HTTPException(404, "Sessione non trovata")
+    if nuova.id == vecchia.id:
+        raise HTTPException(400, "La persona è già in questa sessione")
+    if nuova.corso_id != vecchia.corso_id:
+        raise HTTPException(400, "La sessione di arrivo è di un altro corso")
+    if nuova.stato not in (StatoEdizione.pianificata, StatoEdizione.in_corso) or sessione_finita(nuova):
+        raise HTTPException(400, "La sessione di arrivo non è aperta alle iscrizioni")
+    if db.query(Iscrizione).filter(Iscrizione.edizione_id == nuova.id, Iscrizione.user_id == i.user_id, Iscrizione.stato != StatoIscrizione.annullato).first():
+        raise HTTPException(400, "La persona è già iscritta alla sessione di arrivo")
+    occupava_posto = i.stato == StatoIscrizione.iscritto
+    nuovo = crea_iscrizione_con_capacita(db, nuova, i.user_id)          # se non c'e' posto solleva e nulla e' cambiato
+    db.flush()
+    i.stato = StatoIscrizione.annullato
+    db.flush()
+    promosso = promuovi_da_lista_attesa(db, vecchia.id) if vecchia.lista_attesa_abilitata and occupava_posto else None
+    corso = db.query(Corso).filter(Corso.id == nuova.corso_id).first()
+    quando = f" del {nuova.data_inizio.strftime('%d/%m/%Y')}" if nuova.data_inizio and not nuova.sempre_aperta else ""
+    _crea_se_assente(db, i.user_id, "iscrizione_spostata", f"La tua iscrizione a «{corso.titolo if corso else ''}» è stata spostata a un'altra sessione{quando}.",
+                     dedup_key=f"iscrizione_spostata:{nuovo.id}", link=f"/sessioni/{nuova.id}?segui=1")
+    audit_svc.log_from_request(db, request, user, "MOVE_ENROLLMENT", entity_type="edizione", entity_id=str(nuova.id), entity_name=_nome_edizione(db, nuova),
+                                detail=f"utente: {_nome_utente(db, i.user_id)} - da {_nome_edizione(db, vecchia)} - stato: {nuovo.stato.value}")
+    db.commit()
+    if nuovo.stato == StatoIscrizione.iscritto and nuova.data_inizio and not nuova.sempre_aperta:
+        invia_invito_calendario(db, nuova, i.user_id)
+    if promosso and vecchia.data_inizio:
+        invia_invito_calendario(db, vecchia, promosso.user_id)
+    return {"ok": True, "stato": nuovo.stato, "edizione_id": str(nuova.id)}
 
 # --- Comunicazioni ---
 

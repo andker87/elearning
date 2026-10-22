@@ -48,6 +48,7 @@ export default function Catalogo() {
     if (stato === "iscritto" || stato === "completato" || stato === "in_lista_attesa")
       return <Link to={`/sessioni/${s.id}?segui=1`}>{stato === "completato" ? "Rivedi" : s.sempre_aperta ? "Continua" : "Apri"}</Link>;
     if (stato === "richiesta_in_attesa") return null;
+    if (s.bloccato) return <span className="text-muted" style={{ fontSize: 12 }} title={s.bloccato}>🔒 {s.bloccato}</span>;
     const verbo = s.richiede_approvazione ? "Chiedi l'iscrizione" : s.sempre_aperta ? "Guarda il corso" : "Iscriviti";
     return <button type="button" className="btn-sm" disabled={inCorso === s.id} onClick={() => iscriviti(s)}>{inCorso === s.id ? "Un momento..." : verbo}</button>;
   };

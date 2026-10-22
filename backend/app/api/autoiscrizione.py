@@ -12,6 +12,7 @@ from ..models.richiesta_iscrizione import RichiestaIscrizione
 from ..models.user import User
 from ..services.gerarchia import responsabili_di, sottoposti_di
 from ..services.email import dopo_il_commit, invia_email
+from ..services.percorsi_iscrizioni import corso_bloccato, messaggio_blocco
 from ..services.iscrizioni import autoiscrizione_ammessa, crea_iscrizione_con_capacita, sessione_finita
 from ..services.notifiche import invia_invito_calendario
 from ..services import audit as audit_svc
@@ -52,6 +53,9 @@ def richiedi_autoiscrizione(edizione_id: str, request: Request, db: Session = De
     corso = db.query(Corso).filter(Corso.id == e.corso_id).first()
     if not autoiscrizione_ammessa(e, corso):
         raise HTTPException(403, "Questo corso non permette l'auto-iscrizione")
+    blocco = corso_bloccato(db, user.id, corso.id)
+    if blocco:
+        raise HTTPException(403, messaggio_blocco(blocco))
     gia = db.query(Iscrizione).filter(Iscrizione.edizione_id == edizione_id, Iscrizione.user_id == user.id,
                                        Iscrizione.stato != StatoIscrizione.annullato).first()
     if gia: raise HTTPException(400, "Sei già iscritto a questa sessione")

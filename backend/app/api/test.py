@@ -14,6 +14,7 @@ from ..models.user import User
 from ..services import certificati as cert_svc
 from ..services import audit as audit_svc
 from ..services.completamento import completa_se_dovuto
+from ..services.percorsi_iscrizioni import avanza_e_invita
 from ..services.export import neutralizza
 from .deps import get_current_user, require_training_admin
 
@@ -184,6 +185,8 @@ def tenta_test(test_id: str, data: TentativoIn, request: Request, db: Session = 
                                 entity_name=f"{corso.titolo} - {t.momento.value}" if corso else None,
                                 detail=f"tentativo {n_precedenti + 1} - punteggio {punteggio}% - {'superato' if superato else 'non superato'}")
     db.commit()
+    if esito_extra.get("certificato_id"):
+        avanza_e_invita(db, user_ids=[user.id])                  # corso completato: i successivi del percorso si sbloccano
     return {"punteggio_pct": punteggio, "superato": superato, **esito_extra}
 
 def _applica_policy_test(db: Session, iscrizione: Iscrizione, corso: Corso, superato: bool) -> dict:

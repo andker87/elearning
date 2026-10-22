@@ -134,7 +134,7 @@ def test_la_richiesta_arriva_alla_formazione(client, auth, team, formazione, adm
     crea_iscrizione(s, team["dario"], stato=S.iscritto)
     r = chiedi(client, auth, team["capo"], s, team["anna"], team["bruno"], team["dario"])
     assert r.status_code == 200 and r.json()["richieste"] == 2 and r.json()["gia_iscritti"] == ["Dario Blu"]
-    assert chiedi(client, auth, team["capo"], s, team["anna"]).json() == {"richieste": 0, "gia_iscritti": [], "gia_richiesti": ["Anna Verdi"]}   # una sola richiesta in attesa
+    assert chiedi(client, auth, team["capo"], s, team["anna"]).json() == {"richieste": 0, "gia_iscritti": [], "gia_richiesti": ["Anna Verdi"], "bloccati": []}   # una sola richiesta in attesa
     avvisi = db.query(Notification).filter(Notification.tipo == "richiesta_iscrizione").all()
     assert {n.user_id for n in avvisi} == {formazione.id, admin.id} and all("Antincendio" in n.testo and n.link == "/richieste-iscrizione" for n in avvisi)
     elenco = client.get("/api/richieste-iscrizione", headers=auth(formazione)).json()

@@ -16,6 +16,7 @@ from ..services.durata import congela as congela_durata
 from ..services import audit as audit_svc
 from ..services import graph as graph_svc
 from ..services import cifratura
+from ..services.percorsi_iscrizioni import avanza_e_invita
 from .deps import get_current_user, require_training_admin
 from .edizioni import _is_docente
 from ..services.impronte import impronta
@@ -295,6 +296,9 @@ def chiudi_edizione(edizione_id: str, request: Request, db: Session = Depends(ge
                                 entity_name=audit_svc.nome_edizione(db, e),
                                 detail=f"completati: {sum(1 for x in esito if x.get('completato'))}/{len(esito)}")
     db.commit()
+    completati = [x["user_id"] for x in esito if x.get("completato")]
+    if completati:
+        avanza_e_invita(db, user_ids=completati)                 # chi ha completato sblocca i corsi successivi dei suoi percorsi
     return {"ok": True, "esiti": esito}
 
 # --- Report CSV ---

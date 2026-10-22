@@ -18,6 +18,10 @@ class TriggerAssegnazione(str, enum.Enum):
     gruppo           = "gruppo"      # ufficio (e sottouffici)
     mansione         = "mansione"
 
+# Come si procede nei corsi del percorso: liberamente / uno dopo l'altro nell'ordine / con propedeuticita' scelte passo per passo
+MODALITA_PERCORSO = ("libero", "sequenziale", "propedeuticita")
+
+
 class PercorsoFormativo(Base):
     """Percorso: sequenza obbligatoria di Corsi (es. onboarding, refresh annuale).
     Puro livello di orchestrazione/assegnazione - lo stato di completamento di un
@@ -31,6 +35,7 @@ class PercorsoFormativo(Base):
     trigger_tipo = Column(SAEnum(TriggerAssegnazione), nullable=False, default=TriggerAssegnazione.manuale)
     trigger_gruppo_id = Column(UUID(as_uuid=True), ForeignKey("groups.id"), nullable=True)
     trigger_mansione_id = Column(UUID(as_uuid=True), ForeignKey("mansioni.id"), nullable=True)
+    modalita     = Column(String, nullable=False, default="libero", server_default="libero")
     is_active    = Column(Boolean, default=True)
     created_at   = Column(DateTime(timezone=True), server_default=func.now())
     steps        = relationship("PercorsoStep", back_populates="percorso",

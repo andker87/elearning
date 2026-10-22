@@ -24,6 +24,7 @@ from ..services.durata import durata_effettiva
 from ..services.email import dopo_il_commit, invia_email
 from ..services.gerarchia import e_responsabile, sottoposti_di, uffici_guidati_da
 from ..services.iscrizioni import posti_occupati, sessione_finita
+from ..services.percorsi_iscrizioni import corso_bloccato, messaggio_blocco
 from .deps import get_current_user
 from .auth import _mansioni_per_utente
 from .edizioni import _serialize as serializza_edizione
@@ -198,6 +199,12 @@ def chiedi_iscrizione(data: RichiestaIn, request: Request, db: Session = Depends
     gia_iscritti = {str(i.user_id) for i in db.query(Iscrizione).filter(Iscrizione.edizione_id == e.id, Iscrizione.user_id.in_(ids), Iscrizione.stato != StatoIscrizione.annullato).all()}
     gia_richiesti = {str(r.user_id) for r in db.query(RichiestaIscrizione).filter(RichiestaIscrizione.edizione_id == e.id, RichiestaIscrizione.user_id.in_(ids), RichiestaIscrizione.stato == "in_attesa").all()}
     nuove = [i for i in ids if i not in gia_iscritti and i not in gia_richiesti]
+    bloccati = {}
+    for i in list(nuove):          # chi ha ancora dei prerequisiti da completare nel suo percorso non si anticipa
+        blocco = corso_bloccato(db, i, e.corso_id)
+        if blocco:
+            bloccati[i] = messaggio_blocco(blocco)
+            nuove.remove(i)
     for i in nuove:
         db.add(RichiestaIscrizione(edizione_id=e.id, user_id=i, richiedente_id=user.id))
     if nuove:
@@ -211,7 +218,8 @@ def chiedi_iscrizione(data: RichiestaIn, request: Request, db: Session = Depends
                                     detail=f"richieste per: {nomi}")
     db.commit()
     return {"richieste": len(nuove), "gia_iscritti": [team[i].full_name for i in ids if i in gia_iscritti],
-            "gia_richiesti": [team[i].full_name for i in ids if i in gia_richiesti]}
+            "gia_richiesti": [team[i].full_name for i in ids if i in gia_richiesti],
+            "bloccati": [{"nome": team[i].full_name, "motivo": m} for i, m in bloccati.items()]}
 
 
 @router.get("/richieste")

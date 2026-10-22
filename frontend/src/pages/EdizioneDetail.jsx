@@ -3,6 +3,7 @@ import { useLocation, useNavigate, useParams } from "react-router-dom";
 import api, { downloadFile, erroreDi } from "../api";
 import VideoPlayer from "../components/VideoPlayer";
 import EliminaSessione from "../components/EliminaSessione";
+import SpostaIscrizione from "../components/SpostaIscrizione";
 import CampoDurata from "../components/CampoDurata";
 import { SezioneDocenti, AggiungiDiscenti } from "../components/PersoneSessione";
 import { formattaDurata } from "../durata";
@@ -94,6 +95,7 @@ function GestioneSessione() {
   }
   const salvaDurata = (minuti) => salva({ durata_minuti: minuti || null }, "Impossibile cambiare la durata", () => setModificaDurata(null));
   const [eliminando, setEliminando] = useState(false);
+  const [daSpostare, setDaSpostare] = useState(null);       // iscrizione da spostare su un'altra sessione dello stesso corso
   async function annulla(iscrizioneId) {
     if (!window.confirm("Annullare questa iscrizione?")) return;
     await tenta(async () => { await api.post(`/edizioni/${id}/iscrizioni/${iscrizioneId}/annulla`); load(); }, "Impossibile annullare l'iscrizione");
@@ -221,6 +223,10 @@ function GestioneSessione() {
       {isAdmin && edizione.stato !== "chiusa" && (
         <p><button type="button" className="danger btn-sm" onClick={() => setEliminando(true)}>Elimina la sessione</button></p>
       )}
+      {daSpostare && (
+        <SpostaIscrizione nomePersona={daSpostare.user_full_name} titoloCorso={edizione.corso_titolo} corsoId={edizione.corso_id}
+          edizioneId={id} iscrizioneId={daSpostare.id} onChiudi={() => setDaSpostare(null)} onSpostata={() => { setDaSpostare(null); load(); }} />
+      )}
       {eliminando && <EliminaSessione sessioneId={id} nome={edizione.corso_titolo || "questo corso"} onChiudi={() => setEliminando(false)} onEliminata={() => navigate("/sessioni")} />}
       {isAdmin && edizione.da_chiudere && (
         <div className="card" style={{ borderColor: "var(--yellow)", background: "var(--yellow-bg)" }}>
@@ -303,6 +309,9 @@ function GestioneSessione() {
                     {isDocente && edizione.checkin_mode === "docente" && edizione.stato !== "chiusa" && (
                       <button className="secondary btn-sm" onClick={() => checkinDocentePresente(i.user_id)}>Segna presente</button>
                     )}{" "}
+                    {isAdmin && edizione.stato !== "chiusa" && (i.stato === "iscritto" || i.stato === "in_lista_attesa") && (
+                      <><button className="secondary btn-sm" onClick={() => setDaSpostare(i)}>Sposta</button>{" "}</>
+                    )}
                     {puoAnnullare && <button className="danger btn-sm" onClick={() => annulla(i.id)}>Annulla</button>}
                   </td>
                 </tr>

@@ -20,7 +20,7 @@ from ..models.etichetta import CorsoEtichetta, Etichetta, EtichettaFamiglia
 from ..models.mansione import Mansione
 from ..models.group import Group
 from ..models.organizzazione import Organizzazione
-from ..models.percorso import (MotivoObbligo, PercorsoFormativo, PercorsoStep, PercorsoStepPrerequisito,
+from ..models.percorso import (MODALITA_PERCORSO, MotivoObbligo, PercorsoFormativo, PercorsoStep, PercorsoStepPrerequisito,
                                TriggerAssegnazione)
 from ..models.user import User
 from ..version import APP_VERSION
@@ -75,7 +75,7 @@ def esporta(db: Session) -> dict:
             "nome": p.nome, "descrizione": p.descrizione, "motivo": p.motivo.value, "motivo_nota": p.motivo_nota,
             "trigger": p.trigger_tipo.value, "trigger_gruppo": _percorso_gruppo(per_id[p.trigger_gruppo_id], per_id) if p.trigger_gruppo_id in per_id else None,
             "trigger_mansione": nome_mansione.get(p.trigger_mansione_id),
-            "attivo": p.is_active,
+            "attivo": p.is_active, "modalita": p.modalita,
             "passi": [{"corso": titolo_corso.get(s.corso_id), "ordine": s.ordine,
                        "richiede": [indice[r.richiede_step_id] for r in s.prerequisiti if indice.get(r.richiede_step_id)]} for s in passi],
         })
@@ -397,8 +397,12 @@ def _percorsi(db, elenco, rapporto, ex_gruppi=None):
                   "trigger_gruppo_id": gruppo_trigger.id if gruppo_trigger and trigger == TriggerAssegnazione.gruppo else None,
                   "trigger_mansione_id": mansione_trigger.id if mansione_trigger and trigger == TriggerAssegnazione.mansione else None,
                   "is_active": d.get("attivo", True)}
+        if d.get("modalita") in MODALITA_PERCORSO:
+            valori["modalita"] = d["modalita"]
         p = esistenti.get(_chiave(d["nome"]))
         nuovo = p is None
+        if nuovo and "modalita" not in valori:     # i file di prima non la conoscono: con prerequisiti scritti e' «con propedeuticita'», altrimenti libero
+            valori["modalita"] = "propedeuticita" if any(x.get("richiede") for x in d.get("passi", [])) else "libero"
         if nuovo:
             p = PercorsoFormativo(nome=d["nome"], **valori)
             db.add(p)

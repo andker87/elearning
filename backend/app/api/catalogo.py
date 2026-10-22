@@ -15,6 +15,7 @@ from ..services.durata import durata_effettiva
 from ..services.etichette import etichette_del_corso
 from ..services.gerarchia import responsabili_di
 from .autoiscrizione import chi_approva
+from ..services.percorsi_iscrizioni import corso_bloccato, messaggio_blocco
 from ..services.iscrizioni import posti_occupati, in_catalogo
 from .deps import get_current_user
 
@@ -39,6 +40,13 @@ def catalogo(db: Session = Depends(get_db), user: User = Depends(get_current_use
         attesa |= {r.edizione_id for r in db.query(RichiestaIscrizione).filter(                    # richieste alla Formazione (fatte da me o per me)
             RichiestaIscrizione.user_id == user.id, RichiestaIscrizione.edizione_id.in_(ids), RichiestaIscrizione.stato == "in_attesa").all()}
     ho_responsabili = bool(responsabili_di(db, user.id))      # (chi_approva decide se serve il responsabile o la Formazione)
+    blocco_per_corso = {}
+
+    def bloccato_di(corso_id):          # piu' sessioni dello stesso corso: il blocco si calcola una volta
+        if corso_id not in blocco_per_corso:
+            b = corso_bloccato(db, user.id, corso_id)
+            blocco_per_corso[corso_id] = messaggio_blocco(b) if b else None
+        return blocco_per_corso[corso_id]
     out = []
     for e, c in righe:
         stato = mie.get(e.id) or ("richiesta_in_attesa" if e.id in attesa else None)
@@ -52,6 +60,7 @@ def catalogo(db: Session = Depends(get_db), user: User = Depends(get_current_use
             "lista_attesa": bool(e.lista_attesa_abilitata),
             "approva": approva, "richiede_approvazione": approva is not None,
             "mio_stato": stato,
+            "bloccato": bloccato_di(c.id) if stato is None else None,
         })
     out.sort(key=lambda r: (not r["sempre_aperta"], r["data_inizio"] is None, r["data_inizio"].timestamp() if r["data_inizio"] else 0, r["corso_titolo"].lower()))
     return out

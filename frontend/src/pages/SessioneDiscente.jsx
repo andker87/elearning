@@ -111,7 +111,9 @@ export default function SessioneDiscente({ id, gestisce }) {
   );
   const iscrizione = !mia && (
     <div className="card">
-      {!mia && edizione.mia_richiesta_in_attesa
+      {!mia && edizione.mio_blocco
+        ? <p style={{ margin: 0 }}>🔒 {edizione.mio_blocco}: questo corso si sblocca dopo.</p>
+        : !mia && edizione.mia_richiesta_in_attesa
         ? <p style={{ margin: 0 }}>La tua richiesta di iscrizione è in attesa di approvazione: ti avviseremo quando arriva la risposta.</p>
         : puoIscriversi
         ? <button type="button" disabled={invio} onClick={iscriviti}>{edizione.sempre_aperta ? "Inizia il corso" : "Iscrivimi a questa sessione"}</button>
