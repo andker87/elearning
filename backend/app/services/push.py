@@ -9,12 +9,6 @@ from .cifratura import decifra_testo
 
 log = logging.getLogger(__name__)
 
-def _vapid(db: Session):
-    a = db.query(Azienda).first()
-    if not a or not a.vapid_private_key:
-        return None
-    return Vapid01.from_pem(decifra_testo(a.vapid_private_key).encode())
-
 def _spedisci(vapid_pem: str, sottoscrizioni: list, payload: str):
     """Gira in sottofondo: niente sessione della richiesta, ne apre una sua solo per togliere le scadute."""
     vapid = Vapid01.from_pem(vapid_pem.encode())

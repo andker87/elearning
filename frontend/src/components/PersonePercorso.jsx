@@ -4,6 +4,7 @@ import SelettorePersone from "./SelettorePersone";
 import SpostaIscrizione from "./SpostaIscrizione";
 import { quando } from "../sessioni";
 import { conferma } from "./conferma";
+import { usePersone } from "../persone";
 
 export const STATO_PASSO = {
   completato: ["green", "completato"], iscritto: ["blue", "iscritto"], in_lista_attesa: ["yellow", "lista d'attesa"],
@@ -12,7 +13,7 @@ export const STATO_PASSO = {
 
 // Pannello di un percorso: assegnarlo a delle persone (che vengono subito iscritte ai corsi sbloccati) e vedere a che punto sono.
 export default function PersonePercorso({ percorso, onCambia }) {
-  const [utenti, setUtenti] = useState([]);
+  const utenti = usePersone();
   const [assegnazioni, setAssegnazioni] = useState(null);
   const [scelti, setScelti] = useState(new Set());
   const [invio, setInvio] = useState(false);
@@ -23,7 +24,7 @@ export default function PersonePercorso({ percorso, onCambia }) {
   function carica() {
     api.get(`/percorsi/${percorso.id}/assegnazioni`).then((r) => setAssegnazioni(r.data)).catch((e) => setErrore(erroreDi(e, "Impossibile caricare le assegnazioni")));
   }
-  useEffect(() => { api.get("/auth/users/simple").then((r) => setUtenti(r.data)).catch(() => {}); carica(); }, [percorso.id]); // eslint-disable-line
+  useEffect(() => { carica(); }, [percorso.id]); // eslint-disable-line
 
   const gia = new Set((assegnazioni || []).map((a) => a.user_id));
   const selezionati = [...scelti].filter((id) => utenti.some((u) => u.id === id) && !gia.has(id));

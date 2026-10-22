@@ -10,7 +10,7 @@ from sqlalchemy.orm import Session, joinedload, selectinload
 from pydantic import BaseModel
 from typing import Optional
 from ..config import settings
-from ..database import get_db, SessionLocal
+from ..database import get_db
 from ..models.video import VideoContenuto, VideoCapitolo, VideoProgresso, StatoVideo
 from ..models.user import User
 from ..models.iscrizione import Iscrizione, StatoIscrizione
@@ -314,7 +314,7 @@ def elimina_video(video_id: str, request: Request, db: Session = Depends(get_db)
     audit_svc.log_from_request(db, request, user, "DELETE", entity_type="video", entity_id=str(v.id), entity_name=v.titolo)
     db.delete(v)       # capitoli e versioni cadono con lui
     db.commit()
-    for percorso in set(p for p in file_da_togliere if p):
+    for percorso in {p for p in file_da_togliere if p}:
         _rimuovi_file(percorso)
     return {"ok": True}
 

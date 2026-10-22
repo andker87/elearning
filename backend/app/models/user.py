@@ -1,7 +1,7 @@
 from sqlalchemy import event, Column, String, Boolean, Integer, DateTime, ForeignKey
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.sql import func
-import uuid, enum
+import uuid
 from ..database import Base
 from .tipi import TestoCifrato
 from ..services.persone import dividi_nome

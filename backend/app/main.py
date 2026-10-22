@@ -4,11 +4,11 @@ from fastapi.responses import JSONResponse, Response
 from sqlalchemy.exc import DataError
 from fastapi.middleware.cors import CORSMiddleware
 from apscheduler.schedulers.background import BackgroundScheduler
-from sqlalchemy import text
 import os
 
-from .database import engine, Base, SessionLocal
-from .models import (
+from .database import SessionLocal
+# Importare i moduli dei modelli e' quello che registra le tabelle in Base.metadata (migrazioni, test): non vanno tolti.
+from .models import (  # noqa: F401
     user, group, azienda, organizzazione, corso, percorso, edizione,
     iscrizione, evidenza, video, test, certificato, certificato_template,
     notification, audit, richiesta_corso, fabbisogno, autoiscrizione,
@@ -153,15 +153,15 @@ PUBBLICI = ("logo.", "icona.")
 def file_pubblico(nome: str):
     if "/" in nome or "\\" in nome or ".." in nome or not nome.startswith(PUBBLICI):
         raise HTTPException(404)
-    percorso = os.path.join("/app/uploads/azienda", nome)
-    if not os.path.isfile(percorso):
+    su_disco = os.path.join("/app/uploads/azienda", nome)
+    if not os.path.isfile(su_disco):
         raise HTTPException(404)
-    return Response(cifratura.leggi_file(percorso), media_type=mimetypes.guess_type(nome)[0] or "application/octet-stream",
+    return Response(cifratura.leggi_file(su_disco), media_type=mimetypes.guess_type(nome)[0] or "application/octet-stream",
                     headers={"Cache-Control": "public, max-age=300"})
 
 
-@app.get("/uploads/{percorso:path}")
-def altri_file_non_pubblici(percorso: str):
+@app.get("/uploads/{resto:path}")
+def altri_file_non_pubblici(resto: str):
     raise HTTPException(404)
 
 app.include_router(setup.router)

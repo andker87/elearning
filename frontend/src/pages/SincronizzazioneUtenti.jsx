@@ -1,8 +1,8 @@
 import React, { useEffect, useState } from "react";
 import api, { erroreDi } from "../api";
 import { conferma } from "../components/conferma";
+import { dataIt, dataOraIt } from "../date";
 
-const data = (d) => (d ? new Date(d).toLocaleString("it-IT") : "-");
 
 function Elenco({ titolo, voci, colonne, vuoto }) {
   if (!voci.length) return <p className="text-muted" style={{ fontSize: 13 }}>{titolo}: {vuoto}</p>;
@@ -75,7 +75,7 @@ export default function SincronizzazioneUtenti() {
             </p>
             {stato.ultime.length > 0 && (
               <p className="text-muted" style={{ fontSize: 13 }}>
-                Ultimo giro automatico: {data(stato.ultime[0].started_at)} — {stato.ultime[0].esito === "ok" ? stato.ultime[0].dettaglio : `errore (${(stato.ultime[0].errore || "").split("\n").filter(Boolean).pop()})`}
+                Ultimo giro automatico: {dataOraIt(stato.ultime[0].started_at, "-")} — {stato.ultime[0].esito === "ok" ? stato.ultime[0].dettaglio : `errore (${(stato.ultime[0].errore || "").split("\n").filter(Boolean).pop()})`}
               </p>
             )}
             <button type="button" onClick={anteprima} disabled={lavoro}>{lavoro && !piano ? "Leggo da Entra..." : "Anteprima delle modifiche"}</button>
@@ -99,7 +99,7 @@ export default function SincronizzazioneUtenti() {
               {piano.freno && <div className="error-msg">Piano sospetto: {piano.freno}.</div>}
               {nulla && <p>Gli utenti sono già allineati: niente da fare.</p>}
               <Elenco titolo="Da creare" voci={piano.crea} vuoto="nessuno"
-                colonne={[{ titolo: "Email", valore: (v) => v.email }, { titolo: "Nome", valore: (v) => v.nome }, { titolo: "Data ingresso", valore: (v) => (v.data_ingresso ? new Date(v.data_ingresso).toLocaleDateString("it-IT") : "-") }]} />
+                colonne={[{ titolo: "Email", valore: (v) => v.email }, { titolo: "Nome", valore: (v) => v.nome }, { titolo: "Data ingresso", valore: (v) => (dataIt(v.data_ingresso, "-")) }]} />
               <Elenco titolo="Nome da aggiornare" voci={piano.aggiorna} vuoto="nessuno"
                 colonne={[{ titolo: "Email", valore: (v) => v.email }, { titolo: "Ora", valore: (v) => v.da }, { titolo: "Diventa", valore: (v) => v.a }]} />
               <Elenco titolo="Da disattivare" voci={piano.disattiva} vuoto="nessuno"

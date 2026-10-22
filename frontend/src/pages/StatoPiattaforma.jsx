@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import api, { erroreDi } from "../api";
+import { dataOraIt } from "../date";
 
 function formatBytes(n) {
   if (n == null) return "-";
@@ -11,7 +12,7 @@ function formatBytes(n) {
 }
 
 function formatData(iso) {
-  return iso ? new Date(iso).toLocaleString("it-IT") : "-";
+  return dataOraIt(iso, "-");
 }
 
 function Kpi({ valore, etichetta, classe }) {

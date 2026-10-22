@@ -13,7 +13,6 @@ from sqlalchemy.orm import Session
 from ..models.corso import Corso
 from ..models.edizione import Edizione, StatoEdizione
 from ..models.iscrizione import Iscrizione, StatoIscrizione
-from ..models.notification import Notification
 from ..models.user import User
 from . import audit as audit_svc
 from .iscrizioni import crea_iscrizione_con_capacita, posti_occupati

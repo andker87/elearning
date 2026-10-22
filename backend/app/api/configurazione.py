@@ -60,7 +60,7 @@ def importa_configurazione(data: ImportIn, request: Request, db: Session = Depen
 
 @router.get("/auth/users/export")
 def esporta_utenti(formato: str = "csv", pagina: str = "A4", db: Session = Depends(get_db), user=Depends(require_admin_tecnico)):
-    uffici = {uid: nome for uid, nome in db.query(UserGroup.user_id, Group.name).join(Group, Group.id == UserGroup.group_id).all()}
+    uffici = dict(db.query(UserGroup.user_id, Group.name).join(Group, Group.id == UserGroup.group_id).all())
     mansioni = {}
     for uid, nome in db.query(UserMansione.user_id, Mansione.name).join(Mansione, Mansione.id == UserMansione.mansione_id).all():
         mansioni.setdefault(uid, []).append(nome)

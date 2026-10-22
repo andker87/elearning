@@ -254,30 +254,6 @@ def leggi_a_blocchi(percorso: str):
                 return
 
 
-def leggi_intervallo(percorso: str, inizio: int, fine: int) -> bytes:
-    """Byte [inizio, fine] (estremi inclusi) del contenuto in chiaro, decifrando solo i blocchi necessari."""
-    with open(percorso, "rb") as f:
-        if not e_cifrato(f.read(4)):
-            f.seek(inizio)
-            return f.read(fine - inizio + 1)
-        f.seek(0)
-        intest, kid, prefisso, blocco = _leggi_intestazione(f)
-        aes = AESGCM(_chiave_per(kid, b"file-v1"))
-        totale = os.fstat(f.fileno()).st_size
-        out = bytearray()
-        for n in range(inizio // blocco, fine // blocco + 1):
-            pos = INTESTAZIONE + n * (blocco + TAG)
-            if pos >= totale:
-                break
-            lung = min(blocco + TAG, totale - pos)
-            f.seek(pos)
-            chiaro = _decifra_blocco(aes, intest, prefisso, n, f.read(lung), pos + lung >= totale)
-            da = max(inizio - n * blocco, 0)
-            a = min(fine - n * blocco + 1, len(chiaro))
-            out += chiaro[da:a]
-        return bytes(out)
-
-
 def scorri_intervallo(percorso: str, inizio: int, fine: int):
     """Byte [inizio, fine] (inclusi) del contenuto in chiaro a pezzi, aprendo il file una volta sola
     e decifrando solo i blocchi necessari: serve a far scorrere i video senza caricarli in memoria."""

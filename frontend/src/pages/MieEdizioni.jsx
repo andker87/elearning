@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import api from "../api";
 import { MODALITA } from "../sessioni";
+import { dataIt, dataOraIt } from "../date";
 
 export default function MieEdizioni() {
   const [list, setList] = useState([]);
@@ -23,7 +24,7 @@ export default function MieEdizioni() {
             <div>
               <strong>{e.corso_titolo}</strong>
               <div className="text-muted" style={{ fontSize: 13 }}>
-                {e.data_inizio ? new Date(e.data_inizio).toLocaleString("it-IT") : "data da definire"} · {MODALITA[e.modalita] || e.modalita} · {e.n_iscritti} iscritti
+                {dataOraIt(e.data_inizio, "data da definire")} · {MODALITA[e.modalita] || e.modalita} · {e.n_iscritti} iscritti
               </div>
             </div>
             <Link to={`/sessioni/${e.id}`}>Apri</Link>
@@ -39,7 +40,7 @@ export default function MieEdizioni() {
             {storico.map((e) => (
               <tr key={e.id}>
                 <td>{e.corso_titolo}</td><td>{MODALITA[e.modalita] || e.modalita}</td>
-                <td>{e.data_inizio ? new Date(e.data_inizio).toLocaleDateString("it-IT") : "-"}</td>
+                <td>{dataIt(e.data_inizio, "-")}</td>
                 <td>{e.n_iscritti}</td>
                 <td><Link to={`/sessioni/${e.id}`}>Apri</Link></td>
               </tr>

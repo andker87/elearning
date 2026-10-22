@@ -4,12 +4,10 @@ from datetime import datetime, timedelta, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, EmailStr
-from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from ..config import settings
 from ..database import get_db
-from ..models.azienda import Azienda
 from ..models.notification import Notification
 from ..models.password_reset import PasswordResetToken, RichiestaResetPassword
 from ..models.user import User

@@ -8,6 +8,7 @@ import { formattaDurata } from "../durata";
 import Finestra from "../components/Finestra";
 import Copertina from "../components/Copertina";
 import CampoCopertina from "../components/CampoCopertina";
+import { dataIt } from "../date";
 
 const AZIONI = [
   { value: "concludi_comunque", label: "Concludi comunque" },
@@ -100,7 +101,7 @@ function CampiCorso({ v, set, famiglie, templates, questionari = [], modifica, a
                   </p>
                   <p style={{ margin: 0, fontSize: 13 }}>
                     {anteprima.sessioni.length === 0 ? <span style={{ color: "var(--red-text)" }}>Nessuna sessione disponibile: creane e pubblicane una, altrimenti il rinnovo non può partire.</span> :
-                      `Sessioni utili: ${anteprima.sessioni.map((e) => `${e.data_inizio ? new Date(e.data_inizio).toLocaleDateString("it-IT") : "sempre aperta"}${e.posti_liberi != null ? ` (${e.posti_liberi} posti liberi)` : ""}`).join(", ")}.`}
+                      `Sessioni utili: ${anteprima.sessioni.map((e) => `${dataIt(e.data_inizio, "sempre aperta")}${e.posti_liberi != null ? ` (${e.posti_liberi} posti liberi)` : ""}`).join(", ")}.`}
                   </p>
                   <p className="text-muted" style={{ margin: "6px 0 0", fontSize: 12 }}>Il controllo gira ogni notte alle 02:00 sulle impostazioni salvate.</p>
                 </div>

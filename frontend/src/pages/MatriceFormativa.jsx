@@ -3,10 +3,10 @@ import api, { erroreDi } from "../api";
 import ExportButton from "../components/ExportButton";
 import { FiltroEtichette } from "../components/Etichette";
 import { elencoUffici } from "../uffici";
+import { dataIt } from "../date";
 
 const ORDINE = ["valido", "in_scadenza", "in_corso", "da_aggiornare", "scaduto", "non_completato", "mancante"];
 const COLORI = { valido: "var(--green-bg)", in_scadenza: "var(--yellow-bg)", in_corso: "var(--bg3)", da_aggiornare: "var(--red-bg)", scaduto: "var(--red-bg)", non_completato: "var(--red-bg)", mancante: "var(--red-bg)" };
-const data = (d) => (d ? new Date(d).toLocaleDateString("it-IT") : null);
 
 export default function MatriceFormativa() {
   const [uffici, setUffici] = useState([]);
@@ -91,7 +91,7 @@ export default function MatriceFormativa() {
                   {m.corsi.map((c) => {
                     const cella = p.celle[c.id];
                     if (!cella) return <td key={c.id} className="text-muted">·</td>;
-                    const scade = data(cella.scade_il), fatto = data(cella.completato_il);
+                    const scade = dataIt(cella.scade_il, null), fatto = dataIt(cella.completato_il, null);
                     const tip = [m.etichette[cella.stato], fatto && `completato il ${fatto}`, scade && `scade il ${scade}`, !cella.obbligatorio && "non richiesto da un percorso"].filter(Boolean).join(" — ");
                     return (
                       <td key={c.id} className={`cella ${cella.stato} ${cella.obbligatorio ? "" : "facoltativo"}`} title={`${p.persona} · ${c.titolo}: ${tip}`}>

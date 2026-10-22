@@ -1,8 +1,9 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import api, { erroreDi } from "../api";
 import { elencoUffici } from "../uffici";
 import SelettoreColore from "../components/SelettoreColore";
 import { conferma } from "../components/conferma";
+import { usePersone } from "../persone";
 
 // Gli uffici sono la struttura organizzativa: albero di uffici e sottouffici, ciascuno con un responsabile.
 // Le categorie trasversali (preposto, addetto antincendio...) sono le Mansioni.
@@ -10,7 +11,8 @@ const VUOTO = { name: "", description: "", color: "#5a6b8a", parent_id: "", resp
 
 export default function Gruppi() {
   const [list, setList] = useState([]);
-  const [utenti, setUtenti] = useState([]);
+  const tuttiUtenti = usePersone();
+  const utenti = useMemo(() => tuttiUtenti.filter((u) => !u.is_external), [tuttiUtenti]);
   const [form, setForm] = useState(VUOTO);
   const [modifica, setModifica] = useState(null);     // {id, valori}
   const [errore, setErrore] = useState(null);
@@ -19,7 +21,6 @@ export default function Gruppi() {
   function load() { api.get("/groups").then((r) => setList(r.data)); }
   useEffect(load, []);
   useEffect(() => { if (modifica?.id) document.getElementById("g-form-modifica")?.scrollIntoView({ block: "nearest", behavior: "smooth" }); }, [modifica?.id]);
-  useEffect(() => { api.get("/auth/users/simple").then((r) => setUtenti(r.data.filter((u) => !u.is_external))); }, []);
 
   const albero = elencoUffici(list);                // in ordine alfabetico a ogni livello, con il percorso intero
 

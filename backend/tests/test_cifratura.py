@@ -55,7 +55,7 @@ def test_lettura_di_un_intervallo(chiave, tmp_path):
     p = str(tmp_path / "v.bin")
     c.scrivi_file(p, dati)
     for a, b in [(0, 9), (c.BLOCCO - 5, c.BLOCCO + 5), (c.BLOCCO, 2 * c.BLOCCO - 1), (2 * c.BLOCCO + 3, len(dati) - 1), (len(dati) - 1, len(dati) - 1)]:
-        assert c.leggi_intervallo(p, a, b) == dati[a:b + 1]
+        assert b"".join(c.scorri_intervallo(p, a, b)) == dati[a:b + 1]
 
 
 def test_alterazione_e_troncamento_si_scoprono(chiave, tmp_path):
