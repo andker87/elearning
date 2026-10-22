@@ -24,10 +24,11 @@ router = APIRouter(prefix="/api", tags=["configurazione"])
 
 
 @router.get("/admin/configurazione/export")
-def esporta_configurazione(request: Request, db: Session = Depends(get_db), user=Depends(require_admin_tecnico)):
-    contenuto = svc.esporta(db)
+def esporta_configurazione(request: Request, copertine: bool = True, db: Session = Depends(get_db), user=Depends(require_admin_tecnico)):
+    """`copertine=false`: il file esce senza le immagini dei corsi (molto piu' leggero)."""
+    contenuto = svc.esporta(db, con_copertine=copertine)
     audit_svc.log_from_request(db, request, user, "CONFIG_EXPORT", entity_type="configurazione", entity_name="Esportazione configurazione",
-                                detail=f"{len(contenuto['gruppi'])} gruppi, {len(contenuto['corsi'])} corsi, {len(contenuto['percorsi'])} percorsi, {len(contenuto['organizzazioni'])} società")
+                                detail=f"{len(contenuto['gruppi'])} gruppi, {len(contenuto['corsi'])} corsi, {len(contenuto['percorsi'])} percorsi, {len(contenuto['organizzazioni'])} società, {len(contenuto['questionari'])} questionari" + ("" if copertine else ", senza copertine"))
     db.commit()
     nome = f"configurazione-{datetime.now().strftime('%Y%m%d')}.json"
     return Response(json.dumps(contenuto, ensure_ascii=False, indent=2, default=str), media_type="application/json",

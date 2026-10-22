@@ -17,6 +17,12 @@ PACCHETTI = ["fastapi", "uvicorn", "sqlalchemy", "pydantic", "pyjwt", "httpx", "
              "reportlab", "openpyxl", "pywebpush", "psycopg2-binary"]
 
 CHANGELOG = [
+    {"version": "2.12.3", "date": "2026-10", "label": "Questionari e copertine nella configurazione", "changes": [
+        "Configurazione esportabile: ora il file comprende i questionari di gradimento (con le domande e il questionario scelto da ciascun corso) e le copertine dei corsi. Per le copertine c'è una spunta: senza, il file è molto più leggero",
+        "Importazione: un questionario che c'è già riceve le domande che non ha e aggiorna quelle con lo stesso testo, senza toglierne; il questionario predefinito non cambia se ce n'è già uno. Una copertina o un questionario non validi diventano un avviso, non fermano l'importazione. Importare due volte lo stesso file non cambia nulla",
+        "L'anteprima dell'importazione mostra ora anche etichette, mansioni e questionari, che prima venivano importati senza comparire nell'elenco",
+        "Test: chi lancia un solo file di test trova lo stesso ambiente della suite intera",
+    ]},
     {"version": "2.12.2", "date": "2026-10", "label": "Pulizia del codice", "changes": [
         "Più veloce con molti dati: nuovi indici sul database per le ricerche per persona, sessione e corso (iscrizioni, attestati, notifiche, percorsi, docenti, richieste), e meno richieste ripetute negli elenchi (I miei attestati, I miei corsi, iscritti di una sessione, dashboard della Formazione, CSV delle iscrizioni)",
         "Le dashboard con i grafici si scaricano solo quando si aprono: il resto del sito parte con meno da caricare",

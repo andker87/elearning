@@ -47,6 +47,10 @@ def ricrea_schema():
 @pytest.fixture(scope="session", autouse=True)
 def schema():
     ricrea_schema()
+    # La chiave delle impronte vive nella tabella azienda e si crea al primo uso: farlo qui, prima della pulizia di ogni test,
+    # evita che il primo test del giro trovi una riga azienda gia' presente (un file lanciato da solo si comporta come nella suite).
+    from app.services.impronte import assicura
+    assicura()
     yield
 
 
