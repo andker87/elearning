@@ -4,6 +4,7 @@ import ExportButton from "../components/ExportButton";
 import AlberoOrigine from "../components/AlberoOrigine";
 import { ThOrdina, ordinaLocale } from "../components/Ordinabile";
 import { elencoUffici } from "../uffici";
+import { conferma } from "../components/conferma";
 
 const STATO_LABEL = { in_revisione: "In revisione", approvata_hr: "Ricevuta", rifiutata: "Rifiutata dai responsabili", fusa: "Unita ad altre" };
 const STATO_BADGE = { in_revisione: "gray", approvata_hr: "blue", rifiutata: "red" };
@@ -291,7 +292,7 @@ export default function FabbisognoAdmin() {
   useEffect(() => { carica(); }, []);
 
   async function chiudi(id) {
-    if (!window.confirm("Chiudere la campagna? I responsabili non potranno più rispondere agli inviti ancora aperti.")) return;
+    if (!(await conferma("I responsabili non potranno più rispondere agli inviti ancora aperti.", { titolo: "Chiudere la campagna?", etichetta: "Chiudi la campagna" }))) return;
     setErrore(null);
     try { await api.put(`/fabbisogno/campagne/${id}/chiudi`); } catch (e) { setErrore(erroreDi(e, "Impossibile chiudere la campagna")); }
     carica();

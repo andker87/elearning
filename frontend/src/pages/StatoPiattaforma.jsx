@@ -50,7 +50,7 @@ export default function StatoPiattaforma() {
     <div>
       <div className="page-header">
         <div>
-          <h2>Stato piattaforma</h2>
+          <h2>Stato della piattaforma</h2>
           <p>Salute tecnica: accessi, job pianificati, posta, spazio. Aggiornato alle {formatData(d.generato_at)}.</p>
         </div>
         <button type="button" className="secondary" onClick={carica} disabled={caricamento}>{caricamento ? "..." : "Aggiorna"}</button>

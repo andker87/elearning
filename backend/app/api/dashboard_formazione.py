@@ -205,8 +205,8 @@ def sollecito(data: SollecitoIn, db: Session = Depends(get_db), user=Depends(req
         corso = db.query(Corso).filter(Corso.id == data.corso_id).first()
         corso_titolo = corso.titolo if corso else None
     testo = data.messaggio or (
-        f"Sollecito dall'Ufficio Formazione: ricordati di occuparti del corso \"{corso_titolo}\"."
-        if corso_titolo else "Sollecito dall'Ufficio Formazione: hai delle attività formative da completare."
+        f"Sollecito della Formazione: ricordati di occuparti del corso \"{corso_titolo}\"."
+        if corso_titolo else "Sollecito della Formazione: hai delle attività formative da completare."
     )
     db.add(Notification(user_id=destinatario.id, tipo="sollecito_manuale", testo=testo))
     invia_email(destinatario.email, "Sollecito dalla piattaforma formazione", testo)

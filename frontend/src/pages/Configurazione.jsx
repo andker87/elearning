@@ -1,6 +1,7 @@
 import React, { useRef, useState } from "react";
 import api, { downloadFile, erroreDi } from "../api";
 import ExportButton from "../components/ExportButton";
+import { conferma } from "../components/conferma";
 
 const NOMI = { azienda: "Dati aziendali", gruppi: "Gruppi e uffici", organizzazioni: "Società di formazione", corsi: "Corsi", percorsi: "Percorsi formativi" };
 const ELENCHI = [
@@ -65,7 +66,7 @@ export default function Configurazione() {
   }
 
   async function applica() {
-    if (!window.confirm("Applicare le modifiche mostrate? Vengono aggiunti e aggiornati elementi; non si cancella nulla.")) return;
+    if (!(await conferma("Vengono aggiunti e aggiornati elementi; non si cancella nulla.", { titolo: "Applicare le modifiche mostrate?", etichetta: "Applica le modifiche" }))) return;
     setLavoro(true); setErrore(null);
     try {
       const r = await api.post("/admin/configurazione/import", { contenuto: file.contenuto, applica: true });

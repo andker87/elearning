@@ -3,6 +3,7 @@ import api, { erroreDi } from "../api";
 import SelettorePersone from "./SelettorePersone";
 import SpostaIscrizione from "./SpostaIscrizione";
 import { quando } from "../sessioni";
+import { conferma } from "./conferma";
 
 export const STATO_PASSO = {
   completato: ["green", "completato"], iscritto: ["blue", "iscritto"], in_lista_attesa: ["yellow", "lista d'attesa"],
@@ -36,7 +37,7 @@ export default function PersonePercorso({ percorso, onCambia }) {
     setInvio(false);
   }
   async function togli(a) {
-    if (!window.confirm(`Togliere il percorso a ${a.nome}? Le iscrizioni già fatte restano; se non servono più vanno annullate una per una dalle sessioni.`)) return;
+    if (!(await conferma("Le iscrizioni già fatte restano; se non servono più vanno annullate una per una dalle sessioni.", { titolo: `Togliere il percorso a ${a.nome}?`, etichetta: "Togli il percorso", pericolo: true }))) return;
     setErrore(null);
     try { await api.delete(`/percorsi/${percorso.id}/assegnazioni/${a.user_id}`); carica(); onCambia && onCambia(); }
     catch (e) { setErrore(erroreDi(e, "Impossibile togliere il percorso")); }

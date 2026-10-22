@@ -91,7 +91,7 @@ def crea_gradimento(iscrizione_id: str, data: GradimentoIn, db: Session = Depend
     docenti_edizione = {str(d.user_id) for d in db.query(EdizioneDocente).filter(EdizioneDocente.edizione_id == i.edizione_id).all()}
     for docente_id, voto in data.voti_docenti.items():
         if docente_id not in docenti_edizione:
-            raise HTTPException(400, "Docente non associato a questa edizione")
+            raise HTTPException(400, "Docente non associato a questa sessione")
         if voto < 1 or voto > 5:
             raise HTTPException(400, "Il voto per il docente deve essere tra 1 e 5")
 

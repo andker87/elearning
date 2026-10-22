@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import api, { erroreDi } from "../api";
 import SelettoreColore from "../components/SelettoreColore";
+import { conferma } from "../components/conferma";
 
 // Le mansioni sono etichette trasversali (preposto, addetto antincendio...): una persona può averne più d'una,
 // servono ad assegnare percorsi in blocco e a filtrare gli elenchi. Non danno permessi.
@@ -31,7 +32,7 @@ export default function Mansioni() {
   }
 
   async function elimina(m) {
-    if (!window.confirm(`Eliminare la mansione «${m.name}»? Viene tolta alle ${m.persone} persone che la hanno.`)) return;
+    if (!(await conferma(`Viene tolta alle ${m.persone} persone che la hanno.`, { titolo: `Eliminare la mansione «${m.name}»?`, etichetta: "Elimina la mansione", pericolo: true }))) return;
     setErrore(null);
     try { await api.delete(`/mansioni/${m.id}`); } catch (err) { setErrore(erroreDi(err, "Impossibile eliminare la mansione")); return; }
     load();

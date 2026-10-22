@@ -41,7 +41,7 @@ export default function StoricoCorsi() {
 
   return (
     <div>
-      <div className="page-header"><div><h2>Storico corsi</h2><p>Tutti i corsi seguiti finora, con i relativi attestati.</p></div></div>
+      <div className="page-header"><div><h2>Storico e attestati</h2><p>Tutti i corsi seguiti finora, con i relativi attestati.</p></div></div>
       {errore && <div className="error-msg" role="alert">{errore} <button type="button" className="secondary btn-sm" onClick={carica}>Riprova</button></div>}
       <div className="table-wrap">
         <table>

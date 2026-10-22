@@ -332,7 +332,7 @@ def aggiorna_progresso(iscrizione_id: str, data: ProgressoIn, request: Request, 
         raise HTTPException(403, "Iscrizione non valida per l'utente corrente")
     e = db.query(Edizione).filter(Edizione.id == i.edizione_id).first()
     if not e or not e.video_id:
-        raise HTTPException(400, "Questa edizione non ha un contenuto video associato")
+        raise HTTPException(400, "Questa sessione non ha un video collegato")
     video = db.query(VideoContenuto).filter(VideoContenuto.id == e.video_id).first()
     if not disponibilita_video(e)["ok"]:
         raise HTTPException(403, "Il video non è disponibile in questo momento")

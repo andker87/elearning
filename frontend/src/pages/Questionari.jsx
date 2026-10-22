@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import api, { erroreDi } from "../api";
+import { conferma } from "../components/conferma";
 
 const TIPI = { stelle: "Stelle (da 1 a 5)", si_no: "Sì / No", scelta: "Scelta tra opzioni", testo: "Testo libero" };
 const NUOVA = () => ({ testo: "", tipo: "stelle", opzioni: "", obbligatoria: false });
@@ -28,7 +29,7 @@ export default function Questionari() {
     setInvio(false);
   }
   async function elimina(q) {
-    if (!window.confirm(`Eliminare il questionario «${q.nome}»? Le risposte già date restano nei report.`)) return;
+    if (!(await conferma("Le risposte già date restano nei report.", { titolo: `Eliminare il questionario «${q.nome}»?`, etichetta: "Elimina il questionario", pericolo: true }))) return;
     setErrore(null);
     try { await api.delete(`/questionari/${q.id}`); carica(); } catch (err) { setErrore(erroreDi(err, "Impossibile eliminare il questionario")); }
   }

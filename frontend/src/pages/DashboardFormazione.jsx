@@ -5,6 +5,7 @@ import api, { erroreDi } from "../api";
 import { FiltroEtichette } from "../components/Etichette";
 import ExportButton from "../components/ExportButton";
 import { elencoUffici } from "../uffici";
+import { MODALITA } from "../sessioni";
 
 const TIPO_LABEL = {
   scaduto: "Scaduto", da_aggiornare: "Da aggiornare", non_completato: "Non completato",
@@ -102,7 +103,7 @@ export default function DashboardFormazione() {
     <div>
       <div className="page-header">
         <div>
-          <h2>Dashboard Ufficio Formazione</h2>
+          <h2>Panoramica</h2>
           <p>Chi è scoperto, cosa scade a breve, e azioni rapide — iscrizioni e solleciti senza uscire da qui.</p>
         </div>
         <ExportButton path={exportPath()} filename="registro_formazione" label="Esporta registro" />
@@ -245,7 +246,7 @@ export default function DashboardFormazione() {
             {sessioni.map((s) => (
               <tr key={s.id}>
                 <td>{s.corso_titolo}</td>
-                <td>{s.modalita}</td>
+                <td>{MODALITA[s.modalita] || s.modalita}</td>
                 <td>{s.data_inizio ? new Date(s.data_inizio).toLocaleString("it-IT") : "-"}</td>
                 <td>{s.posti_max ? `${s.n_iscritti}/${s.posti_max}${s.posti_liberi === 0 ? " (pieno)" : ""}` : `${s.n_iscritti} (illimitati)`}</td>
                 <td><Link to={`/sessioni/${s.id}`}>Apri</Link></td>

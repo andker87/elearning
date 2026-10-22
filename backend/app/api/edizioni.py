@@ -21,6 +21,7 @@ from ..services.calendario import evento_edizione, costruisci_ics
 from ..models.comunicazione_edizione import ComunicazioneEdizione
 from ..services import audit as audit_svc
 from ..services import elimina_corso as elimina_corso_svc
+from ..services import copertine as copertine_svc
 from .deps import require_training_admin, get_current_user
 
 router = APIRouter(prefix="/api/edizioni", tags=["edizioni"])
@@ -85,7 +86,7 @@ def _serialize(e: Edizione, db: Session):
     nomi = {u.id: u.full_name for u in db.query(User).filter(User.id.in_([d.user_id for d in e.docenti])).all()} if e.docenti else {}
     return {
         "id": str(e.id), "corso_id": str(e.corso_id), "corso_titolo": corso.titolo if corso else None,
-        "corso_descrizione": corso.descrizione if corso else None,
+        "corso_descrizione": corso.descrizione if corso else None, "corso_copertina_url": copertine_svc.url(corso) if corso else None,
         "corso_permetti_autoiscrizione": autoiscrizione_ammessa(e, corso),     # ci si puo' iscrivere da soli (anche per una sessione sempre disponibile)
         "corso_autoiscrizione_attiva": bool(corso and corso.permetti_autoiscrizione), "in_catalogo": in_catalogo(e, corso),
         "corso_iscrizione_responsabili": corso.iscrizione_responsabili if corso else "solo_formazione",
@@ -117,6 +118,17 @@ def list_edizioni(corso_id: Optional[str] = None, mie_come_docente: bool = False
         q = q.join(EdizioneDocente, EdizioneDocente.edizione_id == Edizione.id).filter(EdizioneDocente.user_id == user.id)
     return [_serialize(e, db) for e in q.order_by(Edizione.data_inizio.desc().nullslast()).all()]
 
+def _video_pct(db: Session, iscrizione, e) -> Optional[float]:
+    """Quanto del video e' stato visto (per «continua da dove eri» nella Home); None se non e' un video."""
+    if not e or e.modalita != ModalitaErogazione.video or not e.video_id:
+        return None
+    from ..models.video import VideoContenuto, VideoProgresso
+    v = db.query(VideoContenuto).filter(VideoContenuto.id == e.video_id).first()
+    prog = db.query(VideoProgresso).filter(VideoProgresso.iscrizione_id == iscrizione.id).first()
+    if not v or not v.durata_secondi:
+        return None
+    return round(min(100.0, (prog.secondo_massimo_raggiunto if prog else 0) / v.durata_secondi * 100), 1)
+
 @router.get("/mie/iscrizioni")
 def mie_iscrizioni(db: Session = Depends(get_db), user=Depends(get_current_user)):
     # Le iscrizioni annullate non sono piu' mie: non compaiono in «I miei corsi» ne' nello storico (restano nel registro attivita')
@@ -134,12 +146,15 @@ def mie_iscrizioni(db: Session = Depends(get_db), user=Depends(get_current_user)
         out.append({
             "id": str(i.id), "edizione_id": str(i.edizione_id), "stato": i.stato,
             "completato_at": i.completato_at, "ripeti_entro": i.ripeti_entro,
-            "corso_titolo": corso.titolo if corso else None,
+            "corso_titolo": corso.titolo if corso else None, "corso_copertina_url": copertine_svc.url(corso) if corso else None,
             "corso_validita_mesi": corso.validita_mesi if corso else None,
             "edizione_modalita": e.modalita if e else None,
             "edizione_stato": e.stato if e else None,
             "edizione_data_inizio": e.data_inizio if e else None,
             "edizione_sempre_aperta": bool(e and e.sempre_aperta),
+            "edizione_data_fine": e.data_fine if e else None, "edizione_luogo": e.luogo if e else None,
+            "video_pct": _video_pct(db, i, e),
+            "video_disponibile": bool(e and e.modalita == ModalitaErogazione.video and disponibilita_video(e)["ok"]),
             "durata_effettiva_minuti": durata_effettiva(e, corso) if e else None,
             "aggiornamento_contenuto": aggiornamento,
         })
@@ -177,7 +192,7 @@ def update_edizione(edizione_id: str, data: EdizioneIn, request: Request, db: Se
     e = db.query(Edizione).options(joinedload(Edizione.docenti)).filter(Edizione.id == edizione_id).first()
     if not e: raise HTTPException(404)
     if e.stato == StatoEdizione.chiusa:
-        raise HTTPException(400, "Edizione chiusa: non modificabile")
+        raise HTTPException(400, "Sessione chiusa: non si modifica più")
     for k, v in data.model_dump().items(): setattr(e, k, v)
     e.durata_minuti = _durata_propria(db, data.corso_id, data.durata_minuti)
     db.flush()
@@ -294,7 +309,7 @@ def aggiungi_docente(edizione_id: str, data: DocenteIn, request: Request, db: Se
     e = db.query(Edizione).filter(Edizione.id == edizione_id).first()
     if not e: raise HTTPException(404)
     esiste = db.query(EdizioneDocente).filter(EdizioneDocente.edizione_id == edizione_id, EdizioneDocente.user_id == data.user_id).first()
-    if esiste: raise HTTPException(400, "Già docente su questa edizione")
+    if esiste: raise HTTPException(400, "È già docente di questa sessione")
     docente = db.query(User).filter(User.id == data.user_id, User.is_active == True).first()  # noqa: E712
     if not docente: raise HTTPException(404, "Persona non trovata")
     if not docente.puo_essere_docente:

@@ -4,8 +4,10 @@ import api, { downloadFile, erroreDi } from "../api";
 import VideoPlayer from "../components/VideoPlayer";
 import TestPlayer from "../components/TestPlayer";
 import Gradimento from "../components/Gradimento";
+import Copertina from "../components/Copertina";
 import { formattaDurata } from "../durata";
 import { MODALITA, quando, dove } from "../sessioni";
+import { conferma } from "../components/conferma";
 
 // La sessione vista da chi segue il corso: solo cio' che serve a seguirlo. Niente elenchi di colleghi, niente strumenti di gestione.
 export default function SessioneDiscente({ id, gestisce }) {
@@ -51,7 +53,7 @@ export default function SessioneDiscente({ id, gestisce }) {
     setInvio(false);
   }
   async function annulla() {
-    if (!window.confirm("Annullare la tua iscrizione?")) return;
+    if (!(await conferma("Perdi il posto in questa sessione.", { titolo: "Annullare la tua iscrizione?", etichetta: "Annulla l'iscrizione", pericolo: true }))) return;
     try { await api.post(`/edizioni/${id}/iscrizioni/${mia.id}/annulla`); setMsg("Iscrizione annullata."); carica(); }
     catch (e) { setMsg(erroreDi(e, "Impossibile annullare l'iscrizione")); }
   }
@@ -96,6 +98,7 @@ export default function SessioneDiscente({ id, gestisce }) {
   );
   const informazioni = (
     <div className="card">
+      {!(eVideo && segue) && <Copertina url={edizione.corso_copertina_url} titolo={edizione.corso_titolo} modalita={edizione.modalita} style={{ maxWidth: 520, marginBottom: ".9rem" }} />}
       {edizione.corso_descrizione && <p style={{ marginTop: 0 }}>{edizione.corso_descrizione}</p>}
       {!eVideo && <p><strong>Quando:</strong> {quando(edizione)}
         {edizione.data_inizio && mia && (

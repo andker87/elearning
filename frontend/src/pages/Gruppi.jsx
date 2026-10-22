@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import api, { erroreDi } from "../api";
 import { elencoUffici } from "../uffici";
 import SelettoreColore from "../components/SelettoreColore";
+import { conferma } from "../components/conferma";
 
 // Gli uffici sono la struttura organizzativa: albero di uffici e sottouffici, ciascuno con un responsabile.
 // Le categorie trasversali (preposto, addetto antincendio...) sono le Mansioni.
@@ -33,7 +34,7 @@ export default function Gruppi() {
   }
 
   async function remove(g) {
-    if (!window.confirm(`Eliminare l'ufficio «${g.etichetta}»? I sottouffici diventeranno di primo livello.`)) return;
+    if (!(await conferma("I sottouffici diventeranno di primo livello.", { titolo: `Eliminare l'ufficio «${g.etichetta}»?`, etichetta: "Elimina l'ufficio", pericolo: true }))) return;
     setErrore(null);
     try { await api.delete(`/groups/${g.id}`); } catch (err) { setErrore(erroreDi(err, "Impossibile eliminare l'ufficio")); return; }
     if (modifica?.id === g.id) setModifica(null);

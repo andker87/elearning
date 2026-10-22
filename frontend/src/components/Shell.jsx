@@ -1,5 +1,7 @@
 import React, { useEffect, useState, useRef } from "react";
 import CambioPasswordObbligatorio from "./CambioPasswordObbligatorio";
+import Icona from "./Icona";
+import { SPAZI, spaziDi, spazioDelPercorso, ultimoSpazio, ultimaPagina, ricordaPagina } from "../spazi";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import api from "../api";
 import InstallPwaBanner from "./InstallPwaBanner";
@@ -13,7 +15,6 @@ const SIDEBAR_DEFAULT_WIDTH = 256;
 const SIDEBAR_MIN_WIDTH = 180;
 const SIDEBAR_MAX_WIDTH = 360;
 const SIDEBAR_COLLAPSED_WIDTH = 64;
-const SUB_IMPOSTAZIONI_KEY = "sidebar_sub_impostazioni";
 
 function leggiLarghezzaSidebar() {
   try {
@@ -29,71 +30,75 @@ function leggiCollapsedSidebar() {
 
 function etichettaRichieste(uffici) {
   // Il nome dell'ufficio chiarisce a che titolo si vede la voce; con piu' uffici li elenca il tooltip.
-  if (uffici.length === 1) return { label: `Richieste ufficio ${uffici[0].name}`, tip: undefined };
-  return { label: `Richieste dei miei ${uffici.length} uffici`, tip: uffici.map((u) => u.name).join(", ") };
+  if (uffici.length === 1) return { label: "Fabbisogno del mio ufficio", tip: uffici[0].name };
+  return { label: `Fabbisogno dei miei ${uffici.length} uffici`, tip: uffici.map((u) => u.name).join(", ") };
 }
 
-function buildSections(user, haSottoposti, uffici) {
-  const isTrainingAdmin = !!user?.poteri_formazione;
-  const isAdminTecnico = !!user?.is_admin;
-  const sections = [
-    { label: "Utente", links: [
-      { to: "/miei-corsi", label: "I miei corsi", icon: "🎓" },
-      { to: "/catalogo", label: "Catalogo", icon: "📚" },
-      { to: "/storico-corsi", label: "Storico corsi", icon: "📜" },
+// Il menu di ogni spazio di lavoro. `conta` = cose che aspettano una decisione (dai contatori del server).
+function sezioniDi(spazio, user, haSottoposti, uffici, contatori) {
+  if (spazio === "gestione") return [
+    { label: null, links: [{ to: "/da-gestire", label: "Da gestire", icon: "inbox", conta: contatori.gestione }] },
+    { label: "Erogazione", links: [
+      { to: "/sessioni", label: "Sessioni", icon: "cal" },
+      { to: "/percorsi", label: "Percorsi formativi", icon: "route" },
+      { to: "/richieste-iscrizione", label: "Richieste di iscrizione", icon: "list" },
+    ]},
+    { label: "Contenuti", links: [
+      { to: "/corsi", label: "Corsi", icon: "book" },
+      { to: "/video", label: "Video", icon: "play" },
+      { to: "/questionari", label: "Questionari di gradimento", icon: "clip" },
+      { to: "/template-attestati", label: "Modelli di attestato", icon: "file" },
+      { to: "/etichette", label: "Etichette dei corsi", icon: "tag" },
+    ]},
+    { label: "Pianificazione", links: [
+      { to: "/fabbisogno-admin", label: "Fabbisogno formativo", icon: "compass" },
+      { to: "/richieste-corso-admin", label: "Richieste di corsi", icon: "list" },
+    ]},
+    { label: "Analisi", links: [
+      { to: "/dashboard-formazione", label: "Panoramica", icon: "chart" },
+      { to: "/dashboard-kpi", label: "Indicatori", icon: "pulse" },
+      { to: "/matrice-formativa", label: "Matrice formativa", icon: "grid" },
+      { to: "/registro-formazione", label: "Registro formazione", icon: "list" },
     ]},
   ];
-  if (user?.is_docente) {
-    sections.push({ label: "Docente", links: [
-      { to: "/mie-sessioni", label: "Le mie sessioni", icon: "🧑‍🏫" },
-    ]});
-  }
-  if (haSottoposti) {
-    sections.push({ label: "Il mio team", links: [{ to: "/risorse", label: "Il mio team", icon: "🧑‍🤝‍🧑" }] });
-  }
+  if (spazio === "admin") return [
+    { label: null, links: [{ to: "/amministrazione", label: "Riepilogo", icon: "home" }] },
+    { label: "Persone", links: [
+      { to: "/utenti", label: "Utenti", icon: "user" },
+      { to: "/gruppi", label: "Uffici", icon: "building" },
+      { to: "/mansioni", label: "Mansioni", icon: "tag" },
+      { to: "/societa-formazione-esterne", label: "Società di formazione", icon: "users" },
+    ]},
+    { label: "Accessi", links: [
+      { to: "/reset-password-richieste", label: "Richieste di nuova password", icon: "key", conta: contatori.amministrazione },
+      { to: "/sincronizzazione-utenti", label: "Sincronizzazione utenti", icon: "sync" },
+    ]},
+    { label: "Impostazioni", links: [
+      { to: "/azienda", label: "Azienda", icon: "building" },
+      { to: "/piattaforma", label: "Piattaforma", icon: "sliders" },
+      { to: "/configurazione", label: "Configurazione", icon: "file" },
+      { to: "/informativa-privacy", label: "Informativa privacy", icon: "shield" },
+    ]},
+    { label: "Controllo", links: [
+      { to: "/stato-piattaforma", label: "Stato della piattaforma", icon: "pulse" },
+      { to: "/audit-log", label: "Registro attività", icon: "list" },
+    ]},
+  ];
+  const sections = [{ label: null, links: [
+    { to: "/miei-corsi", label: "Home", icon: "home" },
+    { to: "/catalogo", label: "Catalogo", icon: "book" },
+    { to: "/storico-corsi", label: "Storico e attestati", icon: "award" },
+  ]}];
+  if (user?.is_docente) sections.push({ label: "Docenza", links: [{ to: "/mie-sessioni", label: "Le mie sessioni da docente", icon: "board" }] });
+  const ufficio = [];
+  if (haSottoposti) ufficio.push({ to: "/risorse", label: "Il mio team", icon: "users", conta: contatori.team });
   if (uffici.length > 0) {
-    // L'Ufficio Formazione non chiede corsi a se stesso, ma se guida un ufficio
-    // riceve comunque gli inviti di fabbisogno come tutti i responsabili.
+    // La Formazione non chiede corsi a se stessa, ma se guida un ufficio riceve gli inviti di fabbisogno come tutti i responsabili.
     const { label, tip } = etichettaRichieste(uffici);
-    const links = [{ to: "/fabbisogno", label, tip, icon: "🧭" }];
-    if (!isTrainingAdmin) links.push({ to: "/richiesta-corso", label: "Richiedi un corso", icon: "📝" });
-    sections.push({ label: "Fabbisogno formativo", links });
+    ufficio.push({ to: "/fabbisogno", label, tip, icon: "compass" });
+    if (!user?.poteri_formazione) ufficio.push({ to: "/richiesta-corso", label: "Richiedi un corso", icon: "list" });
   }
-  if (isTrainingAdmin) {
-    sections.push({ label: "Ufficio Training", links: [
-      { to: "/dashboard-formazione", label: "Dashboard", icon: "📊" },
-      { to: "/dashboard-kpi", label: "Dashboard KPI", icon: "📈" },
-      { to: "/sessioni", label: "Sessioni", icon: "📅" },
-      { to: "/richieste-iscrizione", label: "Richieste di iscrizione", icon: "📨" },
-      { to: "/corsi", label: "Corsi", icon: "📚" },
-      { to: "/video", label: "Video", icon: "🎬" },
-      { to: "/percorsi", label: "Percorsi formativi", icon: "🧭" },
-      { to: "/richieste-corso-admin", label: "Richieste corso", icon: "📝" },
-      { to: "/fabbisogno-admin", label: "Fabbisogno formativo", icon: "🧭" },
-      { to: "/matrice-formativa", label: "Matrice formativa", icon: "🟩" },
-      { to: "/registro-formazione", label: "Registro formazione", icon: "📋" },
-      { to: "/template-attestati", label: "Template attestati", icon: "🎨" },
-      { to: "/etichette", label: "Etichette dei corsi", icon: "🏷️" },
-      { to: "/questionari", label: "Questionari di gradimento", icon: "📝" },
-    ]});
-  }
-  if (isAdminTecnico) {
-    sections.push({ label: "Amministrazione", links: [
-      { to: "/utenti", label: "Utenti", icon: "👤" },
-      { to: "/gruppi", label: "Uffici", icon: "🗂️" },
-      { to: "/mansioni", label: "Mansioni", icon: "🏷️" },
-      { to: "/reset-password-richieste", label: "Reset password", icon: "🔑" },
-      { to: "/sincronizzazione-utenti", label: "Sincronizzazione utenti", icon: "🔄" },
-      { to: "/societa-formazione-esterne", label: "Società di formazione", icon: "🏢" },
-    ], sub: { label: "Impostazioni", icon: "⚙️", chiave: SUB_IMPOSTAZIONI_KEY, links: [
-      { to: "/azienda", label: "Azienda", icon: "🏛️" },
-      { to: "/piattaforma", label: "Piattaforma", icon: "🧩" },
-      { to: "/configurazione", label: "Configurazione", icon: "📦" },
-      { to: "/stato-piattaforma", label: "Stato piattaforma", icon: "🩺" },
-      { to: "/audit-log", label: "Audit log", icon: "🔎" },
-      { to: "/informativa-privacy", label: "Informativa privacy", icon: "🛡️" },
-    ]}});
-  }
+  if (ufficio.length) sections.push({ label: "Il mio ufficio", links: ufficio });
   return sections;
 }
 
@@ -111,6 +116,7 @@ function initials(name) {
 }
 
 function NotificationBell({ pannelloLeft, className }) {
+  const navigate = useNavigate();
   const [open, setOpen] = useState(false);
   const [items, setItems] = useState([]);
   const ref = useRef(null);
@@ -137,15 +143,17 @@ function NotificationBell({ pannelloLeft, className }) {
   return (
     <div style={{ position: "relative" }} className={className} ref={ref}>
       <button className="notif-bell" onClick={() => setOpen(!open)}>
-        🔔{unread > 0 && <span className="notif-dot" />}
+        <Icona nome="bell" titolo="Notifiche" />{unread > 0 && <span className="notif-dot" />}
       </button>
       {open && (
         <div className="notif-panel fixed" style={{ left: pannelloLeft, top: 12 }}>
           {items.length === 0 && <div className="notif-item">Nessuna notifica</div>}
           {items.map((n) => (
-            <div key={n.id} className={`notif-item ${n.letta ? "" : "unread"}`} onClick={() => !n.letta && markRead(n.id)} style={{ cursor: n.letta ? "default" : "pointer" }}>
-              {n.testo}
-            </div>
+            <button type="button" key={n.id} className={`notif-item ${n.letta ? "" : "unread"}`}
+              onClick={() => { if (!n.letta) markRead(n.id); if (n.link) { setOpen(false); navigate(n.link); } }}
+              style={{ cursor: n.letta && !n.link ? "default" : "pointer" }}>
+              {n.testo}{n.link && <span className="notif-vai"> Apri →</span>}
+            </button>
           ))}
         </div>
       )}
@@ -158,37 +166,12 @@ function VoceMenu({ l, location, collapsed }) {
     <Link
       to={l.to}
       title={collapsed ? l.label : (l.tip || l.label)}
-      className={`nav-link ${location.pathname.startsWith(l.to) ? "active" : ""}`}
+      className={`nav-link ${location.pathname === l.to || location.pathname.startsWith(l.to + "/") ? "active" : ""}`}
       style={collapsed ? { justifyContent: "center" } : undefined}
     >
-      <span>{l.icon}</span>{!collapsed && <span className="nav-testo">{l.label}</span>}
+      <Icona nome={l.icon} />{!collapsed && <span className="nav-testo">{l.label}</span>}
+      {l.conta > 0 && <span className={collapsed ? "nav-conta piccolo" : "nav-conta"} aria-label={`${l.conta} da fare`}>{l.conta}</span>}
     </Link>
-  );
-}
-
-function SottoMenu({ sub, location, collapsed }) {
-  const contieneAttiva = sub.links.some((l) => location.pathname.startsWith(l.to));
-  const [aperto, setAperto] = useState(() => {
-    try { return localStorage.getItem(sub.chiave) === "1"; } catch { return false; }
-  });
-  if (collapsed) return sub.links.map((l) => <VoceMenu key={l.to} l={l} location={location} collapsed />);
-  const visibile = aperto || contieneAttiva;
-  function alterna() {
-    const nuovo = !aperto;
-    setAperto(nuovo);
-    try { localStorage.setItem(sub.chiave, nuovo ? "1" : "0"); } catch { /* ignore */ }
-  }
-  return (
-    <>
-      <button type="button" className="nav-link sidebar-sub-toggle" onClick={alterna} aria-expanded={visibile}>
-        <span>{sub.icon}</span><span>{sub.label}</span><span className="chevron">{visibile ? "▾" : "▸"}</span>
-      </button>
-      {visibile && (
-        <div className="sidebar-sub">
-          {sub.links.map((l) => <VoceMenu key={l.to} l={l} location={location} collapsed={false} />)}
-        </div>
-      )}
-    </>
   );
 }
 
@@ -204,7 +187,38 @@ function ShellInterno({ children }) {
       api.get(`/auth/users/${user.id}/uffici-guidati`).then((r) => setUffici(r.data));
     }
   }, [user?.id]);
-  const sections = buildSections(user, haSottoposti, uffici);
+  const spazi = spaziDi(user);
+  const spazioPagina = spazioDelPercorso(location.pathname, location.search, spazi);
+  const [spazio, setSpazio] = useState(() => spazioPagina || (spazi.includes(ultimoSpazio(user?.id)) ? ultimoSpazio(user?.id) : spazi[0]));
+  const [avvisoSpazio, setAvvisoSpazio] = useState(null);
+  const sceltaDalSelettore = useRef(false);
+  useEffect(() => {
+    const dalSelettore = sceltaDalSelettore.current;      // letta e azzerata subito: non deve restare accesa per un collegamento successivo
+    sceltaDalSelettore.current = false;
+    if (!spazioPagina) return undefined;
+    ricordaPagina(user?.id, spazioPagina, location.pathname + location.search);
+    if (spazioPagina === spazio) return undefined;
+    setSpazio(spazioPagina);
+    if (dalSelettore || spazi.length < 2) return undefined;
+    // si e' arrivati qui da un collegamento (notifica, email, pagina): lo si dice, cosi' il menu che cambia non sorprende
+    setAvvisoSpazio(SPAZI[spazioPagina].nome);
+    const t = setTimeout(() => setAvvisoSpazio(null), 2800);
+    return () => { clearTimeout(t); setAvvisoSpazio(null); };
+  }, [location.pathname, location.search]); // eslint-disable-line
+  function vaiAlloSpazio(s) {
+    sceltaDalSelettore.current = true;
+    setSpazio(s);
+    navigate(ultimaPagina(user?.id, s) || SPAZI[s].inizio);
+  }
+  const [contatori, setContatori] = useState({});
+  useEffect(() => {
+    const leggi = () => api.get("/contatori").then((r) => setContatori(r.data)).catch(() => {});
+    leggi();
+    const t = setInterval(leggi, 60000);
+    return () => clearInterval(t);
+  }, [location.pathname]);
+  const contaSpazio = { mia: contatori.team, gestione: contatori.gestione, admin: contatori.amministrazione };
+  const sections = sezioniDi(spazio, user, haSottoposti, uffici, contatori);
   const branding = useBranding();
   const [tema, alternaTema] = useTema();
   const [mobileAperta, setMobileAperta] = useState(false);
@@ -271,7 +285,7 @@ function ShellInterno({ children }) {
           {!collapsed && <NotificationBell className="only-desktop" pannelloLeft={sidebarWidth + 8} />}
           {!collapsed && (
             <button type="button" className="sidebar-tool" onClick={alternaTema} title={tema === "dark" ? "Tema chiaro" : "Tema scuro"}>
-              {tema === "dark" ? "☀️" : "🌙"}
+              <Icona nome={tema === "dark" ? "sun" : "moon"} />
             </button>
           )}
           <button
@@ -281,16 +295,25 @@ function ShellInterno({ children }) {
             onClick={toggleCollapsed}
             title={collapsed ? "Espandi sidebar" : "Comprimi sidebar"}
           >
-            {collapsed ? "▶" : "◀"}
+            <Icona nome={collapsed ? "chevron-right" : "chevron-left"} size={16} />
           </button>
         </div>
-        <nav>
-          {sections.map((s) => (
-            <div key={s.label}>
-              {!collapsed && <div className="sidebar-section-label">{s.label}</div>}
+        {spazi.length > 1 && (
+          <div className={`spazi ${collapsed ? "compatti" : ""}`} role="group" aria-label="Spazio di lavoro">
+            {spazi.map((s) => (
+              <button type="button" key={s} aria-pressed={s === spazio} title={collapsed ? SPAZI[s].nome : undefined} onClick={() => vaiAlloSpazio(s)}>
+                <Icona nome={SPAZI[s].icona} />{!collapsed && <span>{SPAZI[s].nome}</span>}
+                {contaSpazio[s] > 0 && <span className={collapsed ? "nav-conta piccolo" : "nav-conta"}>{contaSpazio[s]}</span>}
+              </button>
+            ))}
+          </div>
+        )}
+        <nav aria-label={SPAZI[spazio].nome}>
+          {sections.map((s, n) => (
+            <div key={s.label || n}>
+              {!collapsed && s.label && <div className="sidebar-section-label">{s.label}</div>}
               <div className="sidebar-section">
                 {s.links.map((l) => <VoceMenu key={l.to} l={l} location={location} collapsed={collapsed} />)}
-                {s.sub && <SottoMenu sub={s.sub} location={location} collapsed={collapsed} />}
               </div>
             </div>
           ))}
@@ -301,12 +324,12 @@ function ShellInterno({ children }) {
           {collapsed && <NotificationBell className="only-desktop" pannelloLeft={sidebarWidth + 8} />}
           {collapsed && (
             <a href="#tema" className="footer-link" onClick={(e) => { e.preventDefault(); alternaTema(); }} title={tema === "dark" ? "Tema chiaro" : "Tema scuro"}>
-              {tema === "dark" ? "☀️" : "🌙"}
+              <Icona nome={tema === "dark" ? "sun" : "moon"} />
             </a>
           )}
-          <Link to="/impostazioni" title="Impostazioni utente">⚙</Link>
-          <Link to="/informazioni" title="Informazioni sulla piattaforma">ⓘ</Link>
-          <a href="#esci" onClick={(e) => { e.preventDefault(); logout(); }} title="Esci">⏻</a>
+          <Link to="/impostazioni" title="Impostazioni utente" className="footer-link"><Icona nome="gear" titolo="Impostazioni utente" /></Link>
+          <Link to="/informazioni" title="Informazioni sulla piattaforma" className="footer-link"><Icona nome="info" titolo="Informazioni sulla piattaforma" /></Link>
+          <a href="#esci" onClick={(e) => { e.preventDefault(); logout(); }} title="Esci" className="footer-link"><Icona nome="logout" titolo="Esci" /></a>
         </div>
       </div>
       {!collapsed && (
@@ -320,13 +343,22 @@ function ShellInterno({ children }) {
       )}
       <div className="main">
         <div className="mobile-topbar">
-          <button type="button" className="sidebar-tool" style={{ fontSize: "1.3rem" }} onClick={() => setMobileAperta(true)} title="Apri il menu">☰</button>
-          <div className="grow">{branding.nome_piattaforma}</div>
+          <button type="button" className="sidebar-tool" onClick={() => setMobileAperta(true)} title="Apri il menu"><Icona nome="menu" size={22} titolo="Apri il menu" /></button>
+          <div className="grow">{spazi.length > 1 ? SPAZI[spazio].nome : branding.nome_piattaforma}</div>
           <NotificationBell className="only-mobile" pannelloLeft={8} />
         </div>
         <InstallPwaBanner />
         <NotificationPermissionBanner />
         {children}
+        {spazio === "mia" && (
+          <nav className="barra-basso only-mobile" aria-label="Navigazione rapida">
+            {[["/miei-corsi", "Home", "home"], ["/catalogo", "Catalogo", "book"], ["/storico-corsi", "Attestati", "award"]].map(([to, nome, icona]) => (
+              <Link key={to} to={to} aria-current={location.pathname === to ? "page" : undefined}><Icona nome={icona} size={20} />{nome}</Link>
+            ))}
+            <button type="button" onClick={() => setMobileAperta(true)}><Icona nome="menu" size={20} />Menu</button>
+          </nav>
+        )}
+        {avvisoSpazio && <div className="avviso-spazio" role="status">Sei passato a «{avvisoSpazio}»</div>}
       </div>
     </div>
   );

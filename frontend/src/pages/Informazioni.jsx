@@ -59,7 +59,7 @@ export default function Informazioni() {
         </div>
       )}
 
-      {!d.changelog && <p className="text-muted">Per assistenza o domande sulla piattaforma rivolgiti all'Ufficio Formazione.</p>}
+      {!d.changelog && <p className="text-muted">Per assistenza o domande sulla piattaforma rivolgiti alla Formazione.</p>}
 
       {d.changelog && <div className="card">
         <h3>Novità</h3>

@@ -74,6 +74,88 @@ p { color: var(--text2); }
 .page-header { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 1.5rem; gap: 1rem; flex-wrap: wrap; }
 .page-header p { font-size: .85rem; color: var(--text3); margin-top: .15rem; }
 
+/* ── Icone a linea (components/Icona.jsx) ── */
+.icona { flex: none; stroke: currentColor; fill: none; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; vertical-align: -0.2em; }
+.nav-link .icona { opacity: .85; }
+.nav-link.active .icona { opacity: 1; }
+.sidebar-footer .footer-link { display: inline-flex; align-items: center; }
+
+/* ── Intestazione delle pagine di dettaglio e menu di azioni ── */
+.briciole { font-size: .8rem; color: var(--text3); margin-bottom: .2rem; }
+.briciole a { color: var(--text2); text-decoration: none; }
+.briciole a:hover { color: var(--primary); text-decoration: underline; }
+.intestazione-meta { display: flex; flex-wrap: wrap; gap: .4rem .6rem; align-items: center; margin: .3rem 0 0; color: var(--text2); font-size: .88rem; }
+.menu-azioni { position: relative; display: inline-block; }
+.menu-azioni > button { display: inline-flex; align-items: center; gap: .4rem; }
+.menu-azioni-elenco { position: absolute; right: 0; top: calc(100% + 4px); z-index: 30; min-width: 200px; background: var(--bg2); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow-pop); padding: .3rem; display: grid; }
+.menu-azioni-elenco button { background: transparent; border: 0; text-align: left; padding: .5rem .7rem; border-radius: 6px; color: var(--text); font: inherit; font-size: .85rem; cursor: pointer; }
+.menu-azioni-elenco button:hover, .menu-azioni-elenco button:focus-visible { background: var(--bg3); }
+.menu-azioni-elenco button.pericolo { color: var(--red-text); }
+
+/* ── Liste di cose da fare (Da gestire, Amministrazione, Home) ── */
+.lista-azioni { display: grid; gap: 0; }
+.lista-azioni h3 { margin-bottom: .4rem; }
+.riga-azione { display: grid; grid-template-columns: 22px minmax(0, 1fr) auto; gap: .8rem; align-items: center; padding: .7rem 0; border-bottom: 1px solid var(--border); }
+.riga-azione:last-child { border-bottom: 0; }
+.riga-azione > .icona { color: var(--text3); }
+.riga-azione .azioni { display: flex; gap: .4rem; flex-wrap: wrap; justify-content: flex-end; }
+.piccolo { font-size: .78rem; }
+.tab-conta { margin-left: .4rem; background: var(--bg3); color: var(--text2); border-radius: 99px; padding: 0 .45rem; font-size: .7rem; font-weight: 600; }
+.btn-link { font-weight: 600; font-size: .85rem; }
+.kpi-card.statico { cursor: default; }
+.kpi-card.statico:hover { transform: none; border-color: var(--border); }
+@media (max-width: 640px) { .riga-azione { grid-template-columns: 22px minmax(0, 1fr); } .riga-azione .azioni { grid-column: 2; justify-content: flex-start; } }
+/* Home del discente */
+.continua { display: grid; grid-template-columns: 190px minmax(0, 1fr); gap: 1.1rem; align-items: center; }
+.continua-anteprima { aspect-ratio: 16 / 9; max-width: 100%; border-radius: 12px; background: linear-gradient(135deg, var(--primary), var(--primary-dark)); display: grid; place-items: center; color: #fff; }
+.continua-anteprima .icona { width: 34px; height: 34px; }
+.sopratitolo { font-size: .72rem; font-weight: 600; text-transform: uppercase; letter-spacing: .06em; color: var(--primary); }
+.barra-avanzamento { height: 8px; border-radius: 99px; background: var(--bg3); overflow: hidden; }
+.barra-avanzamento > i { display: block; height: 100%; background: var(--primary); border-radius: 99px; }
+.due-colonne { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 1rem; align-items: start; }
+.appuntamento { display: grid; grid-template-columns: 46px minmax(0, 1fr) auto; gap: .8rem; align-items: center; padding: .55rem 0; border-bottom: 1px solid var(--border); }
+.appuntamento:last-child { border-bottom: 0; }
+.data-blocco { border: 1px solid var(--border); border-radius: 9px; text-align: center; line-height: 1.1; padding: .25rem 0; background: var(--bg2); }
+.data-blocco b { display: block; font-family: var(--font-heading); font-size: 1.05rem; color: var(--text); }
+.data-blocco span { font-size: .62rem; text-transform: uppercase; color: var(--primary); font-weight: 600; }
+.tappe { display: flex; gap: 4px; flex-wrap: wrap; margin-top: .35rem; }
+.tappe i { width: 26px; height: 7px; border-radius: 99px; background: var(--bg3); }
+.tappe i.fatta { background: var(--primary); } .tappe i.ora { background: var(--accent); }
+@media (max-width: 640px) { .continua { grid-template-columns: 1fr; } }
+
+/* ── Copertine dei corsi (components/Copertina.jsx) ── */
+.copertina { aspect-ratio: 16 / 9; width: 100%; max-width: 100%; border-radius: 10px; overflow: hidden; background: var(--bg3); flex: none; }
+.copertina img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.copertina-generata { width: 100%; height: 100%; display: grid; place-items: center; color: rgba(255, 255, 255, .92); }
+.copertina-miniatura { width: 76px; border-radius: 7px; }
+.copertina-miniatura .icona { width: 18px; height: 18px; }
+.copertina-anteprima { width: 260px; }
+.campo-copertina { display: grid; grid-template-columns: 260px minmax(0, 1fr); gap: 1rem; align-items: start; margin-bottom: 1rem; max-width: 760px; }
+.btn-file { display: inline-flex; align-items: center; gap: .4rem; border-radius: var(--radius); padding: .5rem .9rem; font-size: .85rem; font-weight: 600; border: 1px solid var(--border2); background: var(--bg2); color: var(--text); cursor: pointer; }
+.btn-file:hover { background: var(--bg3); }
+.card-corso { display: grid; grid-template-columns: 200px minmax(0, 1fr) auto; gap: 1rem; align-items: center; }
+.titolo-con-miniatura { display: flex; align-items: center; gap: .7rem; min-width: 0; }
+@media (max-width: 700px) { .campo-copertina, .card-corso { grid-template-columns: 1fr; } .copertina-anteprima { width: 100%; max-width: 360px; } }
+
+/* ── Spazi di lavoro (spazi.js) ── */
+.spazi { display: grid; gap: 3px; background: var(--bg3); border-radius: 11px; padding: 3px; margin: .2rem .6rem .6rem; }
+.spazi button { display: flex; align-items: center; gap: .55rem; border: 0; background: transparent; border-radius: 8px; padding: .45rem .6rem; font: inherit; font-size: .84rem; font-weight: 500; color: var(--text2); cursor: pointer; text-align: left; }
+.spazi button:hover { color: var(--text); }
+.spazi button[aria-pressed="true"] { background: var(--bg2); color: var(--text); font-weight: 600; box-shadow: var(--shadow-card); }
+.spazi button[aria-pressed="true"] .icona { color: var(--primary); }
+.spazi.compatti { margin: .2rem .35rem .5rem; }
+.spazi.compatti button { justify-content: center; padding: .5rem 0; position: relative; }
+.nav-conta { margin-left: auto; background: var(--accent); color: #3a2604; font-size: .68rem; font-weight: 700; border-radius: 99px; padding: 0 .45rem; line-height: 1.35rem; min-width: 1.35rem; text-align: center; }
+.nav-conta.piccolo { position: absolute; top: 2px; right: 6px; line-height: 1rem; min-width: 1rem; padding: 0 .25rem; font-size: .6rem; }
+.nav-link { position: relative; }
+.avviso-spazio { position: fixed; left: 50%; bottom: calc(24px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); background: var(--text); color: var(--bg); padding: .55rem 1rem; border-radius: 10px; font-size: .85rem; box-shadow: var(--shadow-pop); z-index: 60; }
+.barra-basso { position: fixed; left: 0; right: 0; bottom: 0; z-index: 40; display: grid; grid-template-columns: repeat(4, 1fr); background: var(--bg2); border-top: 1px solid var(--border); padding: .35rem max(.25rem, env(safe-area-inset-right, 0px)) calc(.45rem + env(safe-area-inset-bottom, 0px)) max(.25rem, env(safe-area-inset-left, 0px)); }
+.barra-basso a, .barra-basso button { display: grid; justify-items: center; gap: 2px; font-size: .7rem; color: var(--text3); text-decoration: none; background: transparent; border: 0; font-family: inherit; cursor: pointer; padding: .2rem 0; }
+.barra-basso a[aria-current="page"] { color: var(--primary); font-weight: 600; }
+@media (max-width: 800px) { .main:has(.barra-basso) { padding-bottom: 5rem; } .avviso-spazio { bottom: calc(84px + env(safe-area-inset-bottom, 0px)); } }
+.notif-item { display: block; width: 100%; text-align: left; font: inherit; border: 0; background: transparent; }
+.notif-vai { color: var(--primary); font-weight: 600; white-space: nowrap; }
+
 /* ── Sidebar ── */
 .sidebar {
   width: var(--sidebar-w); flex-shrink: 0; background: var(--bg2);

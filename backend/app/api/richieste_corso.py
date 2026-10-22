@@ -52,7 +52,7 @@ def _serialize(r: RichiestaCorso, db: Session, richiedenti: Optional[dict] = Non
 @router.post("")
 def crea_richiesta(data: RichiestaCorsoIn, request: Request, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
     if not _is_admin(user) and not e_responsabile(db, user.id):
-        raise HTTPException(403, "Solo un responsabile può richiedere una sessione formativa")
+        raise HTTPException(403, "Solo un responsabile può richiedere un corso")
     argomento = (data.argomento or "").strip() or None
     if not data.corso_id and not argomento:
         raise HTTPException(400, "Indica un corso a catalogo o un argomento")

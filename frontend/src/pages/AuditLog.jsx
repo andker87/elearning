@@ -61,7 +61,7 @@ export default function AuditLog() {
     <div>
       <div className="page-header">
         <div>
-          <h2>Audit log</h2>
+          <h2>Registro attività</h2>
           <p>Chi ha fatto cosa, quando e da dove. Registro in sola lettura delle azioni sulla piattaforma. Di default si vedono gli eventi importanti; gli accessi riusciti e le attività di routine si vedono scegliendo «Tutti».</p>
         </div>
         <ExportButton path={percorsoExport()} filename="audit_log" />

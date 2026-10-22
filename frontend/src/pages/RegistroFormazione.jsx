@@ -95,7 +95,7 @@ export default function RegistroFormazione() {
       {errore && <div className="error-msg">{errore}</div>}
       <div className="table-wrap">
         <table>
-          <thead><tr><th>Persona</th><th>Uffici</th><th>Corso</th><th>Edizione</th><th>Completato il</th><th>Scade il</th><th>Stato</th></tr></thead>
+          <thead><tr><th>Persona</th><th>Uffici</th><th>Corso</th><th>Sessione</th><th>Completato il</th><th>Scade il</th><th>Stato</th></tr></thead>
           <tbody>
             {righe.map((r, i) => (
               <tr key={i}>

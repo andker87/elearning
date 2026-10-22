@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { useLocation, useNavigate, useParams } from "react-router-dom";
+import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
 import api, { downloadFile, erroreDi } from "../api";
 import VideoPlayer from "../components/VideoPlayer";
 import EliminaSessione from "../components/EliminaSessione";
@@ -10,6 +10,9 @@ import { formattaDurata } from "../durata";
 import TestPlayer from "../components/TestPlayer";
 import Gradimento from "../components/Gradimento";
 import SessioneDiscente from "./SessioneDiscente";
+import MenuAzioni from "../components/MenuAzioni";
+import { MODALITA, STATI, quando } from "../sessioni";
+import { conferma } from "../components/conferma";
 
 // Una sessione ha due volti: chi la segue (discente) e chi la gestisce (Formazione, docenti della sessione).
 // Chi non gestisce vede sempre e solo la vista del discente; chi gestisce vede quella di gestione, tranne quando
@@ -97,7 +100,7 @@ function GestioneSessione() {
   const [eliminando, setEliminando] = useState(false);
   const [daSpostare, setDaSpostare] = useState(null);       // iscrizione da spostare su un'altra sessione dello stesso corso
   async function annulla(iscrizioneId) {
-    if (!window.confirm("Annullare questa iscrizione?")) return;
+    if (!(await conferma("La persona perde il posto; se c'è una lista d'attesa, sale la prima.", { titolo: "Annullare questa iscrizione?", etichetta: "Annulla l'iscrizione", pericolo: true }))) return;
     await tenta(async () => { await api.post(`/edizioni/${id}/iscrizioni/${iscrizioneId}/annulla`); load(); }, "Impossibile annullare l'iscrizione");
   }
   async function checkinDiscente(momento) {
@@ -137,7 +140,7 @@ function GestioneSessione() {
   }
 
   async function chiudi() {
-    if (!window.confirm("Chiudere la sessione? Le evidenze diventeranno definitive e verranno generati i certificati.")) return;
+    if (!(await conferma("Le presenze diventano definitive, si decide chi ha completato e si generano gli attestati. Dopo non si modifica più.", { titolo: "Chiudere la sessione?", etichetta: "Chiudi la sessione" }))) return;
     await tenta(async () => {
       const r = await api.post(`/edizioni/${id}/chiudi`);
       setMsg(`Sessione chiusa. Completati: ${r.data.esiti.filter((x) => x.completato).length}/${r.data.esiti.length}`);
@@ -150,24 +153,32 @@ function GestioneSessione() {
   return (
     <div>
       <div className="page-header">
-        <div><h2>Sessione — {edizione.modalita}</h2></div>
+        <div>
+          <div className="briciole">{isAdmin ? <Link to="/sessioni">Sessioni</Link> : <Link to="/mie-sessioni">Le mie sessioni da docente</Link>} / <span>{edizione.corso_titolo}</span></div>
+          <h2>{edizione.corso_titolo}</h2>
+          <p className="intestazione-meta">
+            <span className={`badge ${(STATI[edizione.stato] || ["gray"])[0]}`}>{(STATI[edizione.stato] || [, edizione.stato])[1]}</span>
+            {edizione.da_chiudere && <span className="badge yellow">da chiudere</span>}
+            <span>{MODALITA[edizione.modalita] || edizione.modalita} · {quando(edizione)}{edizione.luogo ? ` · ${edizione.luogo}` : ""}</span>
+          </p>
+        </div>
         {isAdmin && (
-          <div>
-            <button className="secondary" onClick={() => downloadFile(`/edizioni/${id}/report/iscrizioni.csv`, "report_iscrizioni.csv")}>Report iscrizioni CSV</button>{" "}
-            <button className="secondary" onClick={() => downloadFile(`/edizioni/${id}/report/gradimenti.csv`, "report_gradimenti.csv")}>Report gradimenti CSV</button>
-          </div>
+          <MenuAzioni etichetta="Esporta" icona="download" voci={[
+            { etichetta: "Iscrizioni (CSV)", azione: () => tenta(() => downloadFile(`/edizioni/${id}/report/iscrizioni.csv`, "report_iscrizioni.csv"), "Esportazione non riuscita") },
+            { etichetta: "Gradimento (CSV)", azione: () => tenta(() => downloadFile(`/edizioni/${id}/report/gradimenti.csv`, "report_gradimenti.csv"), "Esportazione non riuscita") },
+          ]} />
         )}
       </div>
       {msg && <div className="card card-muted">{msg}</div>}
 
       <div className="card">
-        <p><strong>Stato:</strong> <span className="badge gray">{edizione.stato}</span></p>
+        <p><strong>Stato:</strong> <span className={`badge ${(STATI[edizione.stato] || ["gray"])[0]}`}>{(STATI[edizione.stato] || [, edizione.stato])[1]}</span></p>
         <p>
           <strong>Data:</strong> {edizione.sempre_aperta ? "Sempre disponibile" : edizione.data_inizio ? new Date(edizione.data_inizio).toLocaleString("it-IT") : "-"}
           {edizione.data_inizio && !edizione.sempre_aperta && (
             <button type="button" className="secondary btn-sm" style={{ marginLeft: 10 }}
               onClick={() => downloadFile(`/edizioni/${id}/calendario.ics`, "sessione.ics")}>
-              📅 Aggiungi al calendario
+              Aggiungi al calendario
             </button>
           )}
         </p>

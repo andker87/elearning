@@ -154,7 +154,7 @@ export default function TemplateAttestati() {
     <div>
       <div className="page-header">
         <div>
-          <h2>Template attestati</h2>
+          <h2>Modelli di attestato</h2>
           <p>Carica uno sfondo grafico e posiziona i campi (nome, corso, data, ore...) con il mouse — stile stampa unione.</p>
         </div>
       </div>

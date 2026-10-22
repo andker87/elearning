@@ -36,8 +36,8 @@ export default function RichiestaCorso() {
     <div>
       <div className="page-header">
         <div>
-          <h2>Richiedi una sessione formativa</h2>
-          <p>Chiedi all'Ufficio Formazione di organizzare una sessione su un corso a catalogo o un nuovo argomento. Puoi segnalare le persone potenzialmente interessate per aiutare la valutazione della richiesta.</p>
+          <h2>Richiedi un corso</h2>
+          <p>Chiedi alla Formazione di organizzare una sessione su un corso a catalogo o un nuovo argomento. Puoi segnalare le persone potenzialmente interessate per aiutare la valutazione della richiesta.</p>
         </div>
       </div>
       <div className="card">

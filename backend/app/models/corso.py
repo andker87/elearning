@@ -29,6 +29,10 @@ class Corso(Base):
     # su richiesta approvata dalla Formazione. L'auto-iscrizione del dipendente e' un'impostazione a parte.
     iscrizione_responsabili = Column(String, nullable=False, default="solo_formazione", server_default="solo_formazione")
 
+    # Copertina (immagine 16:9, cifrata su disco); copertina_v cambia con l'immagine. Vedi services/copertine.py
+    copertina_path = Column(String, nullable=True)
+    copertina_v = Column(String, nullable=True)
+
     # Questionario di gradimento di questo corso; vuoto = quello predefinito (vedi models/questionario.py)
     questionario_gradimento_id = Column(UUID(as_uuid=True), ForeignKey("questionari_gradimento.id", ondelete="SET NULL"), nullable=True)
 

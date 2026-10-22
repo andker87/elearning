@@ -21,7 +21,7 @@ export default function RichiesteCorsoAdmin() {
 
   return (
     <div>
-      <div className="page-header"><div><h2>Richieste di sessione formativa</h2><p>Richieste dai responsabili, con le persone potenzialmente interessate segnalate.</p></div></div>
+      <div className="page-header"><div><h2>Richieste di corsi</h2><p>Richieste dai responsabili, con le persone potenzialmente interessate segnalate.</p></div></div>
       {errore && <div className="error-msg">{errore}</div>}
       <div className="table-wrap">
         <table>

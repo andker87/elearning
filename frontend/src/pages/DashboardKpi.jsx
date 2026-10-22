@@ -4,6 +4,7 @@ import api from "../api";
 import ExportButton from "../components/ExportButton";
 import { FiltroEtichette } from "../components/Etichette";
 import { elencoUffici } from "../uffici";
+import { MODALITA } from "../sessioni";
 
 const METRICHE = [
   { key: "tasso_completamento_pct", label: "Tasso di completamento %" },
@@ -17,7 +18,7 @@ const TABS = [
   { key: "per-corso", label: "Per corso" },
   { key: "per-docente", label: "Per docente" },
   { key: "andamento", label: "Andamento nel tempo" },
-  { key: "confronto-edizioni", label: "Confronto edizioni" },
+  { key: "confronto-edizioni", label: "Confronto sessioni" },
   { key: "confronto-versioni", label: "Confronto versioni" },
 ];
 
@@ -80,8 +81,8 @@ export default function DashboardKpi() {
     <div>
       <div className="page-header">
         <div>
-          <h2>Dashboard KPI</h2>
-          <p>Reportistica per corso, docente e periodo — confronti tra edizioni e tra versioni del contenuto.</p>
+          <h2>Indicatori</h2>
+          <p>Reportistica per corso, docente e periodo — confronti tra sessioni e tra versioni del contenuto.</p>
         </div>
       </div>
 
@@ -124,7 +125,7 @@ export default function DashboardKpi() {
 
       {riepilogo && (
         <div className="kpi-grid">
-          <div className="kpi-card"><div className="kpi-value">{riepilogo.n_edizioni}</div><div className="kpi-label">Edizioni</div></div>
+          <div className="kpi-card"><div className="kpi-value">{riepilogo.n_edizioni}</div><div className="kpi-label">Sessioni</div></div>
           <div className="kpi-card"><div className="kpi-value">{riepilogo.n_iscrizioni}</div><div className="kpi-label">Iscrizioni</div></div>
           <div className="kpi-card"><div className="kpi-value">{fmt(riepilogo.tasso_completamento_pct)}{riepilogo.tasso_completamento_pct !== null ? "%" : ""}</div><div className="kpi-label">Tasso completamento</div></div>
           <div className="kpi-card"><div className="kpi-value">{fmt(riepilogo.punteggio_test_medio)}</div><div className="kpi-label">Punteggio test medio</div></div>
@@ -157,7 +158,7 @@ export default function DashboardKpi() {
           </div>
           <div className="table-wrap">
             <table>
-              <thead><tr><th>Corso</th><th>Edizioni</th><th>Iscrizioni</th><th>Completamento</th><th>Punteggio test</th><th>Gradimento corso</th><th>Gradimento docenti</th><th>Ore</th></tr></thead>
+              <thead><tr><th>Corso</th><th>Sessioni</th><th>Iscrizioni</th><th>Completamento</th><th>Punteggio test</th><th>Gradimento corso</th><th>Gradimento docenti</th><th>Ore</th></tr></thead>
               <tbody>
                 {perCorso.map((r) => (
                   <tr key={r.corso_id}>
@@ -190,7 +191,7 @@ export default function DashboardKpi() {
           </div>
           <div className="table-wrap">
             <table>
-              <thead><tr><th>Docente</th><th>Edizioni</th><th>Iscrizioni</th><th>Completamento</th><th>Punteggio test</th><th>Gradimento corso</th><th>Gradimento docente</th></tr></thead>
+              <thead><tr><th>Docente</th><th>Sessioni</th><th>Iscrizioni</th><th>Completamento</th><th>Punteggio test</th><th>Gradimento corso</th><th>Gradimento docente</th></tr></thead>
               <tbody>
                 {perDocente.map((r) => (
                   <tr key={r.docente_id}>
@@ -223,7 +224,7 @@ export default function DashboardKpi() {
           </div>
           <div className="table-wrap">
             <table>
-              <thead><tr><th>Mese</th><th>Edizioni</th><th>Completati</th><th>Completamento</th><th>Punteggio test</th><th>Gradimento</th></tr></thead>
+              <thead><tr><th>Mese</th><th>Sessioni</th><th>Completati</th><th>Completamento</th><th>Punteggio test</th><th>Gradimento</th></tr></thead>
               <tbody>
                 {andamento.map((r) => (
                   <tr key={r.mese}>
@@ -240,10 +241,10 @@ export default function DashboardKpi() {
       )}
 
       {tab === "confronto-edizioni" && (
-        !filtri.corso_id ? <div className="card card-muted">Seleziona un corso per confrontare le sue edizioni.</div> : (
+        !filtri.corso_id ? <div className="card card-muted">Seleziona un corso per confrontare le sue sessioni.</div> : (
           <>
             <div className="card">
-              <div className="flex-between"><h3>Confronto edizioni — {metricaLabel}</h3><ExportButton path={exportPath("confronto-edizioni")} filename="kpi_confronto_edizioni" /></div>
+              <div className="flex-between"><h3>Confronto sessioni — {metricaLabel}</h3><ExportButton path={exportPath("confronto-edizioni")} filename="kpi_confronto_edizioni" /></div>
               <ResponsiveContainer width="100%" height={260}>
                 <BarChart data={confrontoEdizioni.map((r, i) => ({ ...r, etichetta: r.data_inizio ? new Date(r.data_inizio).toLocaleDateString("it-IT") : `#${i + 1}` }))}>
                   <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
@@ -261,14 +262,14 @@ export default function DashboardKpi() {
                   {confrontoEdizioni.map((r) => (
                     <tr key={r.edizione_id}>
                       <td>{r.data_inizio ? new Date(r.data_inizio).toLocaleDateString("it-IT") : "-"}</td>
-                      <td>{r.modalita}</td>
+                      <td>{MODALITA[r.modalita] || r.modalita}</td>
                       <td>{r.versione_corso ? <span className="badge gray">v{r.versione_corso}</span> : "-"}</td>
                       <td>{r.n_iscrizioni}</td>
                       <td>{fmt(r.tasso_completamento_pct)}{r.tasso_completamento_pct !== null ? "%" : ""}</td>
                       <td>{fmt(r.punteggio_test_medio)}</td><td>{fmt(r.gradimento_corso_medio)}</td>
                     </tr>
                   ))}
-                  {confrontoEdizioni.length === 0 && <tr><td colSpan={7} className="empty-state">Nessuna edizione per questo corso con i filtri selezionati.</td></tr>}
+                  {confrontoEdizioni.length === 0 && <tr><td colSpan={7} className="empty-state">Nessuna sessione per questo corso con i filtri selezionati.</td></tr>}
                 </tbody>
               </table>
             </div>

@@ -201,14 +201,14 @@ def pacchetto_ispezione(request: Request, ufficio_id: Optional[str] = Query(None
         for n, ev in enumerate(evidenze.get(str(r["iscrizione_id"]), []), start=1):
             ext = (ev.file_allegato_path.rsplit(".", 1)[-1] if "." in ev.file_allegato_path else "bin")[:5]
             docs.append((f"attestati_esterni/{persona}", f"{_nome_file(r['corso'])}_{n}.{ext}", ev.file_allegato_path,
-                         [r["persona"], r["email"], r["corso"], "attestato esterno caricato dall'Ufficio Formazione", "", r["data_completamento"]]))
+                         [r["persona"], r["email"], r["corso"], "attestato esterno caricato dalla Formazione", "", r["data_completamento"]]))
     docs = [d for d in docs if os.path.exists(d[2])]  # il limite conta i file che finiranno davvero nello ZIP
     if len(docs) > MAX_FILE_PACCHETTO:
         raise HTTPException(400, f"Il perimetro contiene {len(docs)} documenti (massimo {MAX_FILE_PACCHETTO}): restringilo per ufficio, persona, corso o periodo.")
 
     azienda = db.query(Azienda).first()
     logo = azienda.logo_path if azienda else None
-    colonne_reg = ["Persona", "Email", "Uffici", "Corso", "Etichette", "Data edizione", "Stato iscrizione", "Data completamento", "Scade il", "Stato compliance", "Aggiornamento disponibile"]
+    colonne_reg = ["Persona", "Email", "Uffici", "Corso", "Etichette", "Data della sessione", "Stato iscrizione", "Data completamento", "Scade il", "Stato compliance", "Aggiornamento disponibile"]
     dati_reg = [[r["persona"], r["email"], "; ".join(r["uffici"]), r["corso"], "; ".join(r["etichette"]), r["data_edizione"], r["stato_iscrizione"],
                  r["data_completamento"], r["scade_il"], r["stato_compliance"], r["aggiornamento_disponibile"]] for r in righe]
     col_m, dati_m = _tabella_matrice(costruisci_matrice(db, ufficio_id, solo_obbligatori=False, etichette=etichette)) if not user_id else (None, None)
@@ -235,7 +235,7 @@ def pacchetto_ispezione(request: Request, ufficio_id: Optional[str] = Query(None
         f"Contenuto\n- registro_formazione.xlsx / .pdf: una riga per persona e corso con stato, data di completamento e scadenza ({len(dati_reg)} righe)\n"
         + ("- matrice_formativa.xlsx: persone x corsi con lo stato di ciascuna cella\n" if col_m else "")
         + f"- attestati/: attestati emessi dalla piattaforma ({sum(1 for d in docs if d[0].startswith('attestati/'))})\n"
-        f"- attestati_esterni/: attestati di corsi esterni caricati dall'Ufficio Formazione ({sum(1 for d in docs if d[0].startswith('attestati_esterni/'))})\n"
+        f"- attestati_esterni/: attestati di corsi esterni caricati dalla Formazione ({sum(1 for d in docs if d[0].startswith('attestati_esterni/'))})\n"
         "- indice_documenti.csv: collega ogni documento a persona, corso e codice di verifica\n\n"
         "Verifica di autenticità\nOgni attestato emesso dalla piattaforma riporta un codice di verifica. "
         + (f"Si controlla su {base_url}/api/certificati/verifica/<codice>.\n" if base_url else "Si controlla con il servizio pubblico di verifica della piattaforma.\n")
