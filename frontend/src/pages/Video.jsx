@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import api, { erroreDi } from "../api";
 import VideoPlayer from "../components/VideoPlayer";
+import { conferma } from "../components/conferma";
 
 const SCHEDE = [{ id: "elenco", label: "Elenco video" }, { id: "carica", label: "Carica video" }];
 const STATO = { caricato: "gray", in_elaborazione: "yellow", pronto: "green", errore: "red" };
@@ -53,7 +54,7 @@ function Pannello({ v, ricarica, chiudi, setErrore }) {
     await esegui(() => api.post(`/video/${v.id}/sottotitoli`, fd, { headers: { "Content-Type": "multipart/form-data" } }), "Sottotitoli non caricati");
   }
   async function eliminaVideo() {
-    if (!window.confirm(`Eliminare il video «${v.titolo}»? I suoi file vengono cancellati e non si può annullare.`)) return;
+    if (!(await conferma("I suoi file vengono cancellati e non si può annullare.", { titolo: `Eliminare il video «${v.titolo}»?`, etichetta: "Elimina il video", pericolo: true }))) return;
     if (await esegui(() => api.delete(`/video/${v.id}`), "Video non eliminato")) chiudi();
   }
 
@@ -100,7 +101,7 @@ function Pannello({ v, ricarica, chiudi, setErrore }) {
             <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
               {v.ha_sottotitoli ? <span className="badge green">caricati</span> : <span className="badge gray">nessuno</span>}
               <input type="file" accept=".vtt" aria-label="Carica o sostituisci i sottotitoli" style={{ width: "auto" }} onChange={(e) => { if (e.target.files[0]) { caricaSottotitoli(e.target.files[0]); e.target.value = ""; } }} />
-              {v.ha_sottotitoli && <button type="button" className="danger btn-sm" onClick={() => window.confirm("Togliere i sottotitoli?") && esegui(() => api.delete(`/video/${v.id}/sottotitoli`), "Sottotitoli non eliminati")}>Elimina i sottotitoli</button>}
+              {v.ha_sottotitoli && <button type="button" className="danger btn-sm" onClick={async () => (await conferma("Il file dei sottotitoli viene eliminato.", { titolo: "Togliere i sottotitoli?", etichetta: "Elimina i sottotitoli", pericolo: true })) && esegui(() => api.delete(`/video/${v.id}/sottotitoli`), "Sottotitoli non eliminati")}>Elimina i sottotitoli</button>}
             </div>
           </div>
 

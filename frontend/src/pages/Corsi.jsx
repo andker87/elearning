@@ -282,7 +282,7 @@ export default function Corsi() {
       <div className="page-header">
         <div>
           <h2>Corsi</h2>
-          <p>Definizione del corso, indipendente da come viene erogato: la modalità si sceglie per ogni Edizione. Le etichette si definiscono in <Link to="/etichette">Etichette dei corsi</Link>.</p>
+          <p>Definizione del corso, indipendente da come viene erogato: la modalità si sceglie per ogni sessione. Le etichette si definiscono in <Link to="/etichette">Etichette dei corsi</Link>.</p>
         </div>
         <ExportButton path="/corsi-export/elenco" filename="corsi" />
       </div>

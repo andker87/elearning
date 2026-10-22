@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import api, { erroreDi } from "../api";
 import { aggiornaCacheFamiglie } from "../components/Etichette";
+import { conferma } from "../components/conferma";
 
 function Famiglia({ f, onCambiato, setErrore }) {
   const [nuova, setNuova] = useState("");
@@ -58,7 +59,7 @@ function Famiglia({ f, onCambiato, setErrore }) {
                   {!e.archiviata && attive.length > 1 && <><button type="button" className="secondary btn-sm" onClick={() => setUnisci({ id: e.id })}>Unisci...</button>{" "}</>}
                   {e.corsi > 0 || e.archiviata
                     ? <button type="button" className="secondary btn-sm" onClick={() => chiama(() => api.put(`/etichette/${e.id}`, { nome: e.nome, esclusiva: e.esclusiva, archiviata: !e.archiviata }))}>{e.archiviata ? "Ripristina" : "Archivia"}</button>
-                    : <button type="button" className="danger btn-sm" onClick={() => window.confirm(`Eliminare «${e.nome}»?`) && chiama(() => api.delete(`/etichette/${e.id}`))}>Elimina</button>}
+                    : <button type="button" className="danger btn-sm" onClick={async () => (await conferma("", { titolo: `Eliminare «${e.nome}»?`, etichetta: "Elimina", pericolo: true })) && chiama(() => api.delete(`/etichette/${e.id}`))}>Elimina</button>}
                 </td>
               </tr>
             ))}

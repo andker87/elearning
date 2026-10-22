@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import api, { erroreDi } from "../api";
 import SelettorePersone from "./SelettorePersone";
+import { conferma } from "./conferma";
 
 const RUOLI_DOCENTE = { titolare: "Docente principale", co_docente: "Co-docente" };
 
@@ -29,7 +30,7 @@ export function SezioneDocenti({ edizione, utenti, puoModificare, ricarica }) {
               <li key={d.user_id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "4px 0" }}>
                 <strong>{d.nome || d.user_id}</strong>
                 {d.ruolo === "co_docente" && <span className="badge gray" title="Affianca il docente principale">co-docente</span>}
-                {puoModificare && <button type="button" className="danger btn-sm" onClick={() => window.confirm(`Togliere ${d.nome || "questo docente"} dalla sessione?`) && agisci(() => api.delete(`/edizioni/${edizione.id}/docenti/${d.user_id}`), "Impossibile togliere il docente")}>Togli</button>}
+                {puoModificare && <button type="button" className="danger btn-sm" onClick={async () => (await conferma("Non insegnerà più in questa sessione.", { titolo: `Togliere ${d.nome || "questo docente"} dalla sessione?`, etichetta: "Togli il docente", pericolo: true })) && agisci(() => api.delete(`/edizioni/${edizione.id}/docenti/${d.user_id}`), "Impossibile togliere il docente")}>Togli</button>}
               </li>
             ))}
           </ul>

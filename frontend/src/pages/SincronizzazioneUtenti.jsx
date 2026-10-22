@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import api, { erroreDi } from "../api";
+import { conferma } from "../components/conferma";
 
 const data = (d) => (d ? new Date(d).toLocaleString("it-IT") : "-");
 
@@ -37,7 +38,7 @@ export default function SincronizzazioneUtenti() {
   }
 
   async function applica(forza) {
-    if (!window.confirm("Applicare le modifiche mostrate? Chi viene disattivato perde l'accesso e le sue iscrizioni aperte vengono annullate (lo storico resta).")) return;
+    if (!(await conferma("Chi viene disattivato perde l'accesso e le sue iscrizioni aperte vengono annullate (lo storico resta).", { titolo: "Applicare le modifiche mostrate?", etichetta: "Applica le modifiche" }))) return;
     setLavoro(true); setErrore(null);
     try {
       const r = await api.post("/admin/entra/applica", null, { params: { riattiva, forza, impronta: piano?.impronta } });

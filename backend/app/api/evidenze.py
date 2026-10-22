@@ -27,12 +27,12 @@ router = APIRouter(prefix="/api/edizioni/{edizione_id}", tags=["evidenze"])
 
 def _get_edizione(db, edizione_id):
     e = db.query(Edizione).filter(Edizione.id == edizione_id).first()
-    if not e: raise HTTPException(404, "Edizione non trovata")
+    if not e: raise HTTPException(404, "Sessione non trovata")
     return e
 
 def _get_iscrizione(db, edizione_id, user_id):
     i = db.query(Iscrizione).filter(Iscrizione.edizione_id == edizione_id, Iscrizione.user_id == user_id).first()
-    if not i: raise HTTPException(400, "Utente non iscritto a questa edizione")
+    if not i: raise HTTPException(400, "Persona non iscritta a questa sessione")
     return i
 
 # --- Checkin discente (self, in attesa di validazione docente) ---
@@ -43,7 +43,7 @@ class CheckinDiscenteIn(BaseModel):
 @router.post("/checkin/discente")
 def checkin_discente(edizione_id: str, data: CheckinDiscenteIn, request: Request, db: Session = Depends(get_db), user=Depends(get_current_user)):
     e = _get_edizione(db, edizione_id)
-    if e.stato == StatoEdizione.chiusa: raise HTTPException(400, "Edizione già chiusa")
+    if e.stato == StatoEdizione.chiusa: raise HTTPException(400, "Sessione già chiusa")
     i = _get_iscrizione(db, edizione_id, user.id)
     ev = db.query(Evidenza).filter(Evidenza.iscrizione_id == i.id, Evidenza.fonte == FonteEvidenza.checkin_discente).first()
     if not ev:
@@ -70,8 +70,8 @@ class PresenzaRiga(BaseModel):
 def checkin_docente(edizione_id: str, righe: List[PresenzaRiga], request: Request, db: Session = Depends(get_db), user=Depends(get_current_user)):
     e = _get_edizione(db, edizione_id)
     if not (_is_docente(e, user) or user.ha_poteri_formazione):
-        raise HTTPException(403, "Solo il docente dell'edizione può compilare il registro")
-    if e.stato == StatoEdizione.chiusa: raise HTTPException(400, "Edizione già chiusa")
+        raise HTTPException(403, "Solo un docente della sessione può compilare il registro delle presenze")
+    if e.stato == StatoEdizione.chiusa: raise HTTPException(400, "Sessione già chiusa")
     now = datetime.now(timezone.utc)
     registrati = []
     for r in righe:
@@ -111,7 +111,7 @@ async def teams_crea_riunione(edizione_id: str, request: Request, db: Session = 
     docente = next((d for d in e.docenti), None)
     organizer = db.query(User).filter(User.id == docente.user_id).first() if docente else None
     if not organizer:
-        raise HTTPException(400, "Assegna prima un docente all'edizione")
+        raise HTTPException(400, "Assegna prima un docente alla sessione")
     corso = db.query(Corso).filter(Corso.id == e.corso_id).first()
     risultato = await graph_svc.crea_riunione(
         organizer.email, corso.titolo if corso else "Formazione",
@@ -242,7 +242,7 @@ def _test_permette_completamento(db: Session, iscrizione: Iscrizione, corso: Cor
 def chiudi_edizione(edizione_id: str, request: Request, db: Session = Depends(get_db), user=Depends(get_current_user)):
     e = _get_edizione(db, edizione_id)
     if not (_is_docente(e, user) or user.ha_poteri_formazione):
-        raise HTTPException(403, "Solo un docente dell'edizione o l'ufficio formazione può chiudere l'edizione")
+        raise HTTPException(403, "Solo un docente della sessione o la Formazione può chiudere la sessione")
     if e.stato == StatoEdizione.chiusa:
         raise HTTPException(400, "Già chiusa")
 

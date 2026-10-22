@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
-import { useParams } from "react-router-dom";
+import { Link, useParams } from "react-router-dom";
 import api, { downloadFile } from "../api";
+import { conferma } from "../components/conferma";
 
 function nuovaDomanda() {
   return { testo: "", ordine: 0, opzioni: [{ testo: "", corretta: true }, { testo: "", corretta: false }] };
@@ -54,7 +55,7 @@ export default function TestCorso() {
   }
 
   async function elimina(id) {
-    if (!window.confirm("Eliminare questo test?")) return;
+    if (!(await conferma("", { titolo: "Eliminare questo test?", etichetta: "Elimina il test", pericolo: true }))) return;
     await api.delete(`/test/${id}`);
     load();
   }
@@ -63,7 +64,8 @@ export default function TestCorso() {
     <div>
       <div className="page-header">
         <div>
-          <h2>Test — {corso?.titolo}</h2>
+          <div className="briciole"><Link to="/corsi">Corsi</Link> / <span>{corso?.titolo}</span></div>
+          <h2>Test del corso «{corso?.titolo}»</h2>
           <p>Domande a risposta singola, personalizzabili per momento (iniziale/intermedio/finale) e soglia di superamento.</p>
         </div>
       </div>

@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
 import api, { apriFile, erroreDi } from "../api";
+import { conferma } from "../components/conferma";
 
 export default function InformativaPrivacy() {
   const [info, setInfo] = useState(null);
@@ -26,8 +27,8 @@ export default function InformativaPrivacy() {
     fd.append("file", file);
     esegui(() => api.post("/privacy/informativa/pdf", fd), "PDF caricato");
   };
-  const rimuoviPdf = () => {
-    if (!window.confirm("Rimuovere il PDF dell'informativa?")) return;
+  const rimuoviPdf = async () => {
+    if (!(await conferma("", { titolo: "Rimuovere il PDF dell'informativa?", etichetta: "Rimuovi il PDF", pericolo: true }))) return;
     esegui(() => api.delete("/privacy/informativa/pdf"), "PDF rimosso");
   };
 

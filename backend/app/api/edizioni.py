@@ -177,7 +177,7 @@ def update_edizione(edizione_id: str, data: EdizioneIn, request: Request, db: Se
     e = db.query(Edizione).options(joinedload(Edizione.docenti)).filter(Edizione.id == edizione_id).first()
     if not e: raise HTTPException(404)
     if e.stato == StatoEdizione.chiusa:
-        raise HTTPException(400, "Edizione chiusa: non modificabile")
+        raise HTTPException(400, "Sessione chiusa: non si modifica più")
     for k, v in data.model_dump().items(): setattr(e, k, v)
     e.durata_minuti = _durata_propria(db, data.corso_id, data.durata_minuti)
     db.flush()
@@ -293,7 +293,7 @@ def aggiungi_docente(edizione_id: str, data: DocenteIn, request: Request, db: Se
     e = db.query(Edizione).filter(Edizione.id == edizione_id).first()
     if not e: raise HTTPException(404)
     esiste = db.query(EdizioneDocente).filter(EdizioneDocente.edizione_id == edizione_id, EdizioneDocente.user_id == data.user_id).first()
-    if esiste: raise HTTPException(400, "Già docente su questa edizione")
+    if esiste: raise HTTPException(400, "È già docente di questa sessione")
     docente = db.query(User).filter(User.id == data.user_id, User.is_active == True).first()  # noqa: E712
     if not docente: raise HTTPException(404, "Persona non trovata")
     if not docente.puo_essere_docente:

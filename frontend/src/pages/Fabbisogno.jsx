@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import api, { erroreDi } from "../api";
 import AlberoOrigine from "../components/AlberoOrigine";
+import { conferma } from "../components/conferma";
 
 const PERIODI = [{ value: "", label: "Periodo..." }, { value: "mese", label: "Mese" }, { value: "trimestre", label: "Trimestre" },
                  { value: "semestre", label: "Semestre" }, { value: "anno", label: "Anno" }];
@@ -254,7 +255,7 @@ export default function Fabbisogno() {
 
   const avvisa = (testo) => { setMsg(testo); setTimeout(() => setMsg(null), 6000); };
   async function delega(invito) {
-    if (!window.confirm(`Inoltrare l'invito ai sotto-uffici di ${invito.ufficio_nome} (${invito.sotto_uffici.join(", ")})? Poi non potrai più rispondere tu per questa campagna.`)) return;
+    if (!(await conferma(`Va ai sotto-uffici di ${invito.ufficio_nome} (${invito.sotto_uffici.join(", ")}). Poi non potrai più rispondere tu per questa campagna.`, { titolo: "Inoltrare l'invito ai sotto-uffici?", etichetta: "Inoltra l'invito" }))) return;
     setErroreGen(null);
     try { await api.post(`/fabbisogno/inviti/${invito.id}/delega`); avvisa("Invito inoltrato ai sotto-uffici."); }
     catch (err) { setErroreGen(erroreDi(err, "Non è stato possibile inoltrare l'invito")); }
@@ -269,14 +270,14 @@ export default function Fabbisogno() {
     avvisa(`Richiesta inviata: ${righe.length} ${righe.length === 1 ? "esigenza" : "esigenze"}.`); load();
   }
   async function scomponi(r) {
-    if (!window.confirm(`Annullare l'unione «${r.argomento}»? Le ${r.n_origini} richieste tornano da valutare, come prima.`)) return;
+    if (!(await conferma(`Le ${r.n_origini} richieste tornano da valutare, come prima.`, { titolo: `Annullare l'unione «${r.argomento}»?`, etichetta: "Annulla l'unione" }))) return;
     try { await api.post(`/fabbisogno/richieste/${r.id}/scomponi`); avvisa("Unione annullata: le richieste sono di nuovo da valutare."); load(); }
     catch (err) { avvisa(erroreDi(err, "Non è stato possibile annullare l'unione")); }
   }
 
   return (
     <div>
-      <div className="page-header"><div><h2>Richieste di formazione</h2><p>Segnala le esigenze di formazione del tuo ufficio per il periodo successivo: rispondendo a una campagna della Formazione o, in qualsiasi momento, con una richiesta spontanea.</p></div></div>
+      <div className="page-header"><div><h2>Fabbisogno del mio ufficio</h2><p>Segnala le esigenze di formazione del tuo ufficio per il periodo successivo: rispondendo a una campagna della Formazione o, in qualsiasi momento, con una richiesta spontanea.</p></div></div>
       {erroreGen && <div className="error-msg">{erroreGen}</div>}
       {msg && <div className="card" style={{ color: "var(--green-text)", background: "var(--green-bg)", borderColor: "transparent" }}>{msg}</div>}
 

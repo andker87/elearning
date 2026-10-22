@@ -201,7 +201,7 @@ def _applica_policy_test(db: Session, iscrizione: Iscrizione, corso: Corso, supe
         return {"messaggio": "Test non superato: puoi ritentare."}
     if azione == "rifai_corso":
         iscrizione.stato = StatoIscrizione.non_completato
-        return {"messaggio": "Test non superato: il corso va rifatto da capo in una nuova edizione."}
+        return {"messaggio": "Test non superato: il corso va rifatto da capo in un'altra sessione."}
     if azione == "concludi_scadenza_breve" and corso.giorni_scadenza_breve:
         iscrizione.ripeti_entro = datetime.now(timezone.utc) + timedelta(days=corso.giorni_scadenza_breve)
         return {"messaggio": f"Test non superato: dovrai ripetere il corso entro {corso.giorni_scadenza_breve} giorni."}

@@ -112,7 +112,7 @@ def registro_export(formato: str = Query("csv"), pagina: str = Query("A4"),
                      da: Optional[datetime] = Query(None), a: Optional[datetime] = Query(None),
                      db: Session = Depends(get_db), user=Depends(require_training_admin)):
     righe_dati = [r for r in _righe(db, ufficio_id, da, a, corso_id, corsi_con_etichette(db, etichette)) if not user_id or r["user_id"] == user_id]
-    colonne = ["Persona", "Email", "Uffici", "Corso", "Etichette", "Data edizione", "Stato iscrizione",
+    colonne = ["Persona", "Email", "Uffici", "Corso", "Etichette", "Data della sessione", "Stato iscrizione",
                "Data completamento", "Scade il", "Stato compliance", "Aggiornamento disponibile"]
     righe = [[
         r["persona"], r["email"], "; ".join(r["uffici"]), r["corso"], "; ".join(r["etichette"]),

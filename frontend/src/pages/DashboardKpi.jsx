@@ -4,6 +4,7 @@ import api from "../api";
 import ExportButton from "../components/ExportButton";
 import { FiltroEtichette } from "../components/Etichette";
 import { elencoUffici } from "../uffici";
+import { MODALITA } from "../sessioni";
 
 const METRICHE = [
   { key: "tasso_completamento_pct", label: "Tasso di completamento %" },
@@ -17,7 +18,7 @@ const TABS = [
   { key: "per-corso", label: "Per corso" },
   { key: "per-docente", label: "Per docente" },
   { key: "andamento", label: "Andamento nel tempo" },
-  { key: "confronto-edizioni", label: "Confronto edizioni" },
+  { key: "confronto-edizioni", label: "Confronto sessioni" },
   { key: "confronto-versioni", label: "Confronto versioni" },
 ];
 
@@ -80,7 +81,7 @@ export default function DashboardKpi() {
     <div>
       <div className="page-header">
         <div>
-          <h2>Dashboard KPI</h2>
+          <h2>Indicatori</h2>
           <p>Reportistica per corso, docente e periodo — confronti tra edizioni e tra versioni del contenuto.</p>
         </div>
       </div>
@@ -261,7 +262,7 @@ export default function DashboardKpi() {
                   {confrontoEdizioni.map((r) => (
                     <tr key={r.edizione_id}>
                       <td>{r.data_inizio ? new Date(r.data_inizio).toLocaleDateString("it-IT") : "-"}</td>
-                      <td>{r.modalita}</td>
+                      <td>{MODALITA[r.modalita] || r.modalita}</td>
                       <td>{r.versione_corso ? <span className="badge gray">v{r.versione_corso}</span> : "-"}</td>
                       <td>{r.n_iscrizioni}</td>
                       <td>{fmt(r.tasso_completamento_pct)}{r.tasso_completamento_pct !== null ? "%" : ""}</td>

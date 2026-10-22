@@ -206,4 +206,4 @@ def esporta_audit(
              r.entity_type or "", r.entity_id or "", r.entity_name or "", r.detail or "", r.ip_address or ""] for r in righe]
     if totale > limite:  # il taglio non deve passare inosservato: l'ultima riga del file lo dice
         dati.append(["", "", "ATTENZIONE", "", "", "", f"Esportate {limite} righe su {totale}: restringi i filtri o usa Excel", ""])
-    return esporta(formato, "audit_log", "Audit log", colonne, dati, pagina)
+    return esporta(formato, "registro_attivita", "Registro attività", colonne, dati, pagina)

@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import api, { downloadFile, apriFile, erroreDi } from "../api";
 import { REQUISITI_PASSWORD } from "../passwordPolicy";
 import { pushSupportato, statoSottoscrizione, attivaPush, disattivaPush } from "../push";
+import { conferma } from "../components/conferma";
 
 const SCHEDE = [
   { id: "account", label: "Account" },
@@ -102,7 +103,7 @@ export default function ImpostazioniUtente() {
   }
 
   async function rigeneraLinkCalendario() {
-    if (calendarioAttivo && !window.confirm("Il link attuale smetterà di funzionare nei calendari dove l'hai già aggiunto. Continuare?")) return;
+    if (calendarioAttivo && !(await conferma("Il link attuale smetterà di funzionare nei calendari dove l'hai già aggiunto.", { titolo: "Creare un nuovo link del calendario?", etichetta: "Crea un nuovo link" }))) return;
     setCalendarioErrore(null);
     try {
       const r = await api.post("/calendario/url/rigenera");

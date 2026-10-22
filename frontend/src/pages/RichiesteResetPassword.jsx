@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import api, { erroreDi } from "../api";
+import { conferma } from "../components/conferma";
 
 export default function RichiesteResetPassword() {
   const [dati, setDati] = useState({ richieste: [], smtp_attivo: false });
@@ -10,7 +11,7 @@ export default function RichiesteResetPassword() {
   useEffect(carica, []);
 
   async function genera(r) {
-    if (!window.confirm(`Assegnare una password temporanea a ${r.utente?.nome}? Le sessioni aperte verranno chiuse.`)) return;
+    if (!(await conferma("Le sessioni aperte di questa persona verranno chiuse.", { titolo: `Assegnare una password temporanea a ${r.utente?.nome}?`, etichetta: "Assegna la password" }))) return;
     setErrore(null);
     try { const res = await api.post(`/auth/password-reset-richieste/${r.id}/genera`); setGenerata(res.data); carica(); }
     catch (err) { setErrore(erroreDi(err, "Errore")); }
@@ -18,7 +19,7 @@ export default function RichiesteResetPassword() {
 
   return (
     <div>
-      <div className="page-header"><div><h2>Reset password</h2>
+      <div className="page-header"><div><h2>Richieste di nuova password</h2>
         <p>Richieste di chi ha dimenticato la password. {dati.smtp_attivo ? "L'invio email è attivo: chi chiede il reset riceve un link e non compare qui." : "L'invio email non è attivo: le richieste arrivano qui e la password temporanea va comunicata a parte."}</p></div></div>
       {errore && <div className="error-msg">{errore}</div>}
       {generata && (

@@ -106,7 +106,7 @@ export default function Edizioni() {
   return (
     <div>
       {daEliminare && <EliminaSessione sessioneId={daEliminare.id} nome={daEliminare.corso_titolo || "questo corso"} onChiudi={() => setDaEliminare(null)} onEliminata={() => { setDaEliminare(null); load(); }} />}
-      <div className="page-header"><div><h2>Sessioni</h2><p>Le singole edizioni di un corso: quando, dove, chi insegna e chi partecipa.</p></div></div>
+      <div className="page-header"><div><h2>Sessioni</h2><p>Le singole sessioni di un corso: quando, dove, chi insegna e chi partecipa.</p></div></div>
       <div className="tabs">
         {SCHEDE.map((x) => <button type="button" aria-pressed={scheda === x.id} key={x.id} className={`tab ${scheda === x.id ? "active" : ""}`} onClick={() => setScheda(x.id)}>{x.label}</button>)}
       </div>

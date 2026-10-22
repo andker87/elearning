@@ -13,7 +13,7 @@ const ERRORI_SSO = {
   token_non_valido: "La risposta del provider aziendale non è valida.",
   email_assente: "Il provider aziendale non ha fornito un indirizzo email.",
   email_non_verificata: "L'indirizzo email dell'account aziendale non è verificato.",
-  utente_non_abilitato: "Il tuo account aziendale non è abilitato a questa piattaforma: contatta l'Ufficio Formazione.",
+  utente_non_abilitato: "Il tuo account aziendale non è abilitato a questa piattaforma: contatta la Formazione.",
   utente_disabilitato: "Il tuo utente è disabilitato.",
   esterno_non_ammesso: "Gli utenti esterni accedono con email e password.",
   admin_non_collegabile: "L'account di Admin tecnico entra con email e password: non si collega all'accesso aziendale.",
