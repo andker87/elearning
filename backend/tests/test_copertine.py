@@ -156,3 +156,20 @@ def test_la_sostituzione_non_tocca_la_vecchia_finche_il_database_non_conferma(cl
     assert carica(client, auth, formazione, c, immagine(colore=(0, 0, 200))).status_code == 200
     db.expire_all(); nuovo = db.get(Corso, c.id).copertina_path
     assert nuovo != vecchio and not os.path.exists(vecchio) and os.path.isfile(nuovo)
+
+
+def test_togliere_la_copertina_non_cancella_il_file_se_il_database_non_conferma(client, auth, formazione, crea_corso, db, monkeypatch):
+    c = crea_corso("Excel")
+    carica(client, auth, formazione, c, immagine())
+    db.expire_all(); percorso = db.get(Corso, c.id).copertina_path
+    from app.api import corsi as api_corsi
+    originale = api_corsi.audit_svc.log_from_request
+    def guasto(*a, **k): raise RuntimeError("database non raggiungibile")
+    monkeypatch.setattr(api_corsi.audit_svc, "log_from_request", guasto)
+    with pytest.raises(RuntimeError):
+        client.delete(f"/api/corsi/{c.id}/copertina", headers=auth(formazione))
+    db.expire_all()
+    assert db.get(Corso, c.id).copertina_path == percorso and os.path.isfile(percorso)
+    monkeypatch.setattr(api_corsi.audit_svc, "log_from_request", originale)
+    assert client.delete(f"/api/corsi/{c.id}/copertina", headers=auth(formazione)).status_code == 200
+    assert not os.path.exists(percorso)

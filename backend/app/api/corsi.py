@@ -253,11 +253,12 @@ def carica_copertina(corso_id: str, request: Request, file: UploadFile = File(..
 def togli_copertina(corso_id: str, request: Request, db: Session = Depends(get_db), user=Depends(require_training_admin)):
     c = db.query(Corso).filter(Corso.id == corso_id).first()
     if not c: raise HTTPException(404)
-    copertine_svc.rimuovi_file(c.copertina_path)
+    vecchia = c.copertina_path
     c.copertina_path = None
     c.copertina_v = None
     audit_svc.log_from_request(db, request, user, "UPDATE", entity_type="corso", entity_id=str(c.id), entity_name=c.titolo, detail="copertina tolta")
     db.commit()
+    copertine_svc.rimuovi_file(vecchia)          # solo a salvataggio riuscito: se fallisce, il file c'e' ancora
     return {"ok": True}
 
 
