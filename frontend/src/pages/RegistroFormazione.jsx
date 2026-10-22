@@ -3,6 +3,8 @@ import api, { downloadFile } from "../api";
 import ExportButton from "../components/ExportButton";
 import { FiltroEtichette } from "../components/Etichette";
 import { elencoUffici } from "../uffici";
+import { dataIt } from "../date";
+import { usePersone } from "../persone";
 
 const BADGE = { valido: "green", scaduto: "red", non_completato: "red", in_corso: "gray", non_applicabile: "green", da_aggiornare: "red" };
 const LABEL = { valido: "valido", scaduto: "scaduto", non_completato: "non completato", in_corso: "in corso", non_applicabile: "completato", da_aggiornare: "da aggiornare (nuova versione)" };
@@ -11,12 +13,11 @@ export default function RegistroFormazione() {
   const [righe, setRighe] = useState([]);
   const [uffici, setUffici] = useState([]);
   const [filtri, setFiltri] = useState({ ufficio_id: "", da: "", a: "", user_id: "", etichette: [] });
-  const [persone, setPersone] = useState([]);
+  const persone = usePersone();
   const [scarico, setScarico] = useState(false);
   const [errore, setErrore] = useState(null);
 
   useEffect(() => { api.get("/groups").then((r) => setUffici(elencoUffici(r.data))); }, []);
-  useEffect(() => { api.get("/auth/users/simple").then((r) => setPersone(r.data)); }, []);
 
   function carica() {
     const params = {};
@@ -102,9 +103,9 @@ export default function RegistroFormazione() {
                 <td>{r.persona}<br /><span className="text-muted" style={{ fontSize: 12 }}>{r.email}</span></td>
                 <td>{r.uffici.join(", ")}</td>
                 <td>{r.corso}</td>
-                <td>{r.data_edizione ? new Date(r.data_edizione).toLocaleDateString("it-IT") : "-"}</td>
-                <td>{r.data_completamento ? new Date(r.data_completamento).toLocaleDateString("it-IT") : "-"}</td>
-                <td>{r.scade_il ? new Date(r.scade_il).toLocaleDateString("it-IT") : "-"}</td>
+                <td>{dataIt(r.data_edizione, "-")}</td>
+                <td>{dataIt(r.data_completamento, "-")}</td>
+                <td>{dataIt(r.scade_il, "-")}</td>
                 <td>
                   <span className={`badge ${BADGE[r.stato_compliance]}`}>{LABEL[r.stato_compliance]}</span>{" "}
                   {r.aggiornamento_disponibile && <span className="badge gray">aggiornamento disponibile</span>}

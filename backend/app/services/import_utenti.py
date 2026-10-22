@@ -73,7 +73,7 @@ def _leggi_csv(contenuto: bytes) -> list:
     delimitatore = ";" if righe[0].count(";") > righe[0].count(",") else ","
     lettore = csv.reader(io.StringIO(testo), delimiter=delimitatore)
     try:
-        return [(n, [c for c in riga]) for n, riga in enumerate(lettore, start=1)]
+        return [(n, list(riga)) for n, riga in enumerate(lettore, start=1)]
     except csv.Error:
         raise HTTPException(400, "Il CSV non si riesce a leggere: controlla le virgolette (una che si apre e non si chiude, o un campo enorme) oppure salva il file come Excel (.xlsx)")
 

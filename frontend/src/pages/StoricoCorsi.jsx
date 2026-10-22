@@ -3,8 +3,8 @@ import { Link } from "react-router-dom";
 import api, { apriFile, downloadFile, erroreDi } from "../api";
 import { MODALITA } from "../sessioni";
 import { formattaDurata } from "../durata";
+import { dataIt } from "../date";
 
-const giorno = (d) => (d ? new Date(d).toLocaleDateString("it-IT") : "—");
 
 export default function StoricoCorsi() {
   // null = in caricamento, "errore" = richiesta fallita, altrimenti l'elenco: i due caricamenti sono indipendenti
@@ -54,14 +54,14 @@ export default function StoricoCorsi() {
               <tr key={chiave}>
                 <td><Link to={`/sessioni/${i.edizione_id}?segui=1`}>{i.corso_titolo}</Link></td>
                 <td>{MODALITA[i.edizione_modalita] || i.edizione_modalita}</td>
-                <td style={{ whiteSpace: "nowrap" }}>{giorno(c?.data_corso || i.edizione_data_inizio || i.completato_at)}</td>
+                <td style={{ whiteSpace: "nowrap" }}>{dataIt(c?.data_corso || i.edizione_data_inizio || i.completato_at)}</td>
                 <td style={{ whiteSpace: "nowrap" }}>{(c?.durata_minuti || i.durata_effettiva_minuti) ? formattaDurata(c?.durata_minuti || i.durata_effettiva_minuti) : "—"}</td>
                 <td>
                   <span className={`badge ${i.stato === "completato" ? "green" : "red"}`}>{i.stato === "completato" ? "completato" : "non completato"}</span>{" "}
                   {i.aggiornamento_contenuto === "richiesto" && <span className="badge red">da aggiornare</span>}
                   {i.aggiornamento_contenuto === "disponibile" && <span className="badge gray">aggiornamento disponibile</span>}
                 </td>
-                <td style={{ whiteSpace: "nowrap" }}>{giorno(c?.emesso_at)}</td>
+                <td style={{ whiteSpace: "nowrap" }}>{dataIt(c?.emesso_at)}</td>
                 <td className="mono">{c?.codice_verifica || <span className="text-muted">—</span>}</td>
                 <td style={{ whiteSpace: "nowrap", textAlign: "right" }}>
                   {c ? <>

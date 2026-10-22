@@ -107,8 +107,6 @@ p { color: var(--text2); }
 @media (max-width: 640px) { .riga-azione { grid-template-columns: 22px minmax(0, 1fr); } .riga-azione .azioni { grid-column: 2; justify-content: flex-start; } }
 /* Home del discente */
 .continua { display: grid; grid-template-columns: 190px minmax(0, 1fr); gap: 1.1rem; align-items: center; }
-.continua-anteprima { aspect-ratio: 16 / 9; max-width: 100%; border-radius: 12px; background: linear-gradient(135deg, var(--primary), var(--primary-dark)); display: grid; place-items: center; color: #fff; }
-.continua-anteprima .icona { width: 34px; height: 34px; }
 .sopratitolo { font-size: .72rem; font-weight: 600; text-transform: uppercase; letter-spacing: .06em; color: var(--primary); }
 .barra-avanzamento { height: 8px; border-radius: 99px; background: var(--bg3); overflow: hidden; }
 .barra-avanzamento > i { display: block; height: 100%; background: var(--primary); border-radius: 99px; }
@@ -336,12 +334,9 @@ tbody tr:hover td { background: var(--bg3); }
 /* Sidebar: strumenti nel brand, sottomenu, drawer mobile */
 .sidebar-tool { background: transparent; border: none; color: var(--text3); font-size: .95rem; line-height: 1; padding: .3rem; border-radius: 6px; cursor: pointer; }
 .sidebar-tool:hover { background: var(--bg3); color: var(--text); }
-.sidebar-sub-toggle { width: 100%; background: transparent; border: none; text-align: left; cursor: pointer; font-family: inherit; font-size: .875rem; font-weight: 500; color: var(--text2); }
 /* button:hover:not(:disabled) globale ha specificita' (0,2,1): servono gli stessi pseudo-selettori per batterlo */
-.sidebar-tool:hover:not(:disabled), .sidebar-collapse-btn:hover:not(:disabled), .sidebar-sub-toggle:hover:not(:disabled), .notif-bell:hover:not(:disabled) { background: var(--bg3); color: var(--text); }
+.sidebar-tool:hover:not(:disabled), .sidebar-collapse-btn:hover:not(:disabled), .notif-bell:hover:not(:disabled) { background: var(--bg3); color: var(--text); }
 .sidebar-brand { padding: .9rem .8rem; gap: .4rem; }
-.sidebar-sub-toggle .chevron { margin-left: auto; font-size: .7rem; color: var(--text3); }
-.sidebar-sub { padding-left: .7rem; }
 .sidebar-footer .footer-link { color: var(--text3); font-size: 1rem; text-decoration: none; margin-left: 4px; line-height: 1; }
 .notif-panel.fixed { position: fixed; right: auto; z-index: 60; }
 .mobile-topbar, .sidebar-overlay { display: none; }

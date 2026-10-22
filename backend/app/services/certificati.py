@@ -12,7 +12,7 @@ from .durata import durata_effettiva, ore_testo, durata_in_parole
 from . import cifratura
 from ..models.certificato import Certificato, TipoCertificato
 from ..models.azienda import Azienda
-from ..models.edizione import EdizioneDocente, RuoloDocente
+from ..models.edizione import EdizioneDocente
 from ..models.user import User
 
 log = logging.getLogger(__name__)

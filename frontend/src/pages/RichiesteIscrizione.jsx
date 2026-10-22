@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import api, { erroreDi } from "../api";
 import { formattaDurata } from "../durata";
 import { MODALITA, quando, dove } from "../sessioni";
+import { dataIt } from "../date";
 
 const ESITO = { approvata: ["green", "approvata"], rifiutata: ["red", "rifiutata"] };
 const SCHEDE = [{ id: "attesa", label: "Da approvare" }, { id: "gestite", label: "Gestite" }];
@@ -22,7 +23,6 @@ export default function RichiesteIscrizione() {
     try { await fn(); setRifiuto(null); await carica(); } catch (e) { setErrore(erroreDi(e, msg)); }
     finally { setOccupata(null); }
   }
-  const dataBreve = (d) => (d ? new Date(d).toLocaleDateString("it-IT") : "—");
 
   return (
     <div>
@@ -42,7 +42,7 @@ export default function RichiesteIscrizione() {
               {dati.in_attesa.map((r) => (
                 <React.Fragment key={r.id}>
                   <tr>
-                    <td>{dataBreve(r.created_at)}<div className="text-muted" style={{ fontSize: 12 }}>{r.autorichiesta ? "richiesta dalla persona stessa" : `di ${r.richiedente}`}</div></td>
+                    <td>{dataIt(r.created_at)}<div className="text-muted" style={{ fontSize: 12 }}>{r.autorichiesta ? "richiesta dalla persona stessa" : `di ${r.richiedente}`}</div></td>
                     <td><strong>{r.persona}</strong><div className="text-muted" style={{ fontSize: 12 }}>{r.ufficio || "senza ufficio"}</div></td>
                     <td>
                       <strong>{r.corso_titolo}</strong> <span className="badge gray">{MODALITA[r.modalita] || r.modalita}</span>
@@ -88,7 +88,7 @@ export default function RichiesteIscrizione() {
                 const [classe, testo] = ESITO[r.stato] || ["gray", r.stato];
                 return (
                   <tr key={r.id}>
-                    <td>{dataBreve(r.valutata_at)}</td>
+                    <td>{dataIt(r.valutata_at)}</td>
                     <td>{r.persona}</td>
                     <td>{r.corso_titolo}<div className="text-muted" style={{ fontSize: 12 }}>{quando(r)}</div></td>
                     <td>{r.autorichiesta ? "la persona stessa" : r.richiedente}</td>

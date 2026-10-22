@@ -17,6 +17,14 @@ PACCHETTI = ["fastapi", "uvicorn", "sqlalchemy", "pydantic", "pyjwt", "httpx", "
              "reportlab", "openpyxl", "pywebpush", "psycopg2-binary"]
 
 CHANGELOG = [
+    {"version": "2.12.2", "date": "2026-10", "label": "Pulizia del codice", "changes": [
+        "Più veloce con molti dati: nuovi indici sul database per le ricerche per persona, sessione e corso (iscrizioni, attestati, notifiche, percorsi, docenti, richieste), e meno richieste ripetute negli elenchi (I miei attestati, I miei corsi, iscritti di una sessione, dashboard della Formazione, CSV delle iscrizioni)",
+        "Le dashboard con i grafici si scaricano solo quando si aprono: il resto del sito parte con meno da caricare",
+        "Date e ore scritte allo stesso modo in tutte le pagine; l'elenco delle persone si chiede una volta sola quando più pagine lo usano",
+        "Pulizia: tolti import e funzioni mai usati, tre regole di stile non usate, le librerie python-magic e qrcode (mai importate) e il pacchetto di sistema libmagic; il controllo «segue la sessione» (Formazione o docente) è in un punto solo",
+        "Test: aggiunto quello sui completamenti contemporanei (un solo attestato anche se due richieste arrivano insieme) e quello sugli indici; la suite si svuota solo delle tabelle usate e passa da circa 11 minuti e mezzo a meno di 9",
+        "Documenti: la roadmap tiene solo ciò che è aperto o deciso, le parti già spedite sono in docs/roadmap-archivio.md; prevista l'aggiunta di questionari e copertine alla configurazione esportabile",
+    ]},
     {"version": "2.12.1", "date": "2026-10", "label": "Copertine dei corsi", "changes": [
         "Copertine: ogni corso può avere un'immagine, caricata dalla Formazione (e dall'admin) in Gestione → Corsi → Modifica. PNG, JPG o WEBP fino a 5 MB, almeno 640×360 pixel: il sistema la raddrizza se la foto è girata, la ritaglia al centro nel formato 16:9 e la riduce a 1280×720 al massimo, così non rompe l'impaginazione e non pesa. Si può sostituire o togliere in qualsiasi momento",
         "Dove compare: nella Home (il corso da continuare e gli altri), nel Catalogo (schede dei corsi sempre disponibili e miniatura nelle sessioni in programma), in testa alla pagina del corso e nell'elenco dei corsi della Gestione",

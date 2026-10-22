@@ -5,6 +5,7 @@ import ExportButton from "../components/ExportButton";
 import { FiltroEtichette } from "../components/Etichette";
 import { elencoUffici } from "../uffici";
 import { MODALITA } from "../sessioni";
+import { dataIt } from "../date";
 
 const METRICHE = [
   { key: "tasso_completamento_pct", label: "Tasso di completamento %" },
@@ -261,7 +262,7 @@ export default function DashboardKpi() {
                 <tbody>
                   {confrontoEdizioni.map((r) => (
                     <tr key={r.edizione_id}>
-                      <td>{r.data_inizio ? new Date(r.data_inizio).toLocaleDateString("it-IT") : "-"}</td>
+                      <td>{dataIt(r.data_inizio, "-")}</td>
                       <td>{MODALITA[r.modalita] || r.modalita}</td>
                       <td>{r.versione_corso ? <span className="badge gray">v{r.versione_corso}</span> : "-"}</td>
                       <td>{r.n_iscrizioni}</td>

@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { lazy, Suspense, useEffect, useState } from "react";
 import { BrowserRouter, Routes, Route, Navigate, useNavigate, useLocation } from "react-router-dom";
 import ErrorBoundary from "./components/ErrorBoundary";
 import api from "./api";
@@ -36,8 +36,9 @@ import Azienda from "./pages/Azienda";
 import Video from "./pages/Video";
 import RegistroFormazione from "./pages/RegistroFormazione";
 import MatriceFormativa from "./pages/MatriceFormativa";
-import DashboardFormazione from "./pages/DashboardFormazione";
-import DashboardKpi from "./pages/DashboardKpi";
+// Le due dashboard con i grafici (recharts) si scaricano solo quando servono: il resto dell'app parte piu' leggero.
+const DashboardFormazione = lazy(() => import("./pages/DashboardFormazione"));
+const DashboardKpi = lazy(() => import("./pages/DashboardKpi"));
 import TemplateAttestati from "./pages/TemplateAttestati";
 import StatoPiattaforma from "./pages/StatoPiattaforma";
 import AuditLog from "./pages/AuditLog";
@@ -102,8 +103,8 @@ export default function App() {
         <Route path="/fabbisogno" element={<RequireAuth><Shell><Fabbisogno /></Shell></RequireAuth>} />
         <Route path="/fabbisogno-admin" element={<RequireAuth><Shell><FabbisognoAdmin /></Shell></RequireAuth>} />
         <Route path="/registro-formazione" element={<RequireAuth><Shell><RegistroFormazione /></Shell></RequireAuth>} />
-        <Route path="/dashboard-formazione" element={<RequireAuth><Shell><DashboardFormazione /></Shell></RequireAuth>} />
-        <Route path="/dashboard-kpi" element={<RequireAuth><Shell><DashboardKpi /></Shell></RequireAuth>} />
+        <Route path="/dashboard-formazione" element={<RequireAuth><Shell><Suspense fallback={<p className="text-muted">Caricamento…</p>}><DashboardFormazione /></Suspense></Shell></RequireAuth>} />
+        <Route path="/dashboard-kpi" element={<RequireAuth><Shell><Suspense fallback={<p className="text-muted">Caricamento…</p>}><DashboardKpi /></Suspense></Shell></RequireAuth>} />
         <Route path="/template-attestati" element={<RequireAuth><Shell><TemplateAttestati /></Shell></RequireAuth>} />
         <Route path="/corsi" element={<RequireAuth><Shell><Corsi /></Shell></RequireAuth>} />
         <Route path="/corsi/:corsoId/test" element={<RequireAuth><Shell><TestCorso /></Shell></RequireAuth>} />

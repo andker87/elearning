@@ -13,6 +13,8 @@ import SessioneDiscente from "./SessioneDiscente";
 import MenuAzioni from "../components/MenuAzioni";
 import { MODALITA, STATI, quando } from "../sessioni";
 import { conferma } from "../components/conferma";
+import { dataOraIt } from "../date";
+import { usePersone } from "../persone";
 
 // Una sessione ha due volti: chi la segue (discente) e chi la gestisce (Formazione, docenti della sessione).
 // Chi non gestisce vede sempre e solo la vista del discente; chi gestisce vede quella di gestione, tranne quando
@@ -41,7 +43,7 @@ function GestioneSessione() {
   const [modificaDurata, setModificaDurata] = useState(null);   // { valore } mentre si cambia la durata della sessione
   const [edizione, setEdizione] = useState(null);
   const [iscrizioni, setIscrizioni] = useState([]);
-  const [utenti, setUtenti] = useState([]);
+  const utenti = usePersone((e) => setErroreCaricamento(erroreDi(e, "Impossibile caricare l'elenco delle persone")));
   const [video, setVideo] = useState(null);
   const [tests, setTests] = useState([]);
   const [teamsUrl, setTeamsUrl] = useState("");
@@ -70,7 +72,6 @@ function GestioneSessione() {
   }
   useEffect(() => {
     load();
-    api.get("/auth/users/simple").then((r) => setUtenti(r.data)).catch(falla("Impossibile caricare l'elenco delle persone"));
     if (user?.id) api.get(`/auth/users/${user.id}/sottoposti`).then((r) => setSottoposti(r.data)).catch(falla("Impossibile caricare le persone sotto la tua responsabilità"));
   }, [id]);
 
@@ -174,7 +175,7 @@ function GestioneSessione() {
       <div className="card">
         <p><strong>Stato:</strong> <span className={`badge ${(STATI[edizione.stato] || ["gray"])[0]}`}>{(STATI[edizione.stato] || [, edizione.stato])[1]}</span></p>
         <p>
-          <strong>Data:</strong> {edizione.sempre_aperta ? "Sempre disponibile" : edizione.data_inizio ? new Date(edizione.data_inizio).toLocaleString("it-IT") : "-"}
+          <strong>Data:</strong> {edizione.sempre_aperta ? "Sempre disponibile" : dataOraIt(edizione.data_inizio, "-")}
           {edizione.data_inizio && !edizione.sempre_aperta && (
             <button type="button" className="secondary btn-sm" style={{ marginLeft: 10 }}
               onClick={() => downloadFile(`/edizioni/${id}/calendario.ics`, "sessione.ics")}>

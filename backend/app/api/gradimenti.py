@@ -155,7 +155,6 @@ def list_gradimenti(edizione_id: str, db: Session = Depends(get_db), user=Depend
 
 @router.get("/api/edizioni/{edizione_id}/report/gradimenti.csv")
 def report_gradimenti_csv(edizione_id: str, db: Session = Depends(get_db), user=Depends(require_training_admin)):
-    edizione = db.query(Edizione).filter(Edizione.id == edizione_id).first()
     docenti_rows = db.query(EdizioneDocente).filter(EdizioneDocente.edizione_id == edizione_id).all()
     utenti = {str(u.id): u for u in db.query(User).filter(User.id.in_([d.user_id for d in docenti_rows])).all()} if docenti_rows else {}
     docenti = [(str(d.user_id), utenti.get(str(d.user_id))) for d in docenti_rows]

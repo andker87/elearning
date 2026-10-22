@@ -1,5 +1,4 @@
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response, UploadFile, File
-from sqlalchemy import func
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, joinedload
 from pydantic import BaseModel, EmailStr
@@ -17,11 +16,10 @@ from ..services import rate_limit
 from ..models.notification import Notification
 from ..services import audit as audit_svc
 from ..services.percorsi_sync import sincronizza_assegnazioni
-from ..services.gerarchia import responsabili_di, sottoposti_di, e_responsabile, uffici_guidati_da
-from ..services.email import invia_email
+from ..services.gerarchia import responsabili_di, sottoposti_di, uffici_guidati_da
 from ..services.inviti import crea_link_invito, invia_invito
 from ..services.offboarding import disattiva_utente, invita_promossi
-from .deps import get_current_user, require_training_admin, require_admin_tecnico
+from .deps import get_current_user, require_admin_tecnico
 from ..services.impronte import impronta
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])

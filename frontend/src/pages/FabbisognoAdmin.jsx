@@ -5,11 +5,11 @@ import AlberoOrigine from "../components/AlberoOrigine";
 import { ThOrdina, ordinaLocale } from "../components/Ordinabile";
 import { elencoUffici } from "../uffici";
 import { conferma } from "../components/conferma";
+import { dataIt, dataOraIt } from "../date";
 
 const STATO_LABEL = { in_revisione: "In revisione", approvata_hr: "Ricevuta", rifiutata: "Rifiutata dai responsabili", fusa: "Unita ad altre" };
 const STATO_BADGE = { in_revisione: "gray", approvata_hr: "blue", rifiutata: "red" };
 const SCHEDE = [{ id: "nuova", label: "Nuova campagna" }, { id: "campagne", label: "Campagne" }, { id: "richieste", label: "Richieste formative" }];
-const data = (d) => (d ? new Date(d).toLocaleDateString("it-IT") : "—");
 const periodo = (r) => r.riferimento_periodo || r.periodo || "—";
 
 // ---- Nuova campagna ---------------------------------------------------------------------
@@ -81,8 +81,8 @@ function Campagne({ campagne, onChiudi, onApriRichieste }) {
               return (
                 <tr key={c.id}>
                   <td>{c.titolo}{c.descrizione && <><br /><span className="text-muted" style={{ fontSize: 12 }}>{c.descrizione}</span></>}</td>
-                  <td>{data(c.created_at)}</td>
-                  <td>{c.scadenza ? new Date(c.scadenza).toLocaleString("it-IT") : "—"}</td>
+                  <td>{dataIt(c.created_at)}</td>
+                  <td>{dataOraIt(c.scadenza)}</td>
                   <td>{c.inviti_risposti} su {totale}{c.inviti_delegati > 0 && <span className="text-muted" style={{ fontSize: 12 }}> ({c.inviti_delegati} girati ai sotto-uffici)</span>}</td>
                   <td>{c.richieste > 0 ? <button type="button" className="secondary btn-sm" onClick={() => onApriRichieste(c.id)}>{c.richieste} {c.richieste === 1 ? "richiesta" : "richieste"}</button> : "0"}</td>
                   <td><span className={`badge ${c.stato === "aperta" ? "green" : "gray"}`}>{c.stato === "aperta" ? "aperta" : "chiusa"}</span></td>
@@ -221,7 +221,7 @@ function RichiesteFormative({ campagne, campagnaIniziale }) {
                     <td>{g.richieste}{g.richieste_originali !== g.richieste && <span className="text-muted" style={{ fontSize: 12 }}> (da {g.richieste_originali} originali)</span>}</td>
                     <td>{g.periodi.join(", ") || "—"}</td>
                     <td>{g.campagne.join(", ")}</td>
-                    <td>{data(g.ultima)}</td>
+                    <td>{dataIt(g.ultima)}</td>
                   </tr>
                   {aperto === g.chiave && Object.keys(g.per_campagna).length > 1 && (
                     <tr className="dettaglio-gruppo"><td colSpan={7}><strong>Persone per campagna:</strong> {Object.entries(g.per_campagna).map(([c, n]) => `${c}: ${n}`).join(" · ")}</td></tr>
@@ -263,7 +263,7 @@ function RichiesteFormative({ campagne, campagnaIniziale }) {
                   <td>{d.argomento}</td><td>{periodo(d)}</td><td>{d.numero_persone_stimate ?? "—"}</td><td>{d.note || "—"}</td>
                   <td>{d.campagna_titolo || "Spontanea"}</td>
                   <td><span className={`badge ${STATO_BADGE[d.stato]}`}>{STATO_LABEL[d.stato]}</span></td>
-                  <td>{data(d.created_at)}</td>
+                  <td>{dataIt(d.created_at)}</td>
                 </tr>
               ))}
               {dati && dati.items.length === 0 && <tr><td colSpan={8} className="empty-state">Nessuna richiesta per i filtri scelti.</td></tr>}

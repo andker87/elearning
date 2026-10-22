@@ -5,7 +5,7 @@ from sqlalchemy import func, or_
 from pydantic import BaseModel
 from typing import Optional, List
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime
 from ..database import get_db
 from ..models.fabbisogno import (
     FabbisognoCampagna, FabbisognoCampagnaInvito, FabbisognoRichiesta,

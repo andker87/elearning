@@ -6,6 +6,7 @@ import { FiltroEtichette } from "../components/Etichette";
 import ExportButton from "../components/ExportButton";
 import { elencoUffici } from "../uffici";
 import { MODALITA } from "../sessioni";
+import { dataIt, dataOraIt } from "../date";
 
 const TIPO_LABEL = {
   scaduto: "Scaduto", da_aggiornare: "Da aggiornare", non_completato: "Non completato",
@@ -224,7 +225,7 @@ export default function DashboardFormazione() {
                 <option value="">-- seleziona --</option>
                 {edizioniPerCorso(iscrizioneAperta.corsoId).map((e) => (
                   <option key={e.id} value={e.id}>
-                    {e.modalita} — {e.data_inizio ? new Date(e.data_inizio).toLocaleDateString("it-IT") : "senza data"}
+                    {e.modalita} — {dataIt(e.data_inizio, "senza data")}
                   </option>
                 ))}
               </select>
@@ -247,7 +248,7 @@ export default function DashboardFormazione() {
               <tr key={s.id}>
                 <td>{s.corso_titolo}</td>
                 <td>{MODALITA[s.modalita] || s.modalita}</td>
-                <td>{s.data_inizio ? new Date(s.data_inizio).toLocaleString("it-IT") : "-"}</td>
+                <td>{dataOraIt(s.data_inizio, "-")}</td>
                 <td>{s.posti_max ? `${s.n_iscritti}/${s.posti_max}${s.posti_liberi === 0 ? " (pieno)" : ""}` : `${s.n_iscritti} (illimitati)`}</td>
                 <td><Link to={`/sessioni/${s.id}`}>Apri</Link></td>
               </tr>

@@ -11,7 +11,6 @@ L'importazione aggiunge e aggiorna, non cancella mai, e dal confronto mostra sem
 un'anteprima prima di scrivere."""
 from datetime import datetime, timezone
 
-from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from ..models.azienda import Azienda

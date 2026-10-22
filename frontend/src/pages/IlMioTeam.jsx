@@ -3,6 +3,7 @@ import api, { erroreDi } from "../api";
 import { Capsule } from "../components/Capsule";
 import { formattaDurata } from "../durata";
 import { MODALITA, STATI, STATI_ISCRIZIONE, quando, dove } from "../sessioni";
+import { dataIt } from "../date";
 
 const SCHEDE = [
   { id: "team", label: "Il mio team" }, { id: "formazione", label: "Formazione del team" },
@@ -11,7 +12,6 @@ const SCHEDE = [
 const MODO = { diretta: ["iscrizione diretta", "Puoi iscrivere direttamente le tue persone"], su_richiesta: ["su richiesta", "Chiedi l'iscrizione: la Formazione approva"] };
 const utenteCorrente = () => { try { return JSON.parse(localStorage.getItem("user") || "{}") || {}; } catch { return {}; } };   // letto a ogni uso: dopo un cambio di accesso non resta quello vecchio
 const capsulaStato = (s) => { const [c, t] = STATI_ISCRIZIONE[s] || ["gray", s]; return <span className={`badge ${c}`}>{t}</span>; };
-const data = (d) => (d ? new Date(d).toLocaleDateString("it-IT") : "—");
 
 // --- scheda 1: il team ad albero ---------------------------------------------------------------------
 
@@ -29,15 +29,15 @@ function SituazioneFormativa({ personaId }) {
       {prossime.length === 0 && d.richieste_in_attesa.length === 0 ? <p className="text-muted" style={{ margin: "4px 0 10px" }}>Nessuna sessione in programma.</p> : (
         <ul style={{ margin: "4px 0 10px", paddingLeft: "1.2rem" }}>
           {prossime.map((i) => <li key={i.edizione_id}>{i.corso_titolo} — {quando(i)} · {dove(i)}{i.durata_effettiva_minuti ? ` · ${formattaDurata(i.durata_effettiva_minuti)}` : ""} {capsulaStato(i.stato)}</li>)}
-          {d.richieste_in_attesa.map((r) => <li key={r.edizione_id}>{r.corso_titolo} — {data(r.data_inizio)} {capsulaStato("richiesta_in_attesa")}</li>)}
+          {d.richieste_in_attesa.map((r) => <li key={r.edizione_id}>{r.corso_titolo} — {dataIt(r.data_inizio)} {capsulaStato("richiesta_in_attesa")}</li>)}
         </ul>
       )}
       <strong>Corsi svolti</strong>
       {fatte.length === 0 ? <p className="text-muted" style={{ margin: "4px 0" }}>Ancora nessun corso concluso.</p> : (
         <ul style={{ margin: "4px 0", paddingLeft: "1.2rem" }}>
           {fatte.map((i) => (
-            <li key={i.edizione_id}>{i.corso_titolo} {capsulaStato(i.stato)} — {data(i.completato_at)}
-              {i.scadenza && <> · {i.scaduto ? <span className="badge red">scaduto il {data(i.scadenza)}</span> : i.in_scadenza ? <span className="badge yellow">scade il {data(i.scadenza)}</span> : <span className="text-muted">valido fino al {data(i.scadenza)}</span>}</>}</li>
+            <li key={i.edizione_id}>{i.corso_titolo} {capsulaStato(i.stato)} — {dataIt(i.completato_at)}
+              {i.scadenza && <> · {i.scaduto ? <span className="badge red">scaduto il {dataIt(i.scadenza)}</span> : i.in_scadenza ? <span className="badge yellow">scade il {dataIt(i.scadenza)}</span> : <span className="text-muted">valido fino al {dataIt(i.scadenza)}</span>}</>}</li>
           ))}
         </ul>
       )}
@@ -281,7 +281,7 @@ function SchedaApprovare() {
             <thead><tr><th>Richiesta del</th><th>Persona</th><th>Corso</th><th>Esito</th></tr></thead>
             <tbody>
               {mie.map((r) => { const [c, t] = ESITO[r.stato] || ["gray", r.stato]; return (
-                <tr key={r.id}><td>{data(r.created_at)}</td><td>{r.persona}</td><td>{r.corso_titolo}<div className="text-muted" style={{ fontSize: 12 }}>{data(r.data_inizio)}</div></td>
+                <tr key={r.id}><td>{dataIt(r.created_at)}</td><td>{r.persona}</td><td>{r.corso_titolo}<div className="text-muted" style={{ fontSize: 12 }}>{dataIt(r.data_inizio)}</div></td>
                   <td><span className={`badge ${c}`}>{t}</span>{r.motivo_rifiuto && <div className="text-muted" style={{ fontSize: 12 }}>{r.motivo_rifiuto}</div>}</td></tr>
               ); })}
               {mie.length === 0 && <tr><td colSpan={4} className="text-muted">Non hai fatto richieste.</td></tr>}

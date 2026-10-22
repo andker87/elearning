@@ -53,9 +53,13 @@ def schema():
 @pytest.fixture(autouse=True)
 def pulizia(schema, monkeypatch):
     """Ogni test parte da database vuoto, senza SMTP/SSO e con i contatori azzerati."""
-    tabelle = ", ".join(f'"{t.name}"' for t in Base.metadata.sorted_tables)
+    # Si svuotano solo le tabelle che hanno dati: il TRUNCATE di tutte costava circa 0,75 s per test, il controllo 13 ms.
+    nomi = [t.name for t in Base.metadata.sorted_tables]
+    controllo = " UNION ALL ".join(f"(SELECT '{n}' WHERE EXISTS (SELECT 1 FROM \"{n}\"))" for n in nomi)
     with engine.begin() as conn:
-        conn.execute(sa.text(f"TRUNCATE {tabelle} RESTART IDENTITY CASCADE"))
+        piene = [r[0] for r in conn.execute(sa.text(controllo))]
+        if piene:
+            conn.execute(sa.text("TRUNCATE " + ", ".join(f'"{n}"' for n in piene) + " RESTART IDENTITY CASCADE"))
     rate_limit._eventi.clear()
     for nome in ("SMTP_HOST", "SMTP_MITTENTE", "SSO_ISSUER", "SSO_CLIENT_ID", "SSO_CLIENT_SECRET", "SSO_PUBLIC_URL",
                  "GRAPH_TENANT_ID", "GRAPH_CLIENT_ID", "GRAPH_CLIENT_SECRET"):
