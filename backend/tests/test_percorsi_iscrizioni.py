@@ -291,3 +291,68 @@ def test_la_modalita_viaggia_nella_configurazione(client, auth, admin, formazion
     assert client.post("/api/admin/configurazione/import", headers=auth(admin), json={"contenuto": vecchio, "applica": True}).status_code == 200
     elenco = {p["nome"]: p["modalita"] for p in client.get("/api/percorsi", headers=auth(admin)).json()}
     assert elenco["Vecchio 1"] == "propedeuticita" and elenco["Vecchio 2"] == "libero"
+
+
+# --- rilievi della review della PR #35 ------------------------------------------------------------------------------
+
+def test_una_propedeuticita_deve_riferirsi_a_un_corso_del_percorso(client, auth, formazione, mondo):
+    r = percorso(client, auth, formazione, [mondo["A"], mondo["B"]], modalita="propedeuticita", richiede={2: [7]}, nome="Orfana")
+    assert r.status_code == 400 and "presente nel percorso" in r.json()["detail"]
+
+
+def test_un_file_vecchio_non_azzera_la_modalita_di_un_percorso_esistente(client, auth, admin, formazione, mondo, db):
+    from app.models.percorso import PercorsoFormativo
+    percorso(client, auth, formazione, [mondo["A"], mondo["B"]], modalita="sequenziale", nome="Sequenza")
+    export = client.get("/api/admin/configurazione/export", headers=auth(admin)).json()
+    for p in export["percorsi"]:
+        p.pop("modalita", None)                                   # un export fatto prima della 2.10.0
+    assert client.post("/api/admin/configurazione/import", headers=auth(admin), json={"contenuto": export, "applica": True}).status_code == 200
+    db.expire_all(); assert db.query(PercorsoFormativo).filter(PercorsoFormativo.nome == "Sequenza").one().modalita == "sequenziale"
+    # un file che la dichiara la cambia
+    for p in export["percorsi"]:
+        p["modalita"] = "libero"
+    client.post("/api/admin/configurazione/import", headers=auth(admin), json={"contenuto": export, "applica": True})
+    db.expire_all(); assert db.query(PercorsoFormativo).filter(PercorsoFormativo.nome == "Sequenza").one().modalita == "libero"
+
+
+def test_gli_esterni_non_ricevono_percorsi(client, auth, formazione, crea_utente, db, mondo):
+    esterno = crea_utente("esterno@t.it"); esterno.is_external = True; db.commit()
+    pid = percorso(client, auth, formazione, [mondo["A"]]).json()["id"]
+    r = assegna(client, auth, formazione, pid, esterno).json()
+    assert r["assegnati"] == [] and "esterna" in r["saltati"][0]["motivo"]
+    # nemmeno se l'assegnazione c'e' gia' (importata, o fatta prima): non restano «in attesa» in eterno
+    db.add(PercorsoAssegnazione(percorso_id=pid, user_id=esterno.id)); db.commit()
+    assert avanza_e_invita(db)["in_attesa_sessione"] == 0
+    assert db.query(Notification).filter(Notification.tipo == "percorso_senza_sessione").count() == 0
+
+
+def test_alla_pubblicazione_chi_era_gia_iscritto_non_riceve_due_inviti(client, auth, formazione, utente, crea_utente, db, crea_edizione, crea_iscrizione, mondo, monkeypatch):
+    from app.api import edizioni as modulo
+    from app.services import percorsi_iscrizioni as servizio
+    inviati = []
+    monkeypatch.setattr(modulo, "invia_invito_calendario", lambda db_, e, uid: inviati.append(str(uid)))
+    monkeypatch.setattr(servizio, "invia_invito_calendario", lambda db_, e, uid: inviati.append(str(uid)))
+    B = mondo["B"]
+    bozza = crea_edizione(B, stato=SE.bozza, data_inizio=adesso() + timedelta(days=9))
+    gia = crea_utente("gia@t.it"); crea_iscrizione(bozza, gia)                       # iscritto da Formazione quando era in bozza
+    pid = percorso(client, auth, formazione, [B]).json()["id"]
+    assegna(client, auth, formazione, pid, utente)                                    # nessuna sessione pubblicata: aspetta
+    assert client.post(f"/api/edizioni/{bozza.id}/pianifica", headers=auth(formazione)).status_code == 200
+    assert sorted(inviati) == sorted([str(gia.id), str(utente.id)])                  # ognuno una volta sola
+
+
+def test_il_catalogo_calcola_il_blocco_una_volta_per_corso(client, auth, formazione, utente, db, crea_edizione, mondo, monkeypatch):
+    from app.api import catalogo as modulo
+    A, B = mondo["A"], mondo["B"]
+    A.permetti_autoiscrizione = B.permetti_autoiscrizione = True; db.commit()
+    crea_edizione(A, stato=SE.pianificata, data_inizio=adesso() + timedelta(days=2))
+    for g in (5, 9, 13):
+        crea_edizione(B, stato=SE.pianificata, data_inizio=adesso() + timedelta(days=g))
+    pid = percorso(client, auth, formazione, [A, B], modalita="sequenziale").json()["id"]
+    assegna(client, auth, formazione, pid, utente)
+    chiamate = []
+    originale = modulo.corso_bloccato
+    monkeypatch.setattr(modulo, "corso_bloccato", lambda *a, **k: (chiamate.append(a[2]), originale(*a, **k))[1])
+    cat = client.get("/api/catalogo", headers=auth(utente)).json()
+    assert sum(1 for x in cat if x["corso_titolo"] == "Corso B") == 3 and all(x["bloccato"] for x in cat if x["corso_titolo"] == "Corso B")
+    assert len(chiamate) == 1                                                         # solo B (per A la persona e' gia' iscritta), una volta sola per tre sessioni

@@ -13,16 +13,17 @@ const TRIGGER_LABEL = { manuale: "Assegnazione manuale", ingresso_azienda: "Auto
 const SCHEDE = [{ id: "elenco", label: "Elenco percorsi" }, { id: "nuovo", label: "Nuovo percorso" }];
 const FORM_VUOTO = {
   nome: "", modalita: "libero", triggerTipo: "manuale", triggerGruppoId: "", triggerMansioneId: "",
-  steps: [{ corso_id: "", ordine: 1, richiede_step_ordini: [] }],
+  steps: [{ corso_id: "", ordine: 1, richiede_step_corso_ids: [] }],
 };
 
 // Il modulo di un percorso: nome, come si assegna, come si procede e i corsi (con le propedeuticità, se la modalità le prevede).
 function ModuloPercorso({ form, setForm, corsi, gruppi, mansioni, errore, invio, onSubmit, onAnnulla, etichettaInvio }) {
   const titolo = (id) => corsi.find((c) => c.id === id)?.titolo;
   const aggiorna = (i, campo, valore) => setForm({ ...form, steps: form.steps.map((s, n) => (n === i ? { ...s, [campo]: valore } : s)) });
-  const alternaRichiesto = (i, ordine) => {
+  // Le propedeuticita' si tengono legate al CORSO richiesto: se cambi un numero d'ordine o togli un corso non puntano al corso sbagliato.
+  const alternaRichiesto = (i, corsoId) => {
     const s = form.steps[i];
-    aggiorna(i, "richiede_step_ordini", s.richiede_step_ordini.includes(ordine) ? s.richiede_step_ordini.filter((o) => o !== ordine) : [...s.richiede_step_ordini, ordine]);
+    aggiorna(i, "richiede_step_corso_ids", s.richiede_step_corso_ids.includes(corsoId) ? s.richiede_step_corso_ids.filter((c) => c !== corsoId) : [...s.richiede_step_corso_ids, corsoId]);
   };
   const prossimoOrdine = () => (form.steps.reduce((m, s) => Math.max(m, Number(s.ordine) || 0), 0) + 1);
   return (
@@ -82,7 +83,7 @@ function ModuloPercorso({ form, setForm, corsi, gruppi, mansioni, errore, invio,
                 <div style={{ display: "flex", gap: 14, flexWrap: "wrap", marginTop: 4 }}>
                   {altri.map((a) => (
                     <label key={a.ordine + "-" + a.corso_id} style={{ display: "flex", alignItems: "center", gap: 6, margin: 0, fontSize: 13 }}>
-                      <input type="checkbox" style={{ width: "auto" }} checked={s.richiede_step_ordini.includes(a.ordine)} onChange={() => alternaRichiesto(i, a.ordine)} />
+                      <input type="checkbox" style={{ width: "auto" }} disabled={!a.corso_id} checked={!!a.corso_id && s.richiede_step_corso_ids.includes(a.corso_id)} onChange={() => alternaRichiesto(i, a.corso_id)} />
                       {a.ordine}. {titolo(a.corso_id) || "(corso da scegliere)"}
                     </label>
                   ))}
@@ -92,7 +93,7 @@ function ModuloPercorso({ form, setForm, corsi, gruppi, mansioni, errore, invio,
           </div>
         );
       })}
-      <button type="button" className="secondary" onClick={() => setForm({ ...form, steps: [...form.steps, { corso_id: "", ordine: prossimoOrdine(), richiede_step_ordini: [] }] })}>+ Aggiungi un corso</button>
+      <button type="button" className="secondary" onClick={() => setForm({ ...form, steps: [...form.steps, { corso_id: "", ordine: prossimoOrdine(), richiede_step_corso_ids: [] }] })}>+ Aggiungi un corso</button>
       {errore && <div className="error-msg" role="alert" style={{ marginTop: 10 }}>{errore}</div>}
       <div style={{ marginTop: 12 }}>
         <button type="submit" disabled={invio}>{invio ? "Salvo..." : etichettaInvio}</button>{" "}
@@ -124,15 +125,19 @@ export default function Percorsi() {
   }, []);
 
   const titoloCorso = (id) => corsi.find((c) => c.id === id)?.titolo || "—";
-  const corpo = (f) => ({
-    nome: f.nome, modalita: f.modalita, trigger_tipo: f.triggerTipo,
-    trigger_gruppo_id: f.triggerTipo === "gruppo" ? f.triggerGruppoId : null, trigger_mansione_id: f.triggerTipo === "mansione" ? f.triggerMansioneId : null,
-    steps: f.steps.map((s) => ({ corso_id: s.corso_id, ordine: s.ordine, richiede_step_ordini: f.modalita === "propedeuticita" ? s.richiede_step_ordini : [] })),
-  });
+  const corpo = (f) => {
+    const ordineDiCorso = Object.fromEntries(f.steps.filter((s) => s.corso_id).map((s) => [s.corso_id, s.ordine]));       // i corsi diventano numeri d'ordine solo qui, all'invio
+    return {
+      nome: f.nome, modalita: f.modalita, trigger_tipo: f.triggerTipo,
+      trigger_gruppo_id: f.triggerTipo === "gruppo" ? f.triggerGruppoId : null, trigger_mansione_id: f.triggerTipo === "mansione" ? f.triggerMansioneId : null,
+      steps: f.steps.map((s) => ({ corso_id: s.corso_id, ordine: s.ordine,
+        richiede_step_ordini: f.modalita === "propedeuticita" ? s.richiede_step_corso_ids.map((c) => ordineDiCorso[c]).filter((o) => o !== undefined) : [] })),
+    };
+  };
   const formDa = (p) => {
-    const ordineDi = Object.fromEntries(p.steps.map((s) => [s.id, s.ordine]));
+    const corsoDi = Object.fromEntries(p.steps.map((s) => [s.id, s.corso_id]));
     return { nome: p.nome, modalita: p.modalita || "libero", triggerTipo: p.trigger_tipo, triggerGruppoId: p.trigger_gruppo_id || "", triggerMansioneId: p.trigger_mansione_id || "",
-      steps: [...p.steps].sort((a, b) => a.ordine - b.ordine).map((s) => ({ corso_id: s.corso_id, ordine: s.ordine, richiede_step_ordini: s.richiede_step_ids.map((id) => ordineDi[id]).filter((o) => o !== undefined) })) };
+      steps: [...p.steps].sort((a, b) => a.ordine - b.ordine).map((s) => ({ corso_id: s.corso_id, ordine: s.ordine, richiede_step_corso_ids: s.richiede_step_ids.map((id) => corsoDi[id]).filter(Boolean) })) };
   };
 
   async function crea(e) {

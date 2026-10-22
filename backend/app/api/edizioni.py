@@ -221,12 +221,13 @@ def pianifica_edizione(edizione_id: str, request: Request, db: Session = Depends
     e.stato = StatoEdizione.pianificata
     audit_svc.log_from_request(db, request, user, "PIANIFICA", entity_type="edizione", entity_id=str(e.id), entity_name=_nome_edizione(db, e))
     db.commit()
-    avanza_e_invita(db, corso_ids=[e.corso_id])          # chi nei percorsi aspettava una sessione di questo corso viene iscritto
     # Chi era già iscritto prima che la data fosse confermata riceve solo ora
     # l'invito calendario - chi si iscrive dopo lo riceve subito (vedi iscrivi()).
     if e.data_inizio:
         for i in db.query(Iscrizione).filter(Iscrizione.edizione_id == edizione_id, Iscrizione.stato == StatoIscrizione.iscritto).all():
             invia_invito_calendario(db, e, i.user_id)
+    # Poi i percorsi: chi aspettava una sessione di questo corso viene iscritto e riceve il suo invito (una volta sola)
+    avanza_e_invita(db, corso_ids=[e.corso_id])
     return {"ok": True}
 
 @router.post("/{edizione_id}/bozza")

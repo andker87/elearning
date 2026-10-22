@@ -37,7 +37,7 @@ export default function PersonePercorso({ percorso, onCambia }) {
     setInvio(false);
   }
   async function togli(a) {
-    if (!(await conferma("Le iscrizioni già fatte restano: si annullano dalle sessioni.", { titolo: `Togliere il percorso a ${a.nome}?`, etichetta: "Togli il percorso", pericolo: true }))) return;
+    if (!(await conferma("Le iscrizioni già fatte restano; se non servono più vanno annullate una per una dalle sessioni.", { titolo: `Togliere il percorso a ${a.nome}?`, etichetta: "Togli il percorso", pericolo: true }))) return;
     setErrore(null);
     try { await api.delete(`/percorsi/${percorso.id}/assegnazioni/${a.user_id}`); carica(); onCambia && onCambia(); }
     catch (e) { setErrore(erroreDi(e, "Impossibile togliere il percorso")); }
