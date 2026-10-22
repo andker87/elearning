@@ -377,3 +377,9 @@ Provati con test (creazione utente e CSV, corsa simulata). SSO ed Entra: modific
 | FATTO 2.10.0 | components/PersonePercorso.jsx | la conferma di «Togli il percorso» diceva che le iscrizioni restano e insieme che si annullano: ora dice che restano e vanno annullate una per una dalle sessioni se non servono |
 | FATTO 2.10.0 | pages/Percorsi.jsx, api/percorsi.py | le propedeuticità spuntate restavano legate al numero d'ordine: cambiando i numeri o togliendo un corso potevano puntare al corso sbagliato o sparire. Ora il modulo le tiene legate al corso e le trasforma in numeri solo all'invio; il server rifiuta una propedeuticità che non si riferisce a un corso del percorso (prima la scartava in silenzio) |
 | FATTO 2.10.0 | api/catalogo.py | (suggerimento) il blocco di un corso si ricalcolava per ogni sessione: ora una volta per corso |
+
+## PR #36 (2.11.0, 2.12.0 e 2.12.1)
+
+| Stato | File | Rilievo |
+|---|---|---|
+| FATTO 2.12.1 | services/copertine.py | non è di CodeRabbit ma del controllo di sicurezza della CI (Bandit, B324, gravità alta): il codice di versione della copertina usava `sha1`. Non era un uso di sicurezza (serve solo a cambiare l'indirizzo quando cambia l'immagine), ma si usa `sha256` invece di zittire l'avviso. Prima di pubblicare avevo lanciato la suite ma non Bandit: da ora Bandit, pip-audit e npm audit si lanciano in locale prima di ogni push, insieme alla suite |

@@ -75,7 +75,7 @@ def salva(corso, contenuto_grezzo: bytes) -> None:
     percorso = os.path.join(CARTELLA, f"{corso.id}.jpg")
     cifratura.scrivi_file(percorso, pronto)
     corso.copertina_path = percorso
-    corso.copertina_v = hashlib.sha1(pronto).hexdigest()[:10]       # cambia con l'immagine: serve a non vedere la vecchia in memoria
+    corso.copertina_v = hashlib.sha256(pronto).hexdigest()[:10]       # cambia con l'immagine: serve a non vedere la vecchia in memoria
 
 
 def rimuovi_file(percorso: Optional[str]) -> None:
