@@ -25,10 +25,12 @@ def verifica_certificato(codice: str, db: Session = Depends(get_db)):
         raise HTTPException(404, "Codice non valido")
     return {"valido": True, "emesso_at": c.emesso_at, "tipo": c.tipo}
 
-def _nome_file(db: Session, c: Certificato, i: Iscrizione) -> str:
-    u = db.query(User).filter(User.id == i.user_id).first()
-    e = db.query(Edizione).filter(Edizione.id == i.edizione_id).first()
-    corso = db.query(Corso).filter(Corso.id == e.corso_id).first() if e else None
+def _nome_file(db: Session, c: Certificato, i: Iscrizione, utente=None, corso=None) -> str:
+    """`utente` e `corso`, se gia' caricati (elenco), evitano tre query per attestato."""
+    u = utente if utente is not None else db.query(User).filter(User.id == i.user_id).first()
+    if corso is None:
+        e = db.query(Edizione).filter(Edizione.id == i.edizione_id).first()
+        corso = db.query(Corso).filter(Corso.id == e.corso_id).first() if e else None
     return nome_file_attestato(corso.titolo if corso else "Attestato", u.cognome if u else "", u.nome if u else "", c.emesso_at)
 
 
@@ -47,7 +49,7 @@ def miei_certificati(db: Session = Depends(get_db), user=Depends(get_current_use
             "id": str(c.id), "iscrizione_id": str(i.id), "codice_verifica": c.codice_verifica, "emesso_at": c.emesso_at,
             "corso_titolo": corso.titolo if corso else None, "modalita": e.modalita if e else None,
             "data_corso": e.data_inizio if e else None, "completato_at": i.completato_at,
-            "durata_minuti": durata_effettiva(e, corso) if e else None, "nome_file": _nome_file(db, c, i),
+            "durata_minuti": durata_effettiva(e, corso) if e else None, "nome_file": _nome_file(db, c, i, utente=user, corso=corso),
         })
     return out
 

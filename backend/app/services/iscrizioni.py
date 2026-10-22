@@ -1,6 +1,7 @@
 from datetime import datetime, timezone
 
 from fastapi import HTTPException
+from sqlalchemy import func
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 from ..models.edizione import Edizione, ModalitaErogazione, StatoEdizione
@@ -69,6 +70,17 @@ def in_catalogo(e, corso) -> bool:
 def posti_occupati(db: Session, edizione_id: str) -> int:
     return db.query(Iscrizione).filter(Iscrizione.edizione_id == edizione_id,
                                         Iscrizione.stato.in_(STATI_OCCUPANO_POSTO)).count()
+
+def posti_occupati_per_sessione(db: Session, edizione_ids) -> dict:
+    """{id sessione (testo): posti occupati} per tante sessioni con una sola query."""
+    ids = list(edizione_ids)
+    if not ids:
+        return {}
+    righe = (db.query(Iscrizione.edizione_id, func.count(Iscrizione.id))
+             .filter(Iscrizione.edizione_id.in_(ids), Iscrizione.stato.in_(STATI_OCCUPANO_POSTO))
+             .group_by(Iscrizione.edizione_id).all())
+    return {str(eid): n for eid, n in righe}
+
 
 def crea_iscrizione_con_capacita(db: Session, edizione: Edizione, user_id: str) -> Iscrizione:
     """Se i posti sono esauriti: lista d'attesa se abilitata (sezione N),

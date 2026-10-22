@@ -390,3 +390,13 @@ Provati con test (creazione utente e CSV, corsa simulata). SSO ed Entra: modific
 | FATTO 2.12.1 | spazi.js | l'ultimo spazio e le ultime pagine ricordate valevano per il browser, non per la persona: chi entrava dopo sullo stesso computer ritrovava le pagine di chi c'era prima. Ora le chiavi includono l'id della persona |
 | FATTO 2.12.1 (in parte) | api/spazi.py, components/Shell.jsx | (suggerimento) i numeri del menu contavano gli iscritti di ogni sessione da chiudere senza usarli: ora c'è un conteggio che non li calcola. **Non adottato**: la cache di 60 secondi e il togliere l'aggiornamento a ogni cambio pagina, perché i numeri devono scendere subito dopo aver risolto una richiesta e con il conteggio leggero la richiesta costa poco |
 | FATTO 2.12.1 | api/corsi.py | (fuori dal diff) togliendo la copertina il file veniva cancellato prima del salvataggio nel database: se questo falliva, il corso restava con una copertina che non esiste più. Ora il file si cancella solo dopo il salvataggio, come per il caricamento (test con salvataggio guasto) |
+
+## PR #37 (2.12.2, pulizia del codice)
+
+| Stato | File | Rilievo |
+|---|---|---|
+| FATTO 2.12.2 | tests/test_concorrenza.py | il test leggeva `i.id` dopo il commit, quando l'oggetto è scaduto e la sessione è condivisa con i due fili: l'id si legge ora prima. |
+| FATTO 2.12.2 | docs/roadmap-archivio.md | due voci ancora aperte (periodo di conservazione dei dati con il DPO, assegnazione automatica di ruoli dall'accesso aziendale) erano finite nell'archivio insieme alle parti spedite: riportate nella roadmap sotto «Da definire». Ricontrollato tutto l'archivio: le altre voci con «da valutare» sono già nella roadmap o sono chiuse. |
+| FATTO 2.12.2 | persone.js | la cache di 30 secondi dell'elenco persone valeva per il browser: chi entrava subito dopo un'altra persona poteva vedere l'elenco chiesto da lei. Ora si ricarica se cambia l'accesso. |
+| FATTO 2.12.2 | api/certificati.py | (suggerimento) `_nome_file` rifaceva tre query per ogni attestato già caricati dall'elenco: ora riusa persona e corso. |
+| FATTO 2.12.2 | api/dashboard_formazione.py, services/iscrizioni.py | (suggerimento) un conteggio dei posti per ogni sessione imminente: ora una query sola per tutte. L'endpoint non aveva test: aggiunto, insieme a quello che confronta il conteggio in blocco con quello a una a una. |

@@ -18,7 +18,8 @@ def test_due_completamenti_contemporanei_creano_un_solo_attestato(db, utente, cr
     db.add(v); db.commit()
     e = crea_edizione(crea_corso("Corso"), stato=SE.in_corso, modalita=M.video, video_id=v.id, data_inizio=adesso() - timedelta(hours=1))
     i = crea_iscrizione(e, utente)
-    db.add(Evidenza(iscrizione_id=i.id, fonte=FonteEvidenza.video_player, percentuale_completamento=100.0)); db.commit()
+    iscrizione_id = i.id          # letto prima: dopo il commit l'oggetto e' scaduto e non va toccato dai due fili
+    db.add(Evidenza(iscrizione_id=iscrizione_id, fonte=FonteEvidenza.video_player, percentuale_completamento=100.0)); db.commit()
 
     via = threading.Barrier(2)
     esiti, errori = [], []
@@ -26,7 +27,7 @@ def test_due_completamenti_contemporanei_creano_un_solo_attestato(db, utente, cr
     def completa():
         s = SessionLocal()
         try:
-            iscr = s.get(Iscrizione, i.id)
+            iscr = s.get(Iscrizione, iscrizione_id)
             via.wait(timeout=10)                       # le due richieste partono insieme
             cert = completa_se_dovuto(s, None, iscr)
             s.commit()
@@ -43,5 +44,5 @@ def test_due_completamenti_contemporanei_creano_un_solo_attestato(db, utente, cr
     assert not errori, errori
     assert sorted(esiti) == [False, True]              # uno completa, l'altro trova gia' tutto fatto
     db.expire_all()
-    assert db.get(Iscrizione, i.id).stato == S.completato
-    assert db.query(Certificato).filter(Certificato.iscrizione_id == i.id).count() == 1
+    assert db.get(Iscrizione, iscrizione_id).stato == S.completato
+    assert db.query(Certificato).filter(Certificato.iscrizione_id == iscrizione_id).count() == 1

@@ -17,6 +17,8 @@ gruppi e uffici (dopo il collaudo), (la fusione delle richieste di fabbisogno e'
 **Da valutare per la configurazione**: includere video, immagini e loghi, template degli attestati, test e domande nell'esportazione.
 **Da prevedere (deciso il 2026-10-22)**: i questionari di gradimento (predefinito e per corso) e le copertine dei corsi oggi non entrano nella configurazione esportabile: vanno aggiunti, con le copertine come file cifrati e il controllo del codice di versione.
 
+**Da definire**: con il DPO, il periodo di conservazione dei dati dopo la fine del rapporto (se fissato, serve un'anonimizzazione manuale per gli utenti disattivati); l'assegnazione automatica di ruoli e uffici dai dati dell'accesso aziendale (SSO) è rimandata, da riprendere se serve.
+
 **Parcheggiate**: firma digitale degli attestati (prima va scelto il certificato), matrice
 delle competenze (da ragionare), SCORM/xAPI/H5P (non servono per i video prodotti in
 casa), promemoria Teams/Slack (priorita' bassa), multi-tenant, assistenza AI nella

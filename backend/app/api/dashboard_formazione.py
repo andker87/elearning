@@ -11,7 +11,7 @@ from ..models.percorso import PercorsoFormativo, PercorsoAssegnazione
 from ..models.notification import Notification
 from ..services.etichette import corsi_con_etichette
 from ..services.gerarchia import persone_ufficio_e_sottouffici
-from ..services.iscrizioni import posti_occupati
+from ..services.iscrizioni import posti_occupati_per_sessione
 from ..services.email import invia_email
 from ..services.push import accoda_push
 from .registro import _righe
@@ -176,10 +176,11 @@ def sessioni_imminenti(giorni: int = Query(FINESTRA_SESSIONI_GIORNI), etichette:
         q = q.filter(Edizione.corso_id.in_(ammessi or [None]))
     rows = q.order_by(Edizione.data_inizio).all()
     corsi = per_id(db, Corso, [e.corso_id for e in rows])
+    occupati = posti_occupati_per_sessione(db, [e.id for e in rows])
     out = []
     for e in rows:
         corso = corsi.get(str(e.corso_id))
-        n_iscr = posti_occupati(db, e.id)
+        n_iscr = occupati.get(str(e.id), 0)
         out.append({
             "id": str(e.id), "corso_titolo": corso.titolo if corso else None,
             "data_inizio": e.data_inizio, "modalita": e.modalita,
