@@ -21,6 +21,7 @@ from ..services.calendario import evento_edizione, costruisci_ics
 from ..models.comunicazione_edizione import ComunicazioneEdizione
 from ..services import audit as audit_svc
 from ..services import elimina_corso as elimina_corso_svc
+from ..services import copertine as copertine_svc
 from .deps import require_training_admin, get_current_user
 
 router = APIRouter(prefix="/api/edizioni", tags=["edizioni"])
@@ -85,7 +86,7 @@ def _serialize(e: Edizione, db: Session):
     nomi = {u.id: u.full_name for u in db.query(User).filter(User.id.in_([d.user_id for d in e.docenti])).all()} if e.docenti else {}
     return {
         "id": str(e.id), "corso_id": str(e.corso_id), "corso_titolo": corso.titolo if corso else None,
-        "corso_descrizione": corso.descrizione if corso else None,
+        "corso_descrizione": corso.descrizione if corso else None, "corso_copertina_url": copertine_svc.url(corso) if corso else None,
         "corso_permetti_autoiscrizione": autoiscrizione_ammessa(e, corso),     # ci si puo' iscrivere da soli (anche per una sessione sempre disponibile)
         "corso_autoiscrizione_attiva": bool(corso and corso.permetti_autoiscrizione), "in_catalogo": in_catalogo(e, corso),
         "corso_iscrizione_responsabili": corso.iscrizione_responsabili if corso else "solo_formazione",
@@ -145,7 +146,7 @@ def mie_iscrizioni(db: Session = Depends(get_db), user=Depends(get_current_user)
         out.append({
             "id": str(i.id), "edizione_id": str(i.edizione_id), "stato": i.stato,
             "completato_at": i.completato_at, "ripeti_entro": i.ripeti_entro,
-            "corso_titolo": corso.titolo if corso else None,
+            "corso_titolo": corso.titolo if corso else None, "corso_copertina_url": copertine_svc.url(corso) if corso else None,
             "corso_validita_mesi": corso.validita_mesi if corso else None,
             "edizione_modalita": e.modalita if e else None,
             "edizione_stato": e.stato if e else None,

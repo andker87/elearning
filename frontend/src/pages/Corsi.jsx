@@ -6,6 +6,8 @@ import ExportButton from "../components/ExportButton";
 import CampoDurata from "../components/CampoDurata";
 import { formattaDurata } from "../durata";
 import Finestra from "../components/Finestra";
+import Copertina from "../components/Copertina";
+import CampoCopertina from "../components/CampoCopertina";
 
 const AZIONI = [
   { value: "concludi_comunque", label: "Concludi comunque" },
@@ -309,7 +311,7 @@ export default function Corsi() {
                 <React.Fragment key={c.id}>
                   <tr>
                     <td>
-                      {c.titolo}
+                      <div className="titolo-con-miniatura"><Copertina url={c.copertina_url} titolo={c.titolo} className="copertina-miniatura" /><span>{c.titolo}</span></div>
                       <div style={{ display: "flex", gap: 4, flexWrap: "wrap", marginTop: 4 }}>
                         {c.ha_test_finale && <span className="badge gray">test finale</span>}
                         {c.rinnovo_automatico && <span className="badge gray">rinnovo automatico ({c.rinnovo_giorni_anticipo} gg prima)</span>}
@@ -341,6 +343,7 @@ export default function Corsi() {
                       <td colSpan={7} style={{ background: "var(--bg3)" }}>
                         <form id="c-form-modifica" onSubmit={salvaModifica}>
                           <h4 style={{ margin: "8px 0" }}>Modifica «{c.titolo}»</h4>
+                          <CampoCopertina corso={c} onCambia={load} />
                           <CampiCorso v={modifica.valori} set={(valori) => setModifica({ ...modifica, valori })} famiglie={famiglie} templates={templates} questionari={questionari}
                             modifica anteprima={anteprimaId === c.id ? anteprima : null} onAnteprima={mostraAnteprima} />
                           {erroreModifica && <div className="error-msg">{erroreModifica}</div>}

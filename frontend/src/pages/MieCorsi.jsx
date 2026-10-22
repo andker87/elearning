@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import api, { erroreDi } from "../api";
 import Icona from "../components/Icona";
+import Copertina from "../components/Copertina";
 import { STATO_PASSO } from "../components/PersonePercorso";
 import { MODALITA } from "../sessioni";
 
@@ -56,7 +57,7 @@ export default function MieCorsi() {
 
       {continua && (
         <div className="card continua">
-          <div className="continua-anteprima" aria-hidden="true"><Icona nome="play" /></div>
+          <Copertina url={continua.corso_copertina_url} titolo={continua.corso_titolo} modalita={continua.edizione_modalita} />
           <div style={{ display: "grid", gap: ".45rem", minWidth: 0 }}>
             <span className="sopratitolo">{continua.video_pct > 0 ? "Continua da dove eri" : "Da iniziare"}</span>
             <h3 style={{ margin: 0 }}>{continua.corso_titolo}</h3>
@@ -126,6 +127,7 @@ export default function MieCorsi() {
               <h3>Altri corsi da continuare</h3>
               {altri.map((i) => (
                 <div key={i.id} className="flex-between" style={{ padding: ".4rem 0", gap: ".6rem" }}>
+                  <Copertina url={i.corso_copertina_url} titolo={i.corso_titolo} modalita={i.edizione_modalita} className="copertina-miniatura" />
                   <div style={{ minWidth: 0, flex: 1 }}><strong>{i.corso_titolo}</strong><div className="barra-avanzamento" style={{ marginTop: ".3rem" }}><i style={{ width: `${i.video_pct}%` }} /></div></div>
                   <Link to={`/sessioni/${i.edizione_id}?segui=1`}>{i.video_pct > 0 ? "Continua" : "Inizia"}</Link>
                 </div>

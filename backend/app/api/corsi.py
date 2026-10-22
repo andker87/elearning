@@ -1,5 +1,6 @@
 import uuid
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile
+from fastapi.responses import Response
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 from pydantic import BaseModel, field_validator, model_validator
@@ -13,6 +14,8 @@ from ..services.notifiche import _crea_se_assente, _escalation_responsabili
 from ..services import audit as audit_svc
 from ..services import etichette as etichette_svc
 from ..services import elimina_corso as elimina_corso_svc
+from ..services import copertine as copertine_svc
+from ..services import cifratura
 from .deps import require_training_admin, require_admin_tecnico, get_current_user
 
 router = APIRouter(prefix="/api/corsi", tags=["corsi"])
@@ -86,6 +89,7 @@ def _serialize(c: Corso, db: Session = None, famiglie=None):
             "richiedi_approvazione_formazione": c.richiedi_approvazione_formazione,
             "certificato_template_id": str(c.certificato_template_id) if c.certificato_template_id else None,
             "questionario_gradimento_id": str(c.questionario_gradimento_id) if c.questionario_gradimento_id else None,
+            "copertina_url": copertine_svc.url(c),
             "rinnovo_automatico": c.rinnovo_automatico, "rinnovo_giorni_anticipo": c.rinnovo_giorni_anticipo,
             "versione": c.versione, "versione_minima_valida": c.versione_minima_valida,
             "is_active": c.is_active, "created_at": c.created_at}
@@ -208,7 +212,7 @@ def elimina_corso(corso_id: str, data: EliminaCorsoIn, request: Request, db: Ses
     esito = elimina_corso_svc.esame(db, c)
     if not esito["eliminabile"]:
         raise HTTPException(409, "Il corso non si può eliminare (" + "; ".join(esito["motivi"]) + "): disattivalo, così resta lo storico")
-    titolo, cid = c.titolo, str(c.id)
+    titolo, cid, copertina = c.titolo, str(c.id), c.copertina_path
     try:
         elimina_corso_svc.elimina(db, c)
         audit_svc.log_from_request(db, request, user, "DELETE", entity_type="corso", entity_id=cid, entity_name=titolo,
@@ -217,7 +221,55 @@ def elimina_corso(corso_id: str, data: EliminaCorsoIn, request: Request, db: Ses
     except IntegrityError:
         db.rollback()
         raise HTTPException(409, "Il corso ha dati collegati che non si possono togliere: disattivalo, così resta lo storico")
+    copertine_svc.rimuovi_file(copertina)
     return {"ok": True}
+
+
+@router.post("/{corso_id}/copertina")
+def carica_copertina(corso_id: str, request: Request, file: UploadFile = File(...), db: Session = Depends(get_db), user=Depends(require_training_admin)):
+    """La Formazione carica (o sostituisce) la copertina del corso."""
+    c = db.query(Corso).filter(Corso.id == corso_id).first()
+    if not c: raise HTTPException(404)
+    if file.content_type not in copertine_svc.FORMATI:
+        raise HTTPException(400, "Formato non supportato: usa PNG, JPG o WEBP")
+    try:
+        copertine_svc.salva(c, file.file.read(copertine_svc.MAX_BYTE + 1))
+    except copertine_svc.CopertinaNonValida as e:
+        raise HTTPException(400, str(e))
+    audit_svc.log_from_request(db, request, user, "UPDATE", entity_type="corso", entity_id=str(c.id), entity_name=c.titolo, detail="copertina caricata")
+    db.commit()
+    return {"copertina_url": copertine_svc.url(c)}
+
+
+@router.delete("/{corso_id}/copertina")
+def togli_copertina(corso_id: str, request: Request, db: Session = Depends(get_db), user=Depends(require_training_admin)):
+    c = db.query(Corso).filter(Corso.id == corso_id).first()
+    if not c: raise HTTPException(404)
+    copertine_svc.rimuovi_file(c.copertina_path)
+    c.copertina_path = None
+    c.copertina_v = None
+    audit_svc.log_from_request(db, request, user, "UPDATE", entity_type="corso", entity_id=str(c.id), entity_name=c.titolo, detail="copertina tolta")
+    db.commit()
+    return {"ok": True}
+
+
+@router.get("/{corso_id}/copertina")
+def copertina(corso_id: str, t: str, db: Session = Depends(get_db)):
+    """L'immagine, con l'indirizzo firmato che la pagina riceve insieme al corso (un'immagine non puo' portare l'intestazione di accesso)."""
+    if not copertine_svc.token_valido(t, corso_id):
+        raise HTTPException(401, "Indirizzo scaduto o non valido")
+    try:
+        uuid.UUID(corso_id)
+    except ValueError:
+        raise HTTPException(404)
+    c = db.query(Corso).filter(Corso.id == corso_id).first()
+    if not c or not c.copertina_path:
+        raise HTTPException(404)
+    try:
+        dati = cifratura.leggi_file(c.copertina_path)
+    except OSError:
+        raise HTTPException(404)
+    return Response(dati, media_type="image/jpeg", headers={"Cache-Control": "private, max-age=86400"})
 
 
 @router.delete("/{corso_id}")

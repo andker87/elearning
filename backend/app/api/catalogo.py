@@ -15,6 +15,7 @@ from ..services.durata import durata_effettiva
 from ..services.etichette import etichette_del_corso
 from ..services.gerarchia import responsabili_di
 from .autoiscrizione import chi_approva
+from ..services import copertine as copertine_svc
 from ..services.percorsi_iscrizioni import corso_bloccato, messaggio_blocco
 from ..services.iscrizioni import posti_occupati, in_catalogo
 from .deps import get_current_user
@@ -52,7 +53,7 @@ def catalogo(db: Session = Depends(get_db), user: User = Depends(get_current_use
         stato = mie.get(e.id) or ("richiesta_in_attesa" if e.id in attesa else None)
         approva = chi_approva(c, db, user, ho_responsabili)
         out.append({
-            "id": str(e.id), "corso_titolo": c.titolo, "corso_descrizione": c.descrizione,
+            "id": str(e.id), "corso_titolo": c.titolo, "corso_descrizione": c.descrizione, "corso_copertina_url": copertine_svc.url(c),
             "etichette": [{"id": str(x.id), "nome": x.nome, "famiglia": x.famiglia.nome} for x in etichette_del_corso(db, c.id)],
             "modalita": e.modalita, "sempre_aperta": bool(e.sempre_aperta), "data_inizio": e.data_inizio, "data_fine": e.data_fine,
             "luogo": e.luogo, "durata_effettiva_minuti": durata_effettiva(e, c),

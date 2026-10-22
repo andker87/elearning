@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import api, { erroreDi } from "../api";
 import { ChipEtichette } from "../components/Etichette";
+import Copertina from "../components/Copertina";
 import { formattaDurata } from "../durata";
 import { MODALITA, quando, dove } from "../sessioni";
 
@@ -68,8 +69,9 @@ export default function Catalogo() {
       {sempre.length === 0 && (!q || completati.length === 0) && <p className="empty-state">{q ? "Nessun corso corrisponde alla ricerca." : "Nessun corso sempre disponibile per ora."}</p>}
       {sempre.map((s) => (
         <div className="card" key={s.id}>
-          <div className="flex-between" style={{ gap: 12, alignItems: "flex-start" }}>
-            <div>
+          <div className="card-corso">
+            <Copertina url={s.corso_copertina_url} titolo={s.corso_titolo} modalita={s.modalita} />
+            <div style={{ minWidth: 0 }}>
               <strong>{s.corso_titolo}</strong> {capsula(s)}
               {s.corso_descrizione && <p className="text-muted" style={{ margin: "4px 0", fontSize: 13 }}>{s.corso_descrizione}</p>}
               <div className="text-muted" style={{ fontSize: 13 }}>
@@ -91,7 +93,8 @@ export default function Catalogo() {
             <tbody>
               {inProgramma.map((s) => (
                 <tr key={s.id}>
-                  <td><strong>{s.corso_titolo}</strong> {capsula(s)}{s.etichette.length > 0 && <div style={{ marginTop: 4 }}><ChipEtichette etichette={s.etichette} /></div>}</td>
+                  <td><div className="titolo-con-miniatura"><Copertina url={s.corso_copertina_url} titolo={s.corso_titolo} modalita={s.modalita} className="copertina-miniatura" />
+                    <div style={{ minWidth: 0 }}><strong>{s.corso_titolo}</strong> {capsula(s)}{s.etichette.length > 0 && <div style={{ marginTop: 4 }}><ChipEtichette etichette={s.etichette} /></div>}</div></div></td>
                   <td>{quando(s)} · {dove(s)}{s.durata_effettiva_minuti ? ` · ${formattaDurata(s.durata_effettiva_minuti)}` : ""}</td>
                   <td><span className="badge gray">{MODALITA[s.modalita] || s.modalita}</span></td>
                   <td>{s.posti_liberi == null ? "—" : s.posti_liberi > 0 ? `${s.posti_liberi} liberi` : s.lista_attesa ? "completo (lista d'attesa)" : "completo"}</td>

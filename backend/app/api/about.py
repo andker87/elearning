@@ -17,6 +17,12 @@ PACCHETTI = ["fastapi", "uvicorn", "sqlalchemy", "pydantic", "pyjwt", "httpx", "
              "reportlab", "openpyxl", "pywebpush", "psycopg2-binary"]
 
 CHANGELOG = [
+    {"version": "2.12.1", "date": "2026-10", "label": "Copertine dei corsi", "changes": [
+        "Copertine: ogni corso può avere un'immagine, caricata dalla Formazione (e dall'admin) in Gestione → Corsi → Modifica. PNG, JPG o WEBP fino a 5 MB, almeno 640×360 pixel: il sistema la raddrizza se la foto è girata, la ritaglia al centro nel formato 16:9 e la riduce a 1280×720 al massimo, così non rompe l'impaginazione e non pesa. Si può sostituire o togliere in qualsiasi momento",
+        "Dove compare: nella Home (il corso da continuare e gli altri), nel Catalogo (schede dei corsi sempre disponibili e miniatura nelle sessioni in programma), in testa alla pagina del corso e nell'elenco dei corsi della Gestione",
+        "Senza immagine il corso mostra un riquadro colorato, scelto dal suo titolo (sempre lo stesso colore per lo stesso corso), con l'icona del tipo di corso: video, aula, online. Sostituisce il riquadro verde uguale per tutti della 2.12.0",
+        "Le copertine sono cifrate su disco come gli altri file e si vedono con un indirizzo firmato che dura qualche ora: chi non ha fatto l'accesso non le può aprire. Eliminando un corso se ne va anche la copertina",
+    ]},
     {"version": "2.12.0", "date": "2026-10", "label": "Spazi di lavoro", "changes": [
         "Il menu è diviso in tre spazi di lavoro: «La mia formazione» (Home, Catalogo, Storico e attestati, e per chi li ha «Docenza» e «Il mio ufficio»), «Gestione» (Da gestire, Erogazione, Contenuti, Pianificazione, Analisi) e «Amministrazione» (Riepilogo, Persone, Accessi, Impostazioni, Controllo). Si vedono solo gli spazi che la persona ha: chi ne ha uno solo non vede nessun selettore. Le pagine e i loro indirizzi non cambiano",
         "Il selettore mostra quante cose aspettano in ogni spazio (richieste, sessioni da chiudere, persone in attesa nei percorsi; richieste di nuova password; approvazioni del responsabile) e lo stesso numero compare sulla voce del menu. All'accesso si riapre l'ultimo spazio usato, alla pagina dove si era; la prima volta la Formazione apre «Gestione», gli altri la Home",

@@ -4,6 +4,7 @@ import api, { downloadFile, erroreDi } from "../api";
 import VideoPlayer from "../components/VideoPlayer";
 import TestPlayer from "../components/TestPlayer";
 import Gradimento from "../components/Gradimento";
+import Copertina from "../components/Copertina";
 import { formattaDurata } from "../durata";
 import { MODALITA, quando, dove } from "../sessioni";
 import { conferma } from "../components/conferma";
@@ -97,6 +98,7 @@ export default function SessioneDiscente({ id, gestisce }) {
   );
   const informazioni = (
     <div className="card">
+      {!(eVideo && segue) && <Copertina url={edizione.corso_copertina_url} titolo={edizione.corso_titolo} modalita={edizione.modalita} style={{ maxWidth: 520, marginBottom: ".9rem" }} />}
       {edizione.corso_descrizione && <p style={{ marginTop: 0 }}>{edizione.corso_descrizione}</p>}
       {!eVideo && <p><strong>Quando:</strong> {quando(edizione)}
         {edizione.data_inizio && mia && (
