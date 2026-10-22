@@ -189,24 +189,26 @@ function ShellInterno({ children }) {
   }, [user?.id]);
   const spazi = spaziDi(user);
   const spazioPagina = spazioDelPercorso(location.pathname, location.search, spazi);
-  const [spazio, setSpazio] = useState(() => spazioPagina || (spazi.includes(ultimoSpazio()) ? ultimoSpazio() : spazi[0]));
+  const [spazio, setSpazio] = useState(() => spazioPagina || (spazi.includes(ultimoSpazio(user?.id)) ? ultimoSpazio(user?.id) : spazi[0]));
   const [avvisoSpazio, setAvvisoSpazio] = useState(null);
   const sceltaDalSelettore = useRef(false);
   useEffect(() => {
+    const dalSelettore = sceltaDalSelettore.current;      // letta e azzerata subito: non deve restare accesa per un collegamento successivo
+    sceltaDalSelettore.current = false;
     if (!spazioPagina) return undefined;
-    ricordaPagina(spazioPagina, location.pathname + location.search);
+    ricordaPagina(user?.id, spazioPagina, location.pathname + location.search);
     if (spazioPagina === spazio) return undefined;
     setSpazio(spazioPagina);
-    if (sceltaDalSelettore.current || spazi.length < 2) { sceltaDalSelettore.current = false; return undefined; }
+    if (dalSelettore || spazi.length < 2) return undefined;
     // si e' arrivati qui da un collegamento (notifica, email, pagina): lo si dice, cosi' il menu che cambia non sorprende
     setAvvisoSpazio(SPAZI[spazioPagina].nome);
     const t = setTimeout(() => setAvvisoSpazio(null), 2800);
-    return () => clearTimeout(t);
+    return () => { clearTimeout(t); setAvvisoSpazio(null); };
   }, [location.pathname, location.search]); // eslint-disable-line
   function vaiAlloSpazio(s) {
     sceltaDalSelettore.current = true;
     setSpazio(s);
-    navigate(ultimaPagina(s) || SPAZI[s].inizio);
+    navigate(ultimaPagina(user?.id, s) || SPAZI[s].inizio);
   }
   const [contatori, setContatori] = useState({});
   useEffect(() => {

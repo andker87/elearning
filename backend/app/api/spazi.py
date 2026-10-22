@@ -62,6 +62,11 @@ def _sessioni_da_chiudere(db: Session) -> list:
     return sorted(out, key=lambda x: x["data_fine"] or x["data_inizio"] or datetime.min.replace(tzinfo=timezone.utc))
 
 
+def _n_sessioni_da_chiudere(db: Session) -> int:
+    """Quante sessioni sono da chiudere (stessa regola dell'elenco), senza contare gli iscritti: serve ai numeri sul menu."""
+    return sum(1 for e in db.query(Edizione).filter(Edizione.stato.in_((StatoEdizione.pianificata, StatoEdizione.in_corso))).all() if da_chiudere(e))
+
+
 def _richieste_corsi(db: Session) -> list:
     out = []
     for r in db.query(RichiestaCorso).filter(RichiestaCorso.stato == StatoRichiestaCorso.in_attesa).order_by(RichiestaCorso.created_at).all():
@@ -92,7 +97,7 @@ def contatori(db: Session = Depends(get_db), user: User = Depends(get_current_us
     out = {"gestione": None, "amministrazione": None, "team": None}
     if user.ha_poteri_formazione:
         out["gestione"] = (db.query(func.count(RichiestaIscrizione.id)).filter(RichiestaIscrizione.stato == "in_attesa").scalar()
-                           + len(_sessioni_da_chiudere(db))
+                           + _n_sessioni_da_chiudere(db)
                            + db.query(func.count(RichiestaCorso.id)).filter(RichiestaCorso.stato == StatoRichiestaCorso.in_attesa).scalar()
                            + len(_attese_in_cache(db)))
     if user.is_admin:

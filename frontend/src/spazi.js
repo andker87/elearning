@@ -38,14 +38,15 @@ export function spazioDelPercorso(pathname, search, spazi) {
 const leggi = (k) => { try { return localStorage.getItem(k); } catch { return null; } };
 const scrivi = (k, v) => { try { localStorage.setItem(k, v); } catch { /* preferenza non salvabile: vale solo ora */ } };
 
-export function ultimoSpazio() { return leggi("spazio_ultimo"); }
-export function ultimaPagina(spazio) { return leggi(`spazio_pagina_${spazio}`); }
-export function ricordaPagina(spazio, percorso) { scrivi("spazio_ultimo", spazio); scrivi(`spazio_pagina_${spazio}`, percorso); }
+// Le preferenze sono per persona: sullo stesso browser chi entra dopo non eredita le pagine di chi c'era prima.
+export function ultimoSpazio(userId) { return leggi(`spazio_ultimo_${userId}`); }
+export function ultimaPagina(userId, spazio) { return leggi(`spazio_pagina_${userId}_${spazio}`); }
+export function ricordaPagina(userId, spazio, percorso) { scrivi(`spazio_ultimo_${userId}`, spazio); scrivi(`spazio_pagina_${userId}_${spazio}`, percorso); }
 
 // Dove si atterra dopo l'accesso: l'ultimo spazio usato; la prima volta «Gestione» per la Formazione, la Home per gli altri.
 export function paginaIniziale(user) {
   const spazi = spaziDi(user);
-  const ultimo = ultimoSpazio();
+  const ultimo = ultimoSpazio(user?.id);
   const spazio = ultimo && spazi.includes(ultimo) ? ultimo : (spazi.includes("gestione") ? "gestione" : "mia");
-  return ultimaPagina(spazio) || SPAZI[spazio].inizio;
+  return ultimaPagina(user?.id, spazio) || SPAZI[spazio].inizio;
 }
