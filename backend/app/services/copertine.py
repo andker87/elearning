@@ -8,6 +8,7 @@ import hashlib
 import io
 import os
 import time
+import uuid
 from typing import Optional
 
 import jwt
@@ -72,7 +73,7 @@ def prepara(contenuto: bytes) -> bytes:
 def salva(corso, contenuto_grezzo: bytes) -> None:
     pronto = prepara(contenuto_grezzo)
     os.makedirs(CARTELLA, exist_ok=True)
-    percorso = os.path.join(CARTELLA, f"{corso.id}.jpg")
+    percorso = os.path.join(CARTELLA, f"{corso.id}-{uuid.uuid4().hex[:12]}.jpg")   # mai sopra quella vecchia: si toglie solo dopo il commit
     cifratura.scrivi_file(percorso, pronto)
     corso.copertina_path = percorso
     corso.copertina_v = hashlib.sha256(pronto).hexdigest()[:10]       # cambia con l'immagine: serve a non vedere la vecchia in memoria

@@ -134,3 +134,25 @@ def test_modificare_il_corso_non_tocca_la_copertina(client, auth, formazione, cr
     url = carica(client, auth, formazione, c, immagine()).json()["copertina_url"]
     r = client.put(f"/api/corsi/{c.id}", headers=auth(formazione), json={"titolo": "Excel base", "durata_minuti": 60})
     assert r.status_code == 200 and r.json()["copertina_url"] == url
+
+
+def test_la_sostituzione_non_tocca_la_vecchia_finche_il_database_non_conferma(client, auth, formazione, crea_corso, db, monkeypatch):
+    c = crea_corso("Excel")
+    carica(client, auth, formazione, c, immagine(colore=(200, 0, 0)))
+    db.expire_all(); vecchio = db.get(Corso, c.id).copertina_path
+    prima = cifratura.leggi_file(vecchio)
+    # il salvataggio nel database fallisce: la copertina di prima resta com'era e il file nuovo non resta in giro
+    from app.api import corsi as api_corsi
+    originale = api_corsi.audit_svc.log_from_request
+    def guasto(*a, **k): raise RuntimeError("database non raggiungibile")
+    monkeypatch.setattr(api_corsi.audit_svc, "log_from_request", guasto)
+    with pytest.raises(RuntimeError):
+        carica(client, auth, formazione, c, immagine(colore=(0, 0, 200)))
+    db.expire_all()
+    assert db.get(Corso, c.id).copertina_path == vecchio and cifratura.leggi_file(vecchio) == prima
+    assert os.listdir(os.path.dirname(vecchio)) == [os.path.basename(vecchio)]
+    # andato a buon fine, il percorso cambia e il file di prima viene tolto
+    monkeypatch.setattr(api_corsi.audit_svc, "log_from_request", originale)
+    assert carica(client, auth, formazione, c, immagine(colore=(0, 0, 200))).status_code == 200
+    db.expire_all(); nuovo = db.get(Corso, c.id).copertina_path
+    assert nuovo != vecchio and not os.path.exists(vecchio) and os.path.isfile(nuovo)

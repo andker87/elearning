@@ -36,10 +36,10 @@ export default function CampoCopertina({ corso, onCambia }) {
           {" "}Formato 16:9 (meglio 1280×720), PNG, JPG o WEBP, al massimo 5 MB. Se l'immagine ha un'altra proporzione viene ritagliata al centro.
         </span>
         <div style={{ display: "flex", gap: ".5rem", flexWrap: "wrap", alignItems: "center" }}>
-          <label className="btn-file">
-            <input ref={campo} type="file" accept="image/png,image/jpeg,image/webp" onChange={carica} disabled={invio} style={{ display: "none" }} />
+          <input ref={campo} type="file" accept="image/png,image/jpeg,image/webp" onChange={carica} disabled={invio} hidden />
+          <button type="button" className="btn-file" disabled={invio} onClick={() => campo.current?.click()}>
             {invio ? "Carico..." : corso.copertina_url ? "Sostituisci l'immagine" : "Carica un'immagine"}
-          </label>
+          </button>
           {corso.copertina_url && <button type="button" className="danger btn-sm" onClick={togli}>Togli</button>}
         </div>
         {errore && <div className="error-msg" role="alert" style={{ margin: 0 }}>{errore}</div>}

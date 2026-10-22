@@ -232,12 +232,20 @@ def carica_copertina(corso_id: str, request: Request, file: UploadFile = File(..
     if not c: raise HTTPException(404)
     if file.content_type not in copertine_svc.FORMATI:
         raise HTTPException(400, "Formato non supportato: usa PNG, JPG o WEBP")
+    vecchio = c.copertina_path
     try:
         copertine_svc.salva(c, file.file.read(copertine_svc.MAX_BYTE + 1))
     except copertine_svc.CopertinaNonValida as e:
         raise HTTPException(400, str(e))
-    audit_svc.log_from_request(db, request, user, "UPDATE", entity_type="corso", entity_id=str(c.id), entity_name=c.titolo, detail="copertina caricata")
-    db.commit()
+    nuovo = c.copertina_path
+    try:
+        audit_svc.log_from_request(db, request, user, "UPDATE", entity_type="corso", entity_id=str(c.id), entity_name=c.titolo, detail="copertina caricata")
+        db.commit()
+    except Exception:
+        db.rollback()
+        copertine_svc.rimuovi_file(nuovo)          # il database tiene la copertina di prima, che e' ancora al suo posto
+        raise
+    copertine_svc.rimuovi_file(vecchio)
     return {"copertina_url": copertine_svc.url(c)}
 
 
