@@ -53,6 +53,8 @@ def _controlla_steps(data: PercorsoIn):
     if len(set(corsi)) != len(corsi):
         raise HTTPException(400, "Un corso compare più volte nel percorso")
     if data.modalita == "propedeuticita":
+        if any(r not in ordini for st in data.steps for r in st.richiede_step_ordini):
+            raise HTTPException(400, "Una propedeuticità deve riferirsi a un corso presente nel percorso")
         for st in data.steps:
             if st.ordine in st.richiede_step_ordini:
                 raise HTTPException(400, "Un corso non può richiedere se stesso")
@@ -137,6 +139,9 @@ def assegna_percorso(percorso_id: str, user_ids: List[str], request: Request, db
         persona = db.query(User).filter(User.id == uid, User.is_active == True).first()  # noqa: E712
         if not persona:
             saltati.append({"user_id": uid, "motivo": "persona non trovata o non attiva"})
+            continue
+        if persona.is_external:
+            saltati.append({"user_id": uid, "motivo": f"{persona.full_name} è una persona esterna: non segue i corsi"})
             continue
         esiste = db.query(PercorsoAssegnazione).filter(
             PercorsoAssegnazione.percorso_id == percorso_id, PercorsoAssegnazione.user_id == uid).first()

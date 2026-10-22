@@ -366,3 +366,14 @@ Provati con test (creazione utente e CSV, corsa simulata). SSO ed Entra: modific
 | FATTO 2.9.0 | services/configurazione.py | l'importazione valutava le due approvazioni solo sui valori del file, non sul corso già presente: poteva lasciarle entrambe attive. Ora se il file ne imposta una sola vince quella (l'altra si spegne); se le imposta entrambe resta quella del responsabile |
 | FATTO 2.9.0 | services/iscrizioni.py | per un video il blocco non copriva le sessioni chiuse prima della fine o senza data di fine, né quelle annullate o ancora in bozza: ora non sono disponibili a chi segue (chi gestisce vede sempre) |
 | FATTO 2.9.0 | pages/SessioneDiscente.jsx | una pagina aperta prima dell'inizio del video restava senza video dopo l'ora di inizio: ora si ricarica da sola all'ora (timer ripulito allo smontaggio) |
+
+## PR #35 (2.10.0, percorsi che iscrivono)
+
+| Stato | File | Rilievo |
+|---|---|---|
+| FATTO 2.10.0 | api/edizioni.py | pubblicando una sessione chi era già iscritto riceveva l'invito al calendario due volte (una dal giro di pubblicazione, una dall'avanzamento dei percorsi): ora prima il giro degli iscritti, poi i percorsi, ognuno una volta sola |
+| FATTO 2.10.0 | services/configurazione.py | importando un file fatto prima della 2.10.0 la modalità dei percorsi già presenti veniva dedotta e sovrascritta: un percorso sequenziale (che non ha prerequisiti scritti) tornava «libero», togliendo i blocchi a tutti gli assegnati. Ora la modalità si deduce solo per i percorsi nuovi; per quelli esistenti cambia solo se il file la dichiara |
+| FATTO 2.10.0 | services/percorsi_iscrizioni.py, api/percorsi.py | le persone esterne (docenti di terzi) non possono essere iscritte ma risultavano «in attesa di una sessione» per sempre, con un avviso settimanale alla Formazione: ora si saltano nell'avanzamento e non si assegna loro il percorso (messaggio nell'esito) |
+| FATTO 2.10.0 | components/PersonePercorso.jsx | la conferma di «Togli il percorso» diceva che le iscrizioni restano e insieme che si annullano: ora dice che restano e vanno annullate una per una dalle sessioni se non servono |
+| FATTO 2.10.0 | pages/Percorsi.jsx, api/percorsi.py | le propedeuticità spuntate restavano legate al numero d'ordine: cambiando i numeri o togliendo un corso potevano puntare al corso sbagliato o sparire. Ora il modulo le tiene legate al corso e le trasforma in numeri solo all'invio; il server rifiuta una propedeuticità che non si riferisce a un corso del percorso (prima la scartava in silenzio) |
+| FATTO 2.10.0 | api/catalogo.py | (suggerimento) il blocco di un corso si ricalcolava per ogni sessione: ora una volta per corso |
