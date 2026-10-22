@@ -257,3 +257,9 @@ def test_0011_i_corsi_che_c_erano_restano_aperti_ai_responsabili():
         if s is not None:
             s.close()
         ricrea_schema()
+
+
+def test_la_0017_crea_gli_indici_sulle_chiavi_esterne():
+    from app.database import engine
+    nomi = {i["name"] for t in ("iscrizioni", "notifications", "evidenze") for i in sa.inspect(engine).get_indexes(t)}
+    assert {"ix_iscrizioni_user_id", "ix_notifications_user_id", "ix_evidenze_iscrizione_id"} <= nomi

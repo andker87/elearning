@@ -23,6 +23,7 @@ from ..services import audit as audit_svc
 from ..services import elimina_corso as elimina_corso_svc
 from ..services import copertine as copertine_svc
 from .deps import require_training_admin, get_current_user
+from ..services.caricamento import per_id
 
 router = APIRouter(prefix="/api/edizioni", tags=["edizioni"])
 
@@ -79,6 +80,10 @@ def _durata_propria(db: Session, corso_id, durata) -> Optional[int]:
 def _is_docente(edizione: Edizione, user: User) -> bool:
     return any(str(d.user_id) == str(user.id) for d in edizione.docenti)
 
+def gestisce_sessione(edizione: Edizione, user: User) -> bool:
+    """Chi segue la sessione per lavoro: la Formazione (e l'admin) oppure un docente di quella sessione."""
+    return bool(user.ha_poteri_formazione or _is_docente(edizione, user))
+
 def _serialize(e: Edizione, db: Session):
     n_iscritti = posti_occupati(db, e.id)
     n_lista_attesa = db.query(Iscrizione).filter(Iscrizione.edizione_id == e.id, Iscrizione.stato == StatoIscrizione.in_lista_attesa).count()
@@ -133,10 +138,12 @@ def _video_pct(db: Session, iscrizione, e) -> Optional[float]:
 def mie_iscrizioni(db: Session = Depends(get_db), user=Depends(get_current_user)):
     # Le iscrizioni annullate non sono piu' mie: non compaiono in «I miei corsi» ne' nello storico (restano nel registro attivita')
     rows = db.query(Iscrizione).filter(Iscrizione.user_id == user.id, Iscrizione.stato != StatoIscrizione.annullato).all()
+    edizioni = per_id(db, Edizione, [i.edizione_id for i in rows])
+    corsi = per_id(db, Corso, [e.corso_id for e in edizioni.values()])
     out = []
     for i in rows:
-        e = db.query(Edizione).filter(Edizione.id == i.edizione_id).first()
-        corso = db.query(Corso).filter(Corso.id == e.corso_id).first() if e else None
+        e = edizioni.get(str(i.edizione_id))
+        corso = corsi.get(str(e.corso_id)) if e else None
         aggiornamento = None
         if i.stato == StatoIscrizione.completato and corso:
             if i.versione_corso is None or i.versione_corso < corso.versione_minima_valida:
@@ -338,12 +345,13 @@ def list_iscrizioni(edizione_id: str, db: Session = Depends(get_db), user=Depend
     e = db.query(Edizione).options(joinedload(Edizione.docenti)).filter(Edizione.id == edizione_id).first()
     if not e: raise HTTPException(404)
     q = db.query(Iscrizione).options(joinedload(Iscrizione.evidenze)).filter(Iscrizione.edizione_id == edizione_id)
-    if not (user.ha_poteri_formazione or _is_docente(e, user)):
+    if not gestisce_sessione(e, user):
         q = q.filter(Iscrizione.user_id == user.id)
     rows = q.all()
+    utenti = per_id(db, User, [i.user_id for i in rows])
     out = []
     for i in rows:
-        u = db.query(User).filter(User.id == i.user_id).first()
+        u = utenti.get(str(i.user_id))
         out.append({
             "id": str(i.id), "user_id": str(i.user_id),
             "user_full_name": u.full_name if u else None,
@@ -487,14 +495,11 @@ class ComunicazioneIn(BaseModel):
     oggetto: str
     messaggio: str
 
-def _autorizzato_comunicazione(e: Edizione, user: User) -> bool:
-    return _is_docente(e, user) or user.ha_poteri_formazione
-
 @router.post("/{edizione_id}/comunicazione")
 def invia_comunicazione(edizione_id: str, data: ComunicazioneIn, request: Request, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
     e = db.query(Edizione).options(joinedload(Edizione.docenti)).filter(Edizione.id == edizione_id).first()
     if not e: raise HTTPException(404)
-    if not _autorizzato_comunicazione(e, user):
+    if not gestisce_sessione(e, user):
         raise HTTPException(403, "Non autorizzato a inviare comunicazioni per questa sessione")
     destinatari = [i.user_id for i in db.query(Iscrizione).filter(
         Iscrizione.edizione_id == edizione_id,
@@ -512,7 +517,7 @@ def invia_comunicazione(edizione_id: str, data: ComunicazioneIn, request: Reques
 def list_comunicazioni(edizione_id: str, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
     e = db.query(Edizione).options(joinedload(Edizione.docenti)).filter(Edizione.id == edizione_id).first()
     if not e: raise HTTPException(404)
-    if not _autorizzato_comunicazione(e, user):
+    if not gestisce_sessione(e, user):
         raise HTTPException(403, "Non autorizzato")
     righe = db.query(ComunicazioneEdizione).filter(ComunicazioneEdizione.edizione_id == edizione_id)\
         .order_by(ComunicazioneEdizione.created_at.desc()).all()

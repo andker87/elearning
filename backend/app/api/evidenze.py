@@ -18,8 +18,9 @@ from ..services import graph as graph_svc
 from ..services import cifratura
 from ..services.percorsi_iscrizioni import avanza_e_invita
 from .deps import get_current_user, require_training_admin
-from .edizioni import _is_docente
+from .edizioni import gestisce_sessione
 from ..services.impronte import impronta
+from ..services.caricamento import per_id
 
 MAX_ALLEGATO_BYTES = 25 * 1024 * 1024   # attestati esterni: PDF o immagini
 
@@ -69,7 +70,7 @@ class PresenzaRiga(BaseModel):
 @router.post("/checkin/docente")
 def checkin_docente(edizione_id: str, righe: List[PresenzaRiga], request: Request, db: Session = Depends(get_db), user=Depends(get_current_user)):
     e = _get_edizione(db, edizione_id)
-    if not (_is_docente(e, user) or user.ha_poteri_formazione):
+    if not gestisce_sessione(e, user):
         raise HTTPException(403, "Solo un docente della sessione può compilare il registro delle presenze")
     if e.stato == StatoEdizione.chiusa: raise HTTPException(400, "Sessione già chiusa")
     now = datetime.now(timezone.utc)
@@ -241,7 +242,7 @@ def _test_permette_completamento(db: Session, iscrizione: Iscrizione, corso: Cor
 @router.post("/chiudi")
 def chiudi_edizione(edizione_id: str, request: Request, db: Session = Depends(get_db), user=Depends(get_current_user)):
     e = _get_edizione(db, edizione_id)
-    if not (_is_docente(e, user) or user.ha_poteri_formazione):
+    if not gestisce_sessione(e, user):
         raise HTTPException(403, "Solo un docente della sessione o la Formazione può chiudere la sessione")
     if e.stato == StatoEdizione.chiusa:
         raise HTTPException(400, "Già chiusa")
@@ -313,8 +314,9 @@ def report_iscrizioni_csv(edizione_id: str, db: Session = Depends(get_db), user=
     buf = io.StringIO()
     w = csv.writer(buf)
     w.writerow(["Corso", "Utente", "Email", "Stato", "Ripeti entro"])
+    utenti = per_id(db, User, [i.user_id for i in iscrizioni])
     for i in iscrizioni:
-        u = db.query(User).filter(User.id == i.user_id).first()
+        u = utenti.get(str(i.user_id))
         w.writerow([corso.titolo if corso else "", u.full_name if u else "", u.email if u else "",
                     i.stato, i.ripeti_entro.strftime("%d/%m/%Y") if i.ripeti_entro else ""])
     buf.seek(0)

@@ -12,6 +12,7 @@ from ..models.user import User
 from ..services.certificati import nome_file_attestato
 from ..services.durata import durata_effettiva
 from .deps import get_current_user
+from ..services.caricamento import per_id
 
 router = APIRouter(prefix="/api/certificati", tags=["certificati"])
 
@@ -36,10 +37,12 @@ def miei_certificati(db: Session = Depends(get_db), user=Depends(get_current_use
     """I miei attestati, con quanto serve a riconoscerli nello storico (corso, modalita', data, durata)."""
     rows = (db.query(Certificato, Iscrizione).join(Iscrizione, Certificato.iscrizione_id == Iscrizione.id)
             .filter(Iscrizione.user_id == user.id).order_by(Certificato.emesso_at.desc()).all())
+    edizioni = per_id(db, Edizione, [i.edizione_id for _, i in rows])
+    corsi = per_id(db, Corso, [e.corso_id for e in edizioni.values()])
     out = []
     for c, i in rows:
-        e = db.query(Edizione).filter(Edizione.id == i.edizione_id).first()
-        corso = db.query(Corso).filter(Corso.id == e.corso_id).first() if e else None
+        e = edizioni.get(str(i.edizione_id))
+        corso = corsi.get(str(e.corso_id)) if e else None
         out.append({
             "id": str(c.id), "iscrizione_id": str(i.id), "codice_verifica": c.codice_verifica, "emesso_at": c.emesso_at,
             "corso_titolo": corso.titolo if corso else None, "modalita": e.modalita if e else None,

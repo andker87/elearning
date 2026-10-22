@@ -7,13 +7,6 @@ from apscheduler.schedulers.background import BackgroundScheduler
 import os
 
 from .database import SessionLocal
-# Importare i moduli dei modelli e' quello che registra le tabelle in Base.metadata (migrazioni, test): non vanno tolti.
-from .models import (  # noqa: F401
-    user, group, azienda, organizzazione, corso, percorso, edizione,
-    iscrizione, evidenza, video, test, certificato, certificato_template,
-    notification, audit, richiesta_corso, fabbisogno, autoiscrizione,
-    push_subscription, comunicazione_edizione, job_run, password_reset, etichetta, mansione, richiesta_iscrizione, questionario,
-)
 from .api import (
     setup, auth, catalogo as catalogo_api, spazi as spazi_api, questionari as questionari_api, groups, mansioni, team, richieste_iscrizione, organizzazioni, azienda as azienda_api,
     corsi, percorsi, edizioni, evidenze, certificati, certificato_templates,
@@ -27,7 +20,7 @@ from .config import settings
 from .services import cifratura
 from .services.notifiche import genera_notifiche
 from .services.job_tracking import esegui_tracciato
-from .migrazioni import esegui_migrazioni
+from .migrazioni import esegui_migrazioni, importa_modelli
 
 def _controlla_cifratura():
     from .services.cifratura_ops import controlla_avvio
@@ -74,6 +67,8 @@ def _ensure_vapid_keys():
             db.commit()
     finally:
         db.close()
+
+importa_modelli()   # carica tutti i modelli: Base.metadata conosce cosi' ogni tabella
 
 app = FastAPI(title="Piattaforma E-Learning", version="0.1.0")
 # Sito e API passano dallo stesso indirizzo (nginx): CORS non serve e di default non ammette nessun altro sito.
