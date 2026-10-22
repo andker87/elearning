@@ -396,12 +396,13 @@ def _percorsi(db, elenco, rapporto, ex_gruppi=None):
         valori = {"descrizione": d.get("descrizione"), "motivo": motivo, "motivo_nota": d.get("motivo_nota"), "trigger_tipo": trigger,
                   "trigger_gruppo_id": gruppo_trigger.id if gruppo_trigger and trigger == TriggerAssegnazione.gruppo else None,
                   "trigger_mansione_id": mansione_trigger.id if mansione_trigger and trigger == TriggerAssegnazione.mansione else None,
-                  "is_active": d.get("attivo", True),
-                  # i file di prima non la conoscono: con dei prerequisiti scritti il percorso e' «con propedeuticita'», altrimenti libero
-                  "modalita": d.get("modalita") if d.get("modalita") in MODALITA_PERCORSO else
-                              ("propedeuticita" if any(x.get("richiede") for x in d.get("passi", [])) else "libero")}
+                  "is_active": d.get("attivo", True)}
+        if d.get("modalita") in MODALITA_PERCORSO:
+            valori["modalita"] = d["modalita"]
         p = esistenti.get(_chiave(d["nome"]))
         nuovo = p is None
+        if nuovo and "modalita" not in valori:     # i file di prima non la conoscono: con prerequisiti scritti e' «con propedeuticita'», altrimenti libero
+            valori["modalita"] = "propedeuticita" if any(x.get("richiede") for x in d.get("passi", [])) else "libero"
         if nuovo:
             p = PercorsoFormativo(nome=d["nome"], **valori)
             db.add(p)

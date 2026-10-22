@@ -199,8 +199,8 @@ def avanza_percorsi(db: Session, user_ids=None, corso_ids=None, percorso_ids=Non
         if a.user_id not in utenti:
             utenti[a.user_id] = db.query(User).filter(User.id == a.user_id).first()
         u = utenti[a.user_id]
-        if not u or not u.is_active:
-            continue
+        if not u or not u.is_active or u.is_external:
+            continue          # gli esterni (docenti di terzi) non seguono i corsi: non possono essere iscritti ne' restare «in attesa»
         for s in calcola_stato_steps(db, p, a.user_id):
             if corso_ids and s["corso_id"] not in corso_ids:
                 continue
