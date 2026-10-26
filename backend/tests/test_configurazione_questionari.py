@@ -188,3 +188,12 @@ def test_predefinito_non_booleano_e_un_avviso_e_questionario_non_testo_non_da_er
     assert r.status_code == 200, r.text
     assert any("Falso" in a for a in r.json()["avvisi"]) and any("Excel" in a for a in r.json()["avvisi"])
     db.expire_all(); assert db.query(QuestionarioGradimento).filter_by(is_default=True).count() == 0
+
+
+def test_voci_che_non_sono_oggetti_sono_avvisi_non_errori(client, db, admin, auth):
+    dati = {"formato": "elearning-configurazione", "schema": 3, "questionari": [
+        None, "testo", {"nome": "Domande storte", "domande": [None]},
+        {"nome": "Buono", "domande": [{"testo": "Ok?", "tipo": "si_no"}]}]}
+    r = client.post("/api/admin/configurazione/import", headers=auth(admin), json={"contenuto": dati, "applica": True})
+    assert r.status_code == 200, r.text
+    assert r.json()["sezioni"]["questionari"]["creati"] == ["Buono"] and len(r.json()["avvisi"]) == 3

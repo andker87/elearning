@@ -345,7 +345,7 @@ def _questionari(db, elenco, rapporto):
                                   domande=[DomandaIn(testo=x["testo"], tipo=x["tipo"], opzioni=x.get("opzioni") or [], obbligatoria=x.get("obbligatoria", False))
                                            for x in d.get("domande") or []])
             domande = _pulisci(dati.domande)
-        except (ValidationError, HTTPException, KeyError, TypeError) as e:
+        except (ValidationError, HTTPException, KeyError, TypeError, AttributeError) as e:
             motivo = e.detail if isinstance(e, HTTPException) else "dati incompleti o non validi"
             rapporto.avvisi.append(f"Questionario «{d.get('nome', '?') if isinstance(d, dict) else '?'}» non importato: {motivo}.")
             continue
