@@ -5,12 +5,17 @@ ricostruirle dopo un errore o ad avviare una nuova istanza. NON e' un backup: pe
 iscrizioni, esiti e file vivono nel backup dell'infrastruttura. Mai inclusi i segreti
 (SMTP, SSO, Graph restano nell'ambiente) ne' le chiavi della piattaforma.
 
-Per ora fuori dal file (da valutare): video, immagini e loghi, template degli attestati,
-test e domande, utenti e ruoli di sistema.
+Per ora fuori dal file (da valutare): video, loghi, template degli attestati,
+test e domande dei corsi, utenti e ruoli di sistema.
 L'importazione aggiunge e aggiorna, non cancella mai, e dal confronto mostra sempre
 un'anteprima prima di scrivere."""
+import base64
+import binascii
+import os
 from datetime import datetime, timezone
 
+from fastapi import HTTPException
+from pydantic import ValidationError
 from sqlalchemy.orm import Session
 
 from ..models.azienda import Azienda
@@ -18,6 +23,7 @@ from ..models.corso import AzioneTestNonSuperato, Corso, MODI_ISCRIZIONE_RESPONS
 from ..models.etichetta import CorsoEtichetta, Etichetta, EtichettaFamiglia
 from ..models.mansione import Mansione
 from ..models.group import Group
+from ..models.questionario import DomandaGradimento, QuestionarioGradimento
 from ..models.organizzazione import Organizzazione
 from ..models.percorso import (MODALITA_PERCORSO, MotivoObbligo, PercorsoFormativo, PercorsoStep, PercorsoStepPrerequisito,
                                TriggerAssegnazione)
@@ -25,17 +31,20 @@ from ..models.user import User
 from ..version import APP_VERSION
 from .percorsi_sync import sincronizza_assegnazioni
 from .impronte import impronta
+from . import cifratura
+from . import copertine as copertine_svc
+from ..api.questionari import DomandaIn, MAX_DOMANDE, QuestionarioIn, _pulisci
 
 FORMATO = "elearning-configurazione"
-SCHEMA = 2   # 2 (2.2.0): mansioni; i gruppi sono solo uffici. I file dello schema 1 si importano ancora (i gruppi non-ufficio diventano mansioni)
+SCHEMA = 3   # 3 (2.12.3): questionari di gradimento e copertine dei corsi. 2 (2.2.0): mansioni; i gruppi sono solo uffici. I file degli schemi precedenti si importano ancora (nello schema 1 i gruppi non-ufficio diventano mansioni)
 
 CAMPI_AZIENDA = ["ragione_sociale", "partita_iva", "codice_fiscale", "indirizzo", "cap", "citta", "provincia", "nazione", "email", "pec",
                  "nome_piattaforma", "url_pubblico", "privacy_testo"]
 CAMPI_ORGANIZZAZIONE = ["tipo", "partita_iva", "accreditamento", "referente", "email", "telefono", "note"]
 CAMPI_CORSO = ["descrizione", "validita_mesi", "durata_minuti", "iscrizione_responsabili", "ha_test_finale", "giorni_scadenza_breve", "confronta_pre_post_test",
                "permetti_autoiscrizione", "richiedi_approvazione_responsabile", "richiedi_approvazione_formazione", "rinnovo_automatico", "rinnovo_giorni_anticipo", "is_active"]
-ESCLUSI = ["utenti, permessi, uffici e mansioni di ciascuno", "iscrizioni, esiti e attestati", "video, immagini, loghi e icone", "template degli attestati",
-           "test e domande", "informativa privacy in PDF", "credenziali e chiavi (SMTP, SSO, Graph, notifiche push)"]
+ESCLUSI = ["utenti, permessi, uffici e mansioni di ciascuno", "iscrizioni, esiti e attestati", "video, loghi e icone", "template degli attestati",
+           "test e domande dei corsi", "informativa privacy in PDF", "credenziali e chiavi (SMTP, SSO, Graph, notifiche push)"]
 
 
 def _chiave(testo: str) -> str:
@@ -51,7 +60,7 @@ def _percorso_gruppo(g: Group, per_id: dict) -> str:
     return " / ".join(reversed(nomi))
 
 
-def esporta(db: Session) -> dict:
+def esporta(db: Session, con_copertine: bool = True) -> dict:
     a = db.query(Azienda).first()
     gruppi = db.query(Group).all()
     per_id = {g.id: g for g in gruppi}
@@ -64,6 +73,8 @@ def esporta(db: Session) -> dict:
     for ce, e in db.query(CorsoEtichetta, Etichetta).join(Etichetta, Etichetta.id == CorsoEtichetta.etichetta_id).all():
         etichette_corso.setdefault(ce.corso_id, []).append({"famiglia": nome_famiglia.get(e.famiglia_id), "nome": e.nome})
 
+    questionari = db.query(QuestionarioGradimento).order_by(QuestionarioGradimento.nome).all()
+    nome_questionario = {q.id: q.nome for q in questionari}
     nome_mansione = {m.id: m.name for m in db.query(Mansione).all()}
     liberi = sorted(gruppi, key=lambda g: (_percorso_gruppo(g, per_id).count(" / "), _percorso_gruppo(g, per_id).lower()))
     percorsi = []
@@ -93,17 +104,33 @@ def esporta(db: Session) -> dict:
                       for f in famiglie],
         "organizzazioni": [{"ragione_sociale": o.ragione_sociale, **{c: getattr(o, c) for c in CAMPI_ORGANIZZAZIONE}}
                            for o in db.query(Organizzazione).order_by(Organizzazione.ragione_sociale).all()],
+        "questionari": [{"nome": q.nome, "predefinito": q.is_default,
+                         "domande": [{"testo": d.testo, "tipo": d.tipo, "opzioni": d.opzioni, "obbligatoria": d.obbligatoria, "ordine": d.ordine} for d in q.domande]}
+                        for q in questionari],
         "corsi": [{"titolo": c.titolo, **{k: getattr(c, k) for k in CAMPI_CORSO},
                    "azione_test_non_superato": c.azione_test_non_superato.value, "versione": c.versione,
-                   "versione_minima_valida": c.versione_minima_valida, "etichette": etichette_corso.get(c.id, [])} for c in corsi],
+                   "versione_minima_valida": c.versione_minima_valida, "etichette": etichette_corso.get(c.id, []),
+                   "questionario": nome_questionario.get(c.questionario_gradimento_id),
+                   **({"copertina": _copertina_esportata(c)} if con_copertine and c.copertina_path else {})} for c in corsi],
         "percorsi": percorsi,
     }
 
 
+def _copertina_esportata(corso):
+    """La copertina com'e' (JPEG gia' pronto) in base64, con il suo codice di versione. Se il file non si legge, il corso esce senza."""
+    try:
+        return {"v": corso.copertina_v, "jpeg_base64": base64.b64encode(cifratura.leggi_file(corso.copertina_path)).decode("ascii")}
+    except Exception:
+        return None
+
+
 class _Rapporto:
-    def __init__(self):
-        self.sezioni = {n: {"creati": [], "aggiornati": [], "invariati": 0} for n in ("azienda", "etichette", "gruppi", "mansioni", "organizzazioni", "corsi", "percorsi")}
+    def __init__(self, applica=False):
+        self.sezioni = {n: {"creati": [], "aggiornati": [], "invariati": 0} for n in ("azienda", "etichette", "gruppi", "mansioni", "organizzazioni", "questionari", "corsi", "percorsi")}
         self.avvisi = []
+        self.applica = applica        # in anteprima non si scrive nessun file
+        self.file_nuovi = []          # copertine scritte in questo giro: da togliere se il salvataggio fallisce
+        self.file_vecchi = []         # copertine sostituite: da togliere solo dopo il salvataggio
 
     def creato(self, sezione, nome): self.sezioni[sezione]["creati"].append(nome)
     def aggiornato(self, sezione, nome, campi): self.sezioni[sezione]["aggiornati"].append({"nome": nome, "campi": campi})
@@ -138,7 +165,7 @@ def importa(db: Session, contenuto: dict, applica: bool) -> dict:
     """Con applica=False calcola esattamente cosa succederebbe (lavora davvero nel database
     e poi annulla), cosi' l'anteprima non puo' discostarsi dal risultato."""
     _valida(contenuto)
-    rapporto = _Rapporto()
+    rapporto = _Rapporto(applica)
     try:
         _azienda(db, contenuto.get("azienda") or {}, rapporto)
         _etichette(db, contenuto.get("etichette") or [], rapporto)
@@ -151,15 +178,20 @@ def importa(db: Session, contenuto: dict, applica: bool) -> dict:
             {"nome": d["nome"], "descrizione": d.get("descrizione"), "colore": d.get("colore"), "attiva": d.get("attivo")} for d in da_gruppi], rapporto)
         ex_gruppi = {_chiave(d["percorso"]): d["nome"] for d in da_gruppi}
         _organizzazioni(db, contenuto.get("organizzazioni") or [], rapporto)
+        _questionari(db, contenuto.get("questionari") or [], rapporto)
         _corsi(db, contenuto.get("corsi") or [], rapporto)
         _percorsi(db, contenuto.get("percorsi") or [], rapporto, ex_gruppi)
         if applica:
             sincronizza_assegnazioni(db)
             db.commit()
+            for vecchio in rapporto.file_vecchi:
+                copertine_svc.rimuovi_file(vecchio)
         else:
             db.rollback()
     except Exception:
         db.rollback()
+        for nuovo in rapporto.file_nuovi:
+            copertine_svc.rimuovi_file(nuovo)
         raise
     risultato = rapporto.dict()
     risultato["applicato"] = applica
@@ -299,8 +331,68 @@ def _organizzazioni(db, elenco, rapporto):
     db.flush()
 
 
+def _questionari(db, elenco, rapporto):
+    """Si riconoscono per nome. Uno esistente riceve le domande che non ha (riconosciute dal testo) e aggiorna quelle che ci sono;
+    nessuna domanda si toglie e il predefinito non cambia se ce n'e' gia' uno."""
+    esistenti = {_chiave(q.nome): q for q in db.query(QuestionarioGradimento).all()}
+    ha_predefinito = any(q.is_default for q in esistenti.values())
+    for d in elenco:
+        try:
+            predefinito = d.get("predefinito", False)
+            if not isinstance(predefinito, bool):
+                raise TypeError("predefinito deve essere booleano")
+            dati = QuestionarioIn(nome=d["nome"], is_default=False,
+                                  domande=[DomandaIn(testo=x["testo"], tipo=x["tipo"], opzioni=x.get("opzioni") or [], obbligatoria=x.get("obbligatoria", False))
+                                           for x in d.get("domande") or []])
+            domande = _pulisci(dati.domande)
+        except (ValidationError, HTTPException, KeyError, TypeError, AttributeError) as e:
+            motivo = e.detail if isinstance(e, HTTPException) else "dati incompleti o non validi"
+            rapporto.avvisi.append(f"Questionario «{d.get('nome', '?') if isinstance(d, dict) else '?'}» non importato: {motivo}.")
+            continue
+        q = esistenti.get(_chiave(dati.nome))
+        nuovo = q is None
+        cambiati = []
+        if nuovo:
+            q = QuestionarioGradimento(nome=dati.nome, is_default=False)
+            db.add(q)
+            esistenti[_chiave(q.nome)] = q
+        voci = {" ".join(x.testo.split()).casefold(): x for x in q.domande}
+        importate = []
+        for dom in domande:
+            x = voci.get(" ".join(dom["testo"].split()).casefold())
+            if x is None:
+                if len(q.domande) >= MAX_DOMANDE:
+                    rapporto.avvisi.append(f"Questionario «{q.nome}»: la domanda «{dom['testo']}» non è stata aggiunta, il massimo è {MAX_DOMANDE}.")
+                    continue
+                x = DomandaGradimento(ordine=len(q.domande), **dom)
+                q.domande.append(x)
+                cambiati.append(f"domanda «{dom['testo']}»")
+            elif _imposta(x, dom, ("tipo", "opzioni", "obbligatoria")):
+                cambiati.append(f"domanda «{dom['testo']}»")
+            importate.append(x)
+        ordinate = importate + [x for x in q.domande if x not in importate]       # quelle del file nel suo ordine, le altre in coda
+        if [x.ordine for x in ordinate] != list(range(len(ordinate))):
+            cambiati.append("ordine")
+        for ordine, x in enumerate(ordinate):
+            x.ordine = ordine
+        if predefinito and not ha_predefinito:
+            q.is_default = True
+            ha_predefinito = True
+            cambiati.append("predefinito")
+        elif predefinito and not q.is_default:
+            rapporto.avvisi.append(f"Nel file «{dati.nome}» è il questionario predefinito, ma qui ce n'è già un altro: non è cambiato.")
+        db.flush()
+        if nuovo:
+            rapporto.creato("questionari", q.nome)
+        elif cambiati:
+            rapporto.aggiornato("questionari", q.nome, cambiati)
+        else:
+            rapporto.invariato("questionari")
+
+
 def _corsi(db, elenco, rapporto):
     esistenti = {_chiave(c.titolo): c for c in db.query(Corso).all()}
+    questionari = {_chiave(q.nome): q for q in db.query(QuestionarioGradimento).all()}
     con_test = []
     for d in elenco:
         try:
@@ -313,6 +405,12 @@ def _corsi(db, elenco, rapporto):
             valori.pop("iscrizione_responsabili", None)       # valore sconosciuto: si tiene quello del corso (o il predefinito, chiuso)
         if valori.get("rinnovo_automatico") and not valori.get("validita_mesi"):
             valori["rinnovo_automatico"] = False
+        if d.get("questionario"):
+            q = questionari.get(_chiave(d["questionario"])) if isinstance(d["questionario"], str) else None
+            if q:
+                valori["questionario_gradimento_id"] = q.id
+            else:
+                rapporto.avvisi.append(f"Il corso «{d['titolo']}» usa il questionario «{d['questionario']}», che non c'è nel file né qui: resta quello che aveva.")
         c = esistenti.get(_chiave(d["titolo"]))
         nuovo = c is None
         # Le due approvazioni non si sommano, valutando anche quella gia' impostata sul corso che c'e': se il file ne imposta una
@@ -333,6 +431,8 @@ def _corsi(db, elenco, rapporto):
             cambiati = _imposta(c, valori, valori.keys())  # le versioni di un corso esistente non si toccano
         db.flush()
         cambiati += [f"etichetta {m}" for m in _aggiungi_etichette_corso(db, c, d.get("etichette") or [], rapporto)]  # si aggiungono, non si tolgono
+        if _copertina(c, d.get("copertina"), rapporto):
+            cambiati.append("copertina")
         if nuovo:
             rapporto.creato("corsi", c.titolo)
         elif cambiati:
@@ -344,6 +444,29 @@ def _corsi(db, elenco, rapporto):
     if con_test:
         rapporto.avvisi.append(f"{len(con_test)} corsi prevedono un test finale, ma i test non fanno parte del file: vanno ricreati ({', '.join(con_test[:5])}{'…' if len(con_test) > 5 else ''}).")
     db.flush()
+
+
+def _copertina(corso, dati, rapporto) -> bool:
+    """Porta la copertina del file sul corso; True se cambia. Un file senza copertina non toglie quella che il corso ha.
+    L'immagine esportata e' gia' pronta (JPEG 16:9): se lo e' ancora si tiene com'e', cosi' importare due volte non cambia nulla."""
+    if not dati:
+        return False
+    try:
+        grezzo = base64.b64decode(dati.get("jpeg_base64") or "", validate=True)
+        pronto = copertine_svc.pronta_o_prepara(grezzo)
+    except (ValueError, TypeError, AttributeError, copertine_svc.CopertinaNonValida, binascii.Error):
+        rapporto.avvisi.append(f"La copertina del corso «{corso.titolo}» nel file non è un'immagine valida: non è stata importata.")
+        return False
+    versione = copertine_svc.codice_versione(pronto)
+    if versione == corso.copertina_v and corso.copertina_path and os.path.isfile(corso.copertina_path):
+        return False
+    if rapporto.applica:
+        if corso.copertina_path:
+            rapporto.file_vecchi.append(corso.copertina_path)
+        percorso = copertine_svc.scrivi(corso.id, pronto)
+        rapporto.file_nuovi.append(percorso)
+        corso.copertina_path, corso.copertina_v = percorso, versione
+    return True
 
 
 def _aggiungi_etichette_corso(db, corso, elenco, rapporto) -> list:

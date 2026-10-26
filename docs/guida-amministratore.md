@@ -56,7 +56,7 @@ Per chi configura e fa funzionare la piattaforma (permesso **Admin**) e per chi 
 - Un responsabile può anche aprire una **richiesta spontanea** in qualsiasi momento.
 
 ## 7. Configurazione portabile
-*Impostazioni → Configurazione*: **esporta** dati aziendali, uffici, mansioni, società di formazione, corsi, percorsi ed etichette in un file; **importa** su un altro ambiente con anteprima. Non cancella nulla. Restano fuori persone, iscrizioni, video, immagini, template degli attestati, test e credenziali.
+*Impostazioni → Configurazione*: **esporta** dati aziendali, uffici, mansioni, società di formazione, questionari di gradimento, corsi (con le copertine, se lasci la spunta), percorsi ed etichette in un file; **importa** su un altro ambiente con anteprima. Non cancella nulla. Restano fuori persone, iscrizioni, video, loghi, template degli attestati, test dei corsi e credenziali. Importando, un questionario che c'è già riceve le domande che non ha (non ne toglie) e il predefinito non cambia se ce n'è già uno.
 
 ## 8. Quando qualcosa non va
 - *Stato piattaforma*: posta, accesso aziendale, job notturni (con errore), spazio, video in errore.

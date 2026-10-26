@@ -400,3 +400,16 @@ Provati con test (creazione utente e CSV, corsa simulata). SSO ed Entra: modific
 | FATTO 2.12.2 | persone.js | la cache di 30 secondi dell'elenco persone valeva per il browser: chi entrava subito dopo un'altra persona poteva vedere l'elenco chiesto da lei. Ora si ricarica se cambia l'accesso. |
 | FATTO 2.12.2 | api/certificati.py | (suggerimento) `_nome_file` rifaceva tre query per ogni attestato già caricati dall'elenco: ora riusa persona e corso. |
 | FATTO 2.12.2 | api/dashboard_formazione.py, services/iscrizioni.py | (suggerimento) un conteggio dei posti per ogni sessione imminente: ora una query sola per tutte. L'endpoint non aveva test: aggiunto, insieme a quello che confronta il conteggio in blocco con quello a una a una. |
+
+## PR #38 (2.12.3, questionari e copertine nella configurazione)
+
+| Stato | File | Rilievo |
+|---|---|---|
+| FATTO 2.12.3 | services/configurazione.py | importando una domanda con «obbligatoria» scritto come testo (per esempio «false») il valore veniva trasformato in «sì»: ora lo valuta la validazione, e un valore non valido fa saltare il questionario con un avviso |
+| FATTO 2.12.3 | services/configurazione.py | il limite di domande valeva solo per quelle del file: aggiungendole a un questionario già pieno lo si superava. Ora si controlla il totale e le domande che non ci stanno sono segnalate negli avvisi |
+| FATTO 2.12.3 | services/configurazione.py | se il corso aveva il codice di copertina giusto ma il file sul disco mancava, l'import non lo ripristinava: ora si salta solo se il file esiste davvero |
+| FATTO 2.12.3 | tests/test_configurazione_questionari.py | un'asserzione con `and`/`or` poteva passare anche con il percorso della copertina ancora nel database: divisa in due. Aggiunti i test per file mancante, limite e «obbligatoria» non valida |
+| FATTO 2.12.3 | services/configurazione.py | (fuori dal diff) importando domande già presenti in un ordine diverso, l'ordine nel questionario di destinazione non cambiava: ora le domande del file prendono il suo ordine e le altre restano in coda; la differenza compare nell'anteprima come «ordine» |
+| FATTO 2.12.3 | services/configurazione.py | (fuori dal diff) «predefinito» scritto come testo (per esempio «false») contava come «sì»: ora un valore non booleano fa saltare il questionario con un avviso |
+| FATTO 2.12.3 | services/configurazione.py | (fuori dal diff) un corso con «questionario» che non era un testo (un numero, un elenco) faceva fallire tutto l'import con errore 500: ora è un avviso e il corso resta com'è |
+| FATTO 2.12.3 | services/configurazione.py | un questionario (o una domanda) del file che non era un oggetto, per esempio «null», faceva fallire l'import con errore 500: ora è un avviso e si passa al successivo |

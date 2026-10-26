@@ -70,13 +70,43 @@ def prepara(contenuto: bytes) -> bytes:
     return uscita.getvalue()
 
 
+def codice_versione(pronto: bytes) -> str:
+    return hashlib.sha256(pronto).hexdigest()[:10]       # cambia con l'immagine: serve a non vedere la vecchia in memoria
+
+
+def scrivi(corso_id, pronto: bytes) -> str:
+    """Scrive (cifrata) una copertina gia' pronta in un file nuovo e ne dice il percorso."""
+    os.makedirs(CARTELLA, exist_ok=True)
+    percorso = os.path.join(CARTELLA, f"{corso_id}-{uuid.uuid4().hex[:12]}.jpg")   # mai sopra quella vecchia: si toglie solo dopo il commit
+    cifratura.scrivi_file(percorso, pronto)
+    return percorso
+
+
+def _gia_pronta(contenuto: bytes) -> bool:
+    try:
+        img = Image.open(io.BytesIO(contenuto))
+        larghezza, altezza = img.size
+        if not (img.format == "JPEG" and abs(larghezza * ALTEZZA - altezza * LARGHEZZA) <= LARGHEZZA     # 16:9 a meno dell'arrotondamento di un pixel
+                and MIN_LARGHEZZA <= larghezza <= LARGHEZZA and MIN_ALTEZZA <= altezza <= ALTEZZA and not img.getexif().get(0x0112)):
+            return False
+        img.load()
+        return True
+    except Exception:
+        return False
+
+
+def pronta_o_prepara(contenuto: bytes) -> bytes:
+    """Una copertina gia' uscita da `prepara` (JPEG 16:9 di al massimo 1280x720) si tiene com'e': non si ricomprime a ogni
+    esportazione e importazione. Qualunque altra immagine passa da `prepara`."""
+    if len(contenuto) <= MAX_BYTE and _gia_pronta(contenuto):
+        return contenuto
+    return prepara(contenuto)
+
+
 def salva(corso, contenuto_grezzo: bytes) -> None:
     pronto = prepara(contenuto_grezzo)
-    os.makedirs(CARTELLA, exist_ok=True)
-    percorso = os.path.join(CARTELLA, f"{corso.id}-{uuid.uuid4().hex[:12]}.jpg")   # mai sopra quella vecchia: si toglie solo dopo il commit
-    cifratura.scrivi_file(percorso, pronto)
-    corso.copertina_path = percorso
-    corso.copertina_v = hashlib.sha256(pronto).hexdigest()[:10]       # cambia con l'immagine: serve a non vedere la vecchia in memoria
+    corso.copertina_path = scrivi(corso.id, pronto)
+    corso.copertina_v = codice_versione(pronto)
 
 
 def rimuovi_file(percorso: Optional[str]) -> None:

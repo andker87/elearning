@@ -3,7 +3,7 @@ import api, { downloadFile, erroreDi } from "../api";
 import ExportButton from "../components/ExportButton";
 import { conferma } from "../components/conferma";
 
-const NOMI = { azienda: "Dati aziendali", gruppi: "Gruppi e uffici", organizzazioni: "Società di formazione", corsi: "Corsi", percorsi: "Percorsi formativi" };
+const NOMI = { azienda: "Dati aziendali", etichette: "Etichette", gruppi: "Uffici", mansioni: "Mansioni", organizzazioni: "Società di formazione", questionari: "Questionari di gradimento", corsi: "Corsi (copertine comprese)", percorsi: "Percorsi formativi" };
 const ELENCHI = [
   { titolo: "Utenti", path: "/auth/users/export", file: "utenti" },
   { titolo: "Gruppi e uffici", path: "/admin/gruppi-export", file: "gruppi" },
@@ -49,6 +49,7 @@ export default function Configurazione() {
   const [errore, setErrore] = useState(null);
   const [lavoro, setLavoro] = useState(false);
   const input = useRef(null);
+  const [conCopertine, setConCopertine] = useState(true);
 
   async function scegli(e) {
     const f = e.target.files[0];
@@ -83,12 +84,16 @@ export default function Configurazione() {
       <div className="card">
         <h3>Esporta la configurazione</h3>
         <p className="text-muted" style={{ fontSize: 13, marginTop: 0 }}>
-          Un file con dati aziendali e impostazioni della piattaforma (con il testo dell'informativa privacy), gruppi e uffici con la gerarchia e i responsabili, società di formazione, catalogo corsi e percorsi formativi.
+          Un file con dati aziendali e impostazioni della piattaforma (con il testo dell'informativa privacy), gruppi e uffici con la gerarchia e i responsabili, società di formazione, questionari di gradimento, catalogo corsi (con le copertine) e percorsi formativi.
         </p>
         <p className="text-muted" style={{ fontSize: 13 }}>
-          <strong>Non incluso, per ora:</strong> utenti, iscrizioni ed esiti; video, immagini e loghi; template degli attestati; test e domande; credenziali e chiavi (SMTP, accesso aziendale e Graph restano nell'ambiente).
+          <strong>Non incluso, per ora:</strong> utenti, iscrizioni ed esiti; video e loghi; template degli attestati; test e domande dei corsi; credenziali e chiavi (SMTP, accesso aziendale e Graph restano nell'ambiente).
         </p>
-        <button type="button" onClick={() => downloadFile("/admin/configurazione/export", `configurazione-${new Date().toISOString().slice(0, 10)}.json`)}>Scarica la configurazione</button>
+        <label style={{ display: "flex", gap: ".5rem", alignItems: "center", fontSize: 13, margin: "0 0 .7rem" }}>
+          <input type="checkbox" checked={conCopertine} onChange={(e) => setConCopertine(e.target.checked)} style={{ width: "auto" }} />
+          Includi le copertine dei corsi <span className="text-muted">(il file pesa di più: circa 150 KB per copertina)</span>
+        </label>
+        <button type="button" onClick={() => downloadFile(`/admin/configurazione/export${conCopertine ? "" : "?copertine=false"}`, `configurazione-${new Date().toISOString().slice(0, 10)}.json`)}>Scarica la configurazione</button>
       </div>
 
       <div className="card">
