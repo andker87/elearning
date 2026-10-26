@@ -338,6 +338,9 @@ def _questionari(db, elenco, rapporto):
     ha_predefinito = any(q.is_default for q in esistenti.values())
     for d in elenco:
         try:
+            predefinito = d.get("predefinito", False)
+            if not isinstance(predefinito, bool):
+                raise TypeError("predefinito deve essere booleano")
             dati = QuestionarioIn(nome=d["nome"], is_default=False,
                                   domande=[DomandaIn(testo=x["testo"], tipo=x["tipo"], opzioni=x.get("opzioni") or [], obbligatoria=x.get("obbligatoria", False))
                                            for x in d.get("domande") or []])
@@ -354,21 +357,29 @@ def _questionari(db, elenco, rapporto):
             db.add(q)
             esistenti[_chiave(q.nome)] = q
         voci = {" ".join(x.testo.split()).casefold(): x for x in q.domande}
+        importate = []
         for dom in domande:
             x = voci.get(" ".join(dom["testo"].split()).casefold())
             if x is None:
                 if len(q.domande) >= MAX_DOMANDE:
                     rapporto.avvisi.append(f"Questionario «{q.nome}»: la domanda «{dom['testo']}» non è stata aggiunta, il massimo è {MAX_DOMANDE}.")
                     continue
-                q.domande.append(DomandaGradimento(ordine=len(q.domande), **dom))
+                x = DomandaGradimento(ordine=len(q.domande), **dom)
+                q.domande.append(x)
                 cambiati.append(f"domanda «{dom['testo']}»")
             elif _imposta(x, dom, ("tipo", "opzioni", "obbligatoria")):
                 cambiati.append(f"domanda «{dom['testo']}»")
-        if d.get("predefinito") and not ha_predefinito:
+            importate.append(x)
+        ordinate = importate + [x for x in q.domande if x not in importate]       # quelle del file nel suo ordine, le altre in coda
+        if [x.ordine for x in ordinate] != list(range(len(ordinate))):
+            cambiati.append("ordine")
+        for ordine, x in enumerate(ordinate):
+            x.ordine = ordine
+        if predefinito and not ha_predefinito:
             q.is_default = True
             ha_predefinito = True
             cambiati.append("predefinito")
-        elif d.get("predefinito") and not q.is_default:
+        elif predefinito and not q.is_default:
             rapporto.avvisi.append(f"Nel file «{dati.nome}» è il questionario predefinito, ma qui ce n'è già un altro: non è cambiato.")
         db.flush()
         if nuovo:
@@ -395,7 +406,7 @@ def _corsi(db, elenco, rapporto):
         if valori.get("rinnovo_automatico") and not valori.get("validita_mesi"):
             valori["rinnovo_automatico"] = False
         if d.get("questionario"):
-            q = questionari.get(_chiave(d["questionario"]))
+            q = questionari.get(_chiave(d["questionario"])) if isinstance(d["questionario"], str) else None
             if q:
                 valori["questionario_gradimento_id"] = q.id
             else:

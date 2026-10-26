@@ -81,7 +81,7 @@ def test_un_questionario_esistente_riceve_le_domande_nuove_senza_perdere_le_sue(
         else:
             q["predefinito"] = True            # il file vuole un altro predefinito: qui ce n'e' gia' uno, non cambia
     r = client.post("/api/admin/configurazione/import", headers=auth(admin), json={"contenuto": dati, "applica": True}).json()
-    assert r["sezioni"]["questionari"]["aggiornati"][0]["campi"] == ["domanda «Domanda dal file»"]
+    assert r["sezioni"]["questionari"]["aggiornati"][0]["campi"] == ["domanda «Domanda dal file»", "ordine"]
     assert any("predefinito" in a for a in r["avvisi"])
     db.expire_all()
     assert {d.testo for d in db.query(QuestionarioGradimento).filter_by(nome="Aula").one().domande} == {"Il ritmo era giusto?", "Quale parte ti e' servita?", "Solo qui", "Domanda dal file"}
@@ -162,3 +162,29 @@ def test_l_import_non_supera_il_massimo_di_domande_e_rispetta_obbligatoria(clien
     strano = {"nome": "Strano", "predefinito": False, "domande": [{"testo": "X", "tipo": "si_no", "opzioni": [], "obbligatoria": "forse"}]}
     r = client.post("/api/admin/configurazione/import", headers=auth(admin), json={"contenuto": {"formato": "elearning-configurazione", "schema": 3, "questionari": [strano]}, "applica": True}).json()
     assert any("Strano" in a for a in r["avvisi"])
+
+
+def test_l_ordine_delle_domande_del_file_viene_applicato(client, db, admin, auth):
+    def domande(*testi):
+        return [{"testo": t, "tipo": "si_no", "opzioni": [], "obbligatoria": False} for t in testi]
+    def invia(*testi):
+        dati = {"formato": "elearning-configurazione", "schema": 3, "questionari": [{"nome": "Ordine", "predefinito": False, "domande": domande(*testi)}]}
+        return client.post("/api/admin/configurazione/import", headers=auth(admin), json={"contenuto": dati, "applica": True}).json()
+    invia("A", "B", "C")
+    r = invia("C", "A", "B")
+    assert r["sezioni"]["questionari"]["aggiornati"][0]["campi"] == ["ordine"]
+    db.expire_all()
+    q = db.query(QuestionarioGradimento).filter_by(nome="Ordine").one()
+    assert [d.testo for d in sorted(q.domande, key=lambda d: d.ordine)] == ["C", "A", "B"]
+    assert invia("C", "A", "B")["totali"]["aggiornati"] == 0
+
+
+def test_predefinito_non_booleano_e_un_avviso_e_questionario_non_testo_non_da_errore(client, db, admin, auth, crea_corso):
+    crea_corso("Excel")
+    dati = {"formato": "elearning-configurazione", "schema": 3,
+            "questionari": [{"nome": "Falso", "predefinito": "false", "domande": []}],
+            "corsi": [{"titolo": "Excel", "questionario": ["Aula"]}, {"titolo": "Word", "questionario": 5}]}
+    r = client.post("/api/admin/configurazione/import", headers=auth(admin), json={"contenuto": dati, "applica": True})
+    assert r.status_code == 200, r.text
+    assert any("Falso" in a for a in r.json()["avvisi"]) and any("Excel" in a for a in r.json()["avvisi"])
+    db.expire_all(); assert db.query(QuestionarioGradimento).filter_by(is_default=True).count() == 0
