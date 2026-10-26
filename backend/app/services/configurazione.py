@@ -11,6 +11,7 @@ L'importazione aggiunge e aggiorna, non cancella mai, e dal confronto mostra sem
 un'anteprima prima di scrivere."""
 import base64
 import binascii
+import os
 from datetime import datetime, timezone
 
 from fastapi import HTTPException
@@ -32,7 +33,7 @@ from .percorsi_sync import sincronizza_assegnazioni
 from .impronte import impronta
 from . import cifratura
 from . import copertine as copertine_svc
-from ..api.questionari import DomandaIn, QuestionarioIn, _pulisci
+from ..api.questionari import DomandaIn, MAX_DOMANDE, QuestionarioIn, _pulisci
 
 FORMATO = "elearning-configurazione"
 SCHEMA = 3   # 3 (2.12.3): questionari di gradimento e copertine dei corsi. 2 (2.2.0): mansioni; i gruppi sono solo uffici. I file degli schemi precedenti si importano ancora (nello schema 1 i gruppi non-ufficio diventano mansioni)
@@ -338,7 +339,7 @@ def _questionari(db, elenco, rapporto):
     for d in elenco:
         try:
             dati = QuestionarioIn(nome=d["nome"], is_default=False,
-                                  domande=[DomandaIn(testo=x["testo"], tipo=x["tipo"], opzioni=x.get("opzioni") or [], obbligatoria=bool(x.get("obbligatoria")))
+                                  domande=[DomandaIn(testo=x["testo"], tipo=x["tipo"], opzioni=x.get("opzioni") or [], obbligatoria=x.get("obbligatoria", False))
                                            for x in d.get("domande") or []])
             domande = _pulisci(dati.domande)
         except (ValidationError, HTTPException, KeyError, TypeError) as e:
@@ -356,6 +357,9 @@ def _questionari(db, elenco, rapporto):
         for dom in domande:
             x = voci.get(" ".join(dom["testo"].split()).casefold())
             if x is None:
+                if len(q.domande) >= MAX_DOMANDE:
+                    rapporto.avvisi.append(f"Questionario «{q.nome}»: la domanda «{dom['testo']}» non è stata aggiunta, il massimo è {MAX_DOMANDE}.")
+                    continue
                 q.domande.append(DomandaGradimento(ordine=len(q.domande), **dom))
                 cambiati.append(f"domanda «{dom['testo']}»")
             elif _imposta(x, dom, ("tipo", "opzioni", "obbligatoria")):
@@ -443,7 +447,7 @@ def _copertina(corso, dati, rapporto) -> bool:
         rapporto.avvisi.append(f"La copertina del corso «{corso.titolo}» nel file non è un'immagine valida: non è stata importata.")
         return False
     versione = copertine_svc.codice_versione(pronto)
-    if versione == corso.copertina_v and corso.copertina_path:
+    if versione == corso.copertina_v and corso.copertina_path and os.path.isfile(corso.copertina_path):
         return False
     if rapporto.applica:
         if corso.copertina_path:

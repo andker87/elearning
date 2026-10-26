@@ -111,7 +111,9 @@ def test_le_copertine_viaggiano_e_importare_due_volte_non_le_ricomprime(client, 
     client.delete(f"/api/corsi/{c.id}/copertina", headers=auth(formazione))
     anteprima = client.post("/api/admin/configurazione/import", headers=auth(admin), json={"contenuto": dati, "applica": False}).json()
     assert anteprima["sezioni"]["corsi"]["aggiornati"][0]["campi"] == ["copertina"]
-    db.expire_all(); assert db.get(Corso, c.id).copertina_path is None and not os.path.isdir(copertine_svc.CARTELLA) or not os.listdir(copertine_svc.CARTELLA)
+    db.expire_all()
+    assert db.get(Corso, c.id).copertina_path is None
+    assert not os.path.isdir(copertine_svc.CARTELLA) or not os.listdir(copertine_svc.CARTELLA)
     assert client.post("/api/admin/configurazione/import", headers=auth(admin), json={"contenuto": dati, "applica": True}).status_code == 200
     db.expire_all(); c = db.get(Corso, c.id)
     assert c.copertina_v == v1 and cifratura.leggi_file(c.copertina_path) == base64.b64decode(cop["jpeg_base64"])
@@ -135,3 +137,28 @@ def test_una_copertina_grande_si_ridimensiona_come_al_caricamento(client, db, ad
     db.expire_all()
     img = Image.open(io.BytesIO(cifratura.leggi_file(db.query(Corso).one().copertina_path)))
     assert img.size == (1280, 720)
+
+
+def test_un_file_di_copertina_mancante_si_ripristina_con_l_import(client, db, admin, auth, crea_corso, formazione):
+    c = crea_corso("Excel")
+    assert client.post(f"/api/corsi/{c.id}/copertina", headers=auth(formazione), files={"file": ("c.png", png_storto(), "image/png")}).status_code == 200
+    dati = client.get("/api/admin/configurazione/export", headers=auth(admin)).json()
+    db.expire_all(); vecchio = db.get(Corso, c.id).copertina_path
+    os.remove(vecchio)
+    assert client.post("/api/admin/configurazione/import", headers=auth(admin), json={"contenuto": dati, "applica": True}).status_code == 200
+    db.expire_all(); nuovo = db.get(Corso, c.id).copertina_path
+    assert nuovo and os.path.isfile(nuovo)
+
+
+def test_l_import_non_supera_il_massimo_di_domande_e_rispetta_obbligatoria(client, db, admin, auth):
+    from app.api.questionari import MAX_DOMANDE
+    base = {"nome": "Pieno", "predefinito": False, "domande": [{"testo": f"D{i}", "tipo": "si_no", "opzioni": [], "obbligatoria": False} for i in range(MAX_DOMANDE)]}
+    assert client.post("/api/admin/configurazione/import", headers=auth(admin), json={"contenuto": {"formato": "elearning-configurazione", "schema": 3, "questionari": [base]}, "applica": True}).status_code == 200
+    extra = {**base, "domande": [{"testo": "In piu'", "tipo": "si_no", "opzioni": [], "obbligatoria": False}]}
+    r = client.post("/api/admin/configurazione/import", headers=auth(admin), json={"contenuto": {"formato": "elearning-configurazione", "schema": 3, "questionari": [extra]}, "applica": True}).json()
+    assert any("In piu'" in a for a in r["avvisi"])
+    from app.models.questionario import QuestionarioGradimento
+    db.expire_all(); assert len(db.query(QuestionarioGradimento).filter_by(nome="Pieno").one().domande) == MAX_DOMANDE
+    strano = {"nome": "Strano", "predefinito": False, "domande": [{"testo": "X", "tipo": "si_no", "opzioni": [], "obbligatoria": "forse"}]}
+    r = client.post("/api/admin/configurazione/import", headers=auth(admin), json={"contenuto": {"formato": "elearning-configurazione", "schema": 3, "questionari": [strano]}, "applica": True}).json()
+    assert any("Strano" in a for a in r["avvisi"])
